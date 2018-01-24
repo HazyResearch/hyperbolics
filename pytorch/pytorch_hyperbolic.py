@@ -178,7 +178,7 @@ def build_distance(G, scale, num_workers=None):
         if extra_chunk_size >0: chunks.append(list(range(n-extra_chunk_size, n)))
         Hs = p.map(djikstra_wrapper, [(adj_mat_original, chunk) for chunk in chunks])
         H  = np.concatenate(Hs,0)
-        logging.info(f"Final Matrix {H.shape}")
+        logging.info(f"\tFinal Matrix {H.shape}")
     else:
         H = djisktra_wrapper(adj_mat_original, range(n))
         
