@@ -1,0 +1,105 @@
+#NEXUS
+
+[!This data set was downloaded from TreeBASE, a relational database of phylogenetic knowledge. TreeBASE has been supported by the NSF, Harvard University, Yale University, SDSC and UC Davis. Please do not remove this acknowledgment from the Nexus file.
+
+
+Generated on January 14, 2018; 21:30 GMT
+
+TreeBASE (cc) 1994-2008
+
+Study reference:
+Bergh N.G., & Linder H.P. 2009. Cape diversification and repeated out-of-southern-Africa
+dispersal in paper daisies. Molecular Phylogenetics and Evolution, 51(Special
+issue: origins and evolution of a biodiversity hotspot, the biodiversity of
+the African Cape Floristic Region): 5 - 18.
+
+TreeBASE Study URI:  http://purl.org/phylo/treebase/phylows/study/TB2:S10534]
+
+BEGIN TAXA;
+        TITLE  Taxa;
+        DIMENSIONS NTAX=73;
+        TAXLABELS
+            Actinobole_uliginosum
+            Amphiglossa_callunoides
+            Amphiglossa_corrudifolia
+            Amphiglossa_tomentosa
+            Angianthus_micropodioides
+            Anisothrix_kuntzei
+            Argentipallium_obtusifolium
+            Argyroglottis_turbinata
+            Arrowsmithia_styphelioides
+            'Aster novae-angliae'
+            Bryomorphe_lycopodioides
+            Chionolaena_lavandulifolia
+            Craspedia_variabilis
+            Decazesia_hecatocephala
+            Disparago_ericoides
+            Dolichothrix_ericoides
+            Edmondia_sesamoides
+            Elytropappus_rhinocerotis
+            Ewartia_catipes_sinclairii
+            Felicia_filifolia
+            Fitzwillia_axilliflora
+            Haeckeria_ozothamnoides
+            Helianthus_annuus
+            Helichrysum_asperum
+            Helichrysum_cylindriflorum
+            Helichrysum_dockeri
+            Helichrysum_felinum
+            Helichrysum_lanceolatum
+            Ixiolaena_tomentosa
+            Jacobaea_argunensis
+            Jacobaea_maritima
+            Lachnospermum_fasciculatum_neglectum
+            Langebergia_canescens
+            Leontopodium_alpinum
+            Leucochrysum_stipitatum
+            Leysera_gnaphalodes
+            Metalasia_acuta
+            Metalasia_densa
+            Metalasia_galpinii
+            Millotia_perpusilla
+            Millotia_tenuifolia
+            Monoculus_monstrosa
+            Oedera_squarrosa
+            Ozothamnus_whitei
+            Pentatrichia_petrosa
+            Petalacte_coronata
+            Phaenocoma_prolifera
+            Pithocarpa_pulchella
+            Plecostachys_serpyllifolia
+            Pogonolepis_stricta
+            Polycalymma_stuartii
+            Pycnosorus_globosus
+            Quinetia_urvillei
+            Relhania_calycina
+            Relhania_fruticosa
+            Relhania_pungens
+            Rhynchopsidium_pumilum
+            Rosenia_glandulosa
+            Senecio_burchellii
+            Senecio_cordifolius
+            Senecio_vulgaris
+            Siloxerus_multiflorus
+            Sondottia_glabrata
+            Stoebe_aethiopica
+            Stoebe_cinerea
+            Stoebe_cryptophylla
+            Stoebe_kilimandscharica
+            Stoebe_muirii
+            Stoebe_passerinoides
+            Stuartina_muelleri
+            Syncarpha_canescens
+            Tagetes_patula
+            Vellereophyton_dealbatum
+            ;
+END;
+
+BEGIN TREES;
+      TITLE Maximum_clade_credibility_tree__from_BEAST_analysis;
+      LINK TAXA = Taxa;
+      TREE TREE1 = [&R] ((((Tagetes_patula:20.138370260655098,Helianthus_annuus:20.138370260655098):12.390383754606116,(((Jacobaea_maritima:3.4906813092041022,Jacobaea_argunensis:3.4906813092041022):5.144126879350047,Senecio_vulgaris:8.63480818855415):7.01154327871887,(Senecio_burchellii:5.649311217971759,Senecio_cordifolius:5.649311217971759):9.99704024930126):16.882402547988193):6.102578661954354,(((Arrowsmithia_styphelioides:13.643642757328369,(((Oedera_squarrosa:2.5420096070947595,Relhania_fruticosa:2.5420096070947595):3.2531085601714036,(Relhania_pungens:3.514252340932973,(Relhania_calycina:1.73730969618743,Rosenia_glandulosa:1.73730969618743):1.776942644745543):2.2808658263331902):5.428502763554635,(Leysera_gnaphalodes:5.778475811660081,Rhynchopsidium_pumilum:5.778475811660081):5.445145119160717):2.42002182650757):7.339772897741479,(Anisothrix_kuntzei:3.2654328001836586,Pentatrichia_petrosa:3.2654328001836586):17.717982854886188):12.163278484066282,((((Lachnospermum_fasciculatum_neglectum:4.950055169479145,((Metalasia_acuta:2.2241857323597944,Metalasia_densa:2.2241857323597944):0.6153812950851569,Metalasia_galpinii:2.8395670274449514):2.110488142034194):1.6469151959352928,Phaenocoma_prolifera:6.596970365414438):2.830100384009066,Dolichothrix_ericoides:9.427070749423505):17.71475084834345,((((((Elytropappus_rhinocerotis:3.743218926919046,Disparago_ericoides:3.743218926919046):2.237904653990361,((Stoebe_cinerea:3.465935634445502,(Stoebe_kilimandscharica:2.026491042717561,(Stoebe_passerinoides:0.8921519561706656,Stoebe_cryptophylla:0.8921519561706656):1.1343390865468954):1.4394445917279408):1.6080455119941077,(Stoebe_muirii:4.165403637124057,Stoebe_aethiopica:4.165403637124057):0.9085775093155526):0.9071424344697974):1.5540532393095754,Amphiglossa_tomentosa:7.535176820218982):1.188271567126594,Bryomorphe_lycopodioides:8.723448387345577):3.4926063691976985,(Amphiglossa_callunoides:5.065804665977659,Amphiglossa_corrudifolia:5.065804665977659):7.150250090565616):11.858403821805378,(((Plecostachys_serpyllifolia:2.646970702418518,Chionolaena_lavandulifolia:2.646970702418518):11.598038527424547,Leontopodium_alpinum:14.245009229843067):5.787572900114867,((((Helichrysum_lanceolatum:14.594420929047011,((Craspedia_variabilis:10.097569976813139,Millotia_tenuifolia:10.097569976813139):3.0984307579631967,((Stuartina_muelleri:7.762894644588432,Ewartia_catipes_sinclairii:7.762894644588432):3.566748492116285,(((Ixiolaena_tomentosa:6.7410749470816045,Pycnosorus_globosus:6.7410749470816045):1.5660103001851589,(((Fitzwillia_axilliflora:5.67258623644026,(Argentipallium_obtusifolium:4.639159590220063,((Ozothamnus_whitei:1.9884145729520506,Pithocarpa_pulchella:1.9884145729520506):1.745916126310371,Haeckeria_ozothamnoides:3.7343306992624217):0.9048288909576416):1.0334266462201969):1.1589403326917118,(Millotia_perpusilla:5.219054467362919,(Argyroglottis_turbinata:2.938291007292785,Leucochrysum_stipitatum:2.938291007292785):2.280763460070134):1.612472101769053):0.47570670284728056,Helichrysum_dockeri:7.3072332719792525):0.9998519752875108):0.9938736090814437,(((Quinetia_urvillei:4.706787811647398,(Actinobole_uliginosum:3.651759748346947,Angianthus_micropodioides:3.651759748346947):1.0550280633004507):1.3777385928924932,(Decazesia_hecatocephala:4.680201478323011,(Sondottia_glabrata:3.814531312335744,Polycalymma_stuartii:3.814531312335744):0.8656701659872668):1.40432492621688):1.8769391574173433,(Siloxerus_multiflorus:4.434922385157339,Pogonolepis_stricta:4.434922385157339):3.526543176799895):1.339493294390973):2.0286842803565097):1.8663575980716178):1.3984201942706758):0.9681794674366948,(Syncarpha_canescens:10.53000955532898,Edmondia_sesamoides:10.53000955532898):5.032590841154725):1.153531892012353,Vellereophyton_dealbatum:16.71613228849606):1.696935124782005,((Helichrysum_felinum:6.563499914553217,Helichrysum_asperum:6.563499914553217):4.247435632928499,((Langebergia_canescens:2.228912442371113,Petalacte_coronata:2.228912442371113):4.895881069865132,Helichrysum_cylindriflorum:7.124793512236244):3.6861420352454726):7.602131865796347):1.6195147166798698):4.04187644839072):3.0673630194182984):6.004872541369178):5.484638538079437):4.366947113652486,(('Aster novae-angliae':14.694398366692024,Felicia_filifolia:14.694398366692024):13.289998751873323,Monoculus_monstrosa:27.984397118565347):15.013882672302707);
+[!  TreeBASE tree URI: http://purl.org/phylo/treebase/phylows/tree/TB2:Tr9454]
+
+
+END;

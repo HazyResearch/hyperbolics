@@ -1,0 +1,245 @@
+#NEXUS
+
+[!This data set was downloaded from TreeBASE, a relational database of phylogenetic knowledge. TreeBASE has been supported by the NSF, Harvard University, Yale University, SDSC and UC Davis. Please do not remove this acknowledgment from the Nexus file.
+
+
+Generated on January 14, 2018; 21:38 GMT
+
+TreeBASE (cc) 1994-2008
+
+Study reference:
+Hofbauer W.K., Forrest L.L., Hollingsworth P., & Hart M.L. 2016. First insights in
+the diversity of certain mosses colonising modern building surfaces by use of
+genetic barcoding. Bryophyte Diversity and Evolution, .
+
+TreeBASE Study URI:  http://purl.org/phylo/treebase/phylows/study/TB2:S18627]
+
+BEGIN TAXA;
+        TITLE  Schistidium_ITS2_accessions;
+        DIMENSIONS NTAX=214;
+        TAXLABELS
+            Schistidium_andreaeopsis_CA_HM053882
+            Schistidium_andreaeopsis_RU_HM053881
+            Schistidium_apocarpum_AT_CONC_6584
+            Schistidium_apocarpum_AT_CONC_6714
+            Schistidium_apocarpum_GB_BDG_6653
+            Schistidium_apocarpum_GB_BDG_6654
+            Schistidium_apocarpum_GB_HM031076
+            Schistidium_apocarpum_GB_ROCK_6743
+            Schistidium_apocarpum_GB_ROCK_6744
+            Schistidium_apocarpum_GB_WALL_6655
+            Schistidium_apocarpum_IT_ROCK_6662
+            Schistidium_apocarpum_IT_ROCK_6664
+            Schistidium_apocarpum_RU_HM031074
+            Schistidium_apocarpum_RU_HM031075
+            Schistidium_apocarpum_RU_HM031077
+            Schistidium_atrofuscum_AT_HM053886
+            Schistidium_atrofuscum_RU_HM053887
+            Schistidium_boreale_RU_HM031060
+            Schistidium_boreale_RU_HM031069
+            Schistidium_boreale_RU_HM053888
+            Schistidium_boreale_RU_HM053889
+            Schistidium_boreale_SE_HM053890
+            Schistidium_canadense_RU_HM031067
+            Schistidium_canadense_US_HM053914
+            Schistidium_canadense_US_HM053915
+            Schistidium_canadense_US_HM053916
+            Schistidium_canadense_US_HM053917
+            Schistidium_confertum_AT_HM053891
+            Schistidium_confertum_AT_JF262179
+            Schistidium_confertum_SE_HM053892
+            Schistidium_crassipilium_RU_HM031070
+            Schistidium_crassipilum_AT_CONC_6570
+            Schistidium_crassipilum_AT_CONC_6572
+            Schistidium_crassipilum_AT_CONC_6577
+            Schistidium_crassipilum_AT_CONC_6578
+            Schistidium_crassipilum_AT_CONC_6677
+            Schistidium_crassipilum_AT_CONC_6678
+            Schistidium_crassipilum_AT_ROCK_6588
+            Schistidium_crassipilum_DE_ETICS_6593
+            Schistidium_crassipilum_DE_ETICS_6595
+            Schistidium_crassipilum_DE_ETICS_6597
+            Schistidium_crassipilum_DE_TARM_6648
+            Schistidium_crassipilum_GB_BRICK_6605
+            Schistidium_crassipilum_GB_CEMEN_6607
+            Schistidium_crassipilum_GB_CONC_6601
+            Schistidium_crassipilum_GB_CONC_6608
+            Schistidium_crassipilum_GB_CONC_6649
+            Schistidium_crassipilum_GB_CONC_6650
+            Schistidium_crassipilum_GB_CONC_6651
+            Schistidium_crassipilum_GB_ROCK_6699
+            Schistidium_crassipilum_GB_ROOF_6604
+            Schistidium_crassipilum_GB_WALL_6602
+            Schistidium_crassipilum_GB_WALL_6603
+            Schistidium_crassipilum_PL_HM031073
+            Schistidium_crassipilum_cf_AT_CONC_6579
+            Schistidium_crassipilum_cf_GB_CONC_6698
+            Schistidium_crassipilum_cf_GB_CONC_6704
+            Schistidium_cryptocarpum_RU_HM053893
+            Schistidium_dupretii_AT_CONC_6574
+            Schistidium_dupretii_AT_HM053894
+            Schistidium_dupretii_GB_7346
+            Schistidium_dupretii_GB_ROCK_7348
+            Schistidium_dupretii_RU_HM053895
+            Schistidium_dupretii_cf_AT_CONC_6575
+            Schistidium_dupretii_cf_AT_ROCK_6658
+            Schistidium_dupretii_cf_DE_CONC_6684
+            Schistidium_dupretii_cf_DE_ROCK_6569
+            Schistidium_elegantulum_AT_CONC_6671
+            Schistidium_elegantulum_AT_ROCK_6695
+            Schistidium_elegantulum_DE_ETICS_6668
+            Schistidium_elegantulum_DE_ETICS_6669
+            Schistidium_elegantulum_GB_CEMEN_6713
+            Schistidium_elegantulum_GB_LMST_6738
+            Schistidium_elegantulum_GB_WALL_6528
+            Schistidium_elegantulum_NO_HM031072
+            Schistidium_elegantulum_RU_HM031071
+            Schistidium_elegantulum_cf_AT_CONC_6529
+            Schistidium_elegantulum_cf_AT_CONC_6670
+            Schistidium_elegantulum_cf_IT_ROCK_6661
+            Schistidium_elegantulum_cf_IT_ROCK_6700
+            Schistidium_elegantulum_cf_IT_ROCK_6701
+            Schistidium_grandirete_RU_HM053910
+            Schistidium_grandirete_RU_HM053911
+            Schistidium_holmenianum_CA_HM053913
+            Schistidium_holmenianum_RU_HM053912
+            Schistidium_lancifolium_IR_HQ890514
+            Schistidium_lancifolium_IR_HQ890515
+            Schistidium_lancifolium_RU_HM031064
+            Schistidium_lancifolium_RU_HQ890512
+            Schistidium_lancifolium_RU_HQ890513
+            Schistidium_lancifolium_RU_HQ890516
+            Schistidium_lancifolium_US_HQ890517
+            Schistidium_marginale_AT_HM053919
+            Schistidium_marginale_AT_HM053920
+            Schistidium_marginale_RU_HM053921
+            Schistidium_papillosum_AT_ROCK_6533
+            Schistidium_papillosum_AT_ROCK_6718
+            Schistidium_papillosum_GB_LMST_6739
+            Schistidium_papillosum_IT_ROCK_6657
+            Schistidium_papillosum_IT_ROCK_6663
+            Schistidium_papillosum_RU_HM031061
+            Schistidium_papillosum_RU_HM031062
+            Schistidium_papillosum_RU_HM031063
+            Schistidium_papillosum_RU_HM031065
+            Schistidium_papillosum_RU_HQ890520
+            Schistidium_papillosum_cf_SE_HM053876
+            Schistidium_pruinosum_GB_7345
+            Schistidium_pruinosum_RU_HM053932
+            Schistidium_pruinosum_RU_HM053933
+            Schistidium_pulchrum_RU_HM031050
+            Schistidium_pulchrum_RU_HM031051
+            Schistidium_pulchrum_RU_HM031052
+            Schistidium_pulchrum_RU_HM031053
+            Schistidium_pulchrum_RU_HQ890521
+            Schistidium_pulchrum_cf_AT_ROCK_6660
+            Schistidium_robustum_SE_HM053938
+            Schistidium_sp_AT_CONC_6530
+            Schistidium_sp_AT_CONC_6571
+            Schistidium_sp_AT_CONC_6581
+            Schistidium_sp_AT_CONC_6583
+            Schistidium_sp_AT_CONC_6672
+            Schistidium_sp_AT_CONC_6674
+            Schistidium_sp_AT_CONC_6675
+            Schistidium_sp_AT_CONC_6676
+            Schistidium_sp_AT_CONC_6679
+            Schistidium_sp_AT_CONC_6689
+            Schistidium_sp_AT_CONC_6690
+            Schistidium_sp_AT_CONC_6716
+            Schistidium_sp_AT_CONC_6720
+            Schistidium_sp_AT_ETICS_6576
+            Schistidium_sp_AT_ROCK_6585
+            Schistidium_sp_AT_ROCK_6586
+            Schistidium_sp_AT_ROCK_6587
+            Schistidium_sp_AT_ROCK_6589
+            Schistidium_sp_AT_ROCK_6590
+            Schistidium_sp_AT_ROCK_6591
+            Schistidium_sp_AT_ROCK_6592
+            Schistidium_sp_AT_ROCK_6673
+            Schistidium_sp_AT_ROCK_6692
+            Schistidium_sp_AT_ROCK_6693
+            Schistidium_sp_AT_ROCK_6694
+            Schistidium_sp_AT_ROCK_6696
+            Schistidium_sp_AT_TARM_6573
+            Schistidium_sp_DE_CONC_6625
+            Schistidium_sp_DE_CONC_6627
+            Schistidium_sp_DE_CONC_6628
+            Schistidium_sp_DE_CONC_6629
+            Schistidium_sp_DE_CONC_6630
+            Schistidium_sp_DE_CONC_6631
+            Schistidium_sp_DE_CONC_6632
+            Schistidium_sp_DE_CONC_6685
+            Schistidium_sp_DE_ETIC_6719
+            Schistidium_sp_DE_ETICS_6531
+            Schistidium_sp_DE_ETICS_6532
+            Schistidium_sp_DE_ETICS_6594
+            Schistidium_sp_DE_ETICS_6596
+            Schistidium_sp_DE_ETICS_6598
+            Schistidium_sp_DE_ETICS_6599
+            Schistidium_sp_DE_ETICS_6600
+            Schistidium_sp_DE_ETICS_6612
+            Schistidium_sp_DE_ETICS_6613
+            Schistidium_sp_DE_ETICS_6614
+            Schistidium_sp_DE_ETICS_6615
+            Schistidium_sp_DE_ETICS_6616
+            Schistidium_sp_DE_ETICS_6618
+            Schistidium_sp_DE_ETICS_6619
+            Schistidium_sp_DE_ETICS_6620
+            Schistidium_sp_DE_ETICS_6621
+            Schistidium_sp_DE_ETICS_6623
+            Schistidium_sp_DE_ETICS_6624
+            Schistidium_sp_DE_ETICS_6665
+            Schistidium_sp_DE_ETICS_6667
+            Schistidium_sp_DE_ETICS_6686
+            Schistidium_sp_DE_ETICS_6687
+            Schistidium_sp_DE_ETICS_6688
+            Schistidium_sp_DE_ROCK_6633
+            Schistidium_sp_DE_ROCK_6634
+            Schistidium_sp_DE_ROCK_6635
+            Schistidium_sp_DE_ROCK_6636
+            Schistidium_sp_DE_ROCK_6637
+            Schistidium_sp_DE_ROCK_6638
+            Schistidium_sp_DE_ROCK_6639
+            Schistidium_sp_DE_ROCK_6640
+            Schistidium_sp_DE_ROCK_6642
+            Schistidium_sp_DE_ROCK_6643
+            Schistidium_sp_DE_ROCK_6681
+            Schistidium_sp_DE_ROCK_6683
+            Schistidium_sp_DE_TARM_6644
+            Schistidium_sp_DE_TARM_6645
+            Schistidium_sp_DE_TARM_6646
+            Schistidium_sp_DE_TARM_6647
+            Schistidium_sp_IT_ROCK_6659
+            Schistidium_sp_lingulatum_EU343750
+            Schistidium_strictum_GB_ROCK_6527
+            Schistidium_strictum_NO_HM053944
+            Schistidium_subflaccidum_AT_HM053945
+            Schistidium_subflaccidum_RU_HM053946
+            Schistidium_submuticum_RU_HM031055
+            Schistidium_submuticum_RU_HM031056
+            Schistidium_submuticum_RU_HM031057
+            Schistidium_submuticum_RU_HM053948
+            Schistidium_submuticum_RU_HM053949
+            Schistidium_submuticum_RU_HM053950
+            Schistidium_tenerum_CA_HM053951
+            Schistidium_tenerum_RU_HM053952
+            Schistidium_trichodon_AT_CONC_6534
+            Schistidium_trichodon_AT_HM053953
+            Schistidium_trichodon_GB_LMST_6741
+            Schistidium_trichodon_GB_LMST_6742
+            Schistidium_trichodon_RU_HM053954
+            Schistidium_umbrosum_NO_HM053956
+            Schistidium_umbrosum_RU_HM053955
+            Schistidium_viride_US_HM053957
+            Schistidium_viride_US_HM053958
+            ;
+END;
+
+BEGIN TREES;
+      TITLE Schistidium_ITS2_Max_Parsimony;
+      LINK TAXA = Schistidium_ITS2_accessions;
+      TREE MPT = [&R] (((((((Schistidium_sp_DE_ETICS_6624:0.0,Schistidium_sp_DE_CONC_6685:0.0,Schistidium_sp_AT_CONC_6571:0.0,Schistidium_sp_DE_ROCK_6681:0.0,Schistidium_sp_AT_ROCK_6696:0.0,Schistidium_sp_DE_CONC_6627:0.0,Schistidium_sp_DE_ETICS_6600:0.0,Schistidium_sp_AT_ETICS_6576:0.0,Schistidium_sp_DE_ROCK_6636:0.0,Schistidium_sp_AT_ROCK_6590:0.0,Schistidium_sp_AT_ROCK_6694:0.0,Schistidium_sp_DE_ROCK_6639:0.0,Schistidium_sp_DE_ROCK_6634:0.0,Schistidium_sp_DE_TARM_6645:0.0):0.0,Schistidium_robustum_SE_HM053938:2.0):3.0,((Schistidium_sp_lingulatum_EU343750:0.0,((((((Schistidium_sp_AT_CONC_6583:0.0,(Schistidium_sp_DE_ETICS_6618:0.0,Schistidium_dupretii_cf_DE_CONC_6684:0.0):0.0):1.0,Schistidium_sp_DE_ETICS_6619:0.0):0.0,Schistidium_sp_DE_ETICS_6531:0.0):0.0,Schistidium_sp_DE_ETICS_6598:0.0):0.0,Schistidium_sp_DE_ETIC_6719:0.0,Schistidium_sp_DE_ROCK_6642:0.0):0.0,Schistidium_sp_DE_ETICS_6620:0.0,Schistidium_sp_DE_ROCK_6635:0.0,Schistidium_sp_DE_CONC_6629:0.0,Schistidium_dupretii_AT_HM053894:0.0):0.0,Schistidium_sp_DE_ETICS_6594:0.0,Schistidium_dupretii_AT_CONC_6574:2.0,Schistidium_sp_DE_ETICS_6614:0.0,Schistidium_dupretii_cf_AT_CONC_6575:0.0,Schistidium_sp_DE_ROCK_6643:0.0):1.0,(Schistidium_sp_DE_CONC_6628:0.0,Schistidium_sp_DE_CONC_6630:0.0,Schistidium_dupretii_GB_7346:0.0):1.0,(Schistidium_sp_DE_ETICS_6599:0.0,Schistidium_dupretii_cf_AT_ROCK_6658:0.0,Schistidium_dupretii_cf_DE_ROCK_6569:0.0):1.0,Schistidium_sp_DE_ETICS_6667:0.0,Schistidium_sp_DE_ETICS_6687:0.0,Schistidium_sp_DE_ROCK_6683:0.0,Schistidium_sp_DE_ETICS_6665:0.0,Schistidium_dupretii_RU_HM053895:0.0):4.0):1.0,(((Schistidium_tenerum_CA_HM053951:0.0,Schistidium_tenerum_RU_HM053952:0.0):8.0,((Schistidium_subflaccidum_RU_HM053946:1.0,Schistidium_subflaccidum_AT_HM053945:0.0):2.0,(Schistidium_confertum_SE_HM053892:2.0,((Schistidium_confertum_AT_JF262179:0.0,Schistidium_confertum_AT_HM053891:0.0):4.0,(Schistidium_marginale_RU_HM053921:2.0,(Schistidium_marginale_AT_HM053919:0.0,Schistidium_marginale_AT_HM053920:0.0):4.0):5.0):1.0):3.0):10.0):5.0,((Schistidium_submuticum_RU_HM031055:1.0,Schistidium_submuticum_RU_HM031056:0.0,Schistidium_submuticum_RU_HM031057:0.0,Schistidium_submuticum_RU_HM053949:0.0,Schistidium_submuticum_RU_HM053950:0.0):0.0,Schistidium_submuticum_RU_HM053948:0.0):2.0):3.0):4.0,(Schistidium_umbrosum_RU_HM053955:3.0,(Schistidium_cryptocarpum_RU_HM053893:5.0,Schistidium_umbrosum_NO_HM053956:4.0):1.0):8.0):13.0,((((((Schistidium_sp_AT_ROCK_6586:0.0,((((Schistidium_sp_DE_ETICS_6613:1.0,((((Schistidium_sp_AT_ROCK_6591:0.0,Schistidium_atrofuscum_RU_HM053887:3.0):1.0,((((Schistidium_crassipilum_cf_GB_CONC_6698:0.0,((Schistidium_crassipilum_GB_CEMEN_6607:0.0,(Schistidium_sp_AT_CONC_6720:0.0,Schistidium_sp_AT_CONC_6676:0.0,(Schistidium_apocarpum_GB_BDG_6654:0.0,Schistidium_crassipilum_GB_WALL_6603:0.0):1.0):1.0,Schistidium_crassipilum_cf_AT_CONC_6579:0.0,Schistidium_sp_AT_CONC_6674:0.0,Schistidium_crassipilum_AT_CONC_6677:0.0,Schistidium_crassipilum_AT_CONC_6678:0.0,Schistidium_crassipilum_DE_TARM_6648:0.0,Schistidium_crassipilum_PL_HM031073:0.0,Schistidium_crassipilum_GB_ROCK_6699:1.0,Schistidium_crassipilum_GB_CONC_6649:0.0,Schistidium_dupretii_GB_ROCK_7348:0.0,Schistidium_crassipilum_GB_BRICK_6605:0.0):1.0,(Schistidium_viride_US_HM053957:0.0,Schistidium_viride_US_HM053958:0.0):6.0,Schistidium_sp_DE_CONC_6625:0.0):1.0):0.0,Schistidium_crassipilum_GB_ROOF_6604:0.0):0.0,Schistidium_crassipilum_GB_CONC_6601:0.0):0.0,Schistidium_crassipilum_cf_GB_CONC_6704:0.0):0.0):0.0,Schistidium_apocarpum_GB_WALL_6655:0.0):0.0,Schistidium_crassipilium_RU_HM031070:0.0):0.0):0.0,Schistidium_crassipilum_GB_CONC_6650:0.0):0.0,Schistidium_sp_DE_CONC_6631:0.0):0.0,Schistidium_sp_DE_ETICS_6532:0.0):3.0):0.0,Schistidium_pruinosum_GB_7345:0.0):0.0,Schistidium_sp_DE_CONC_6632:0.0):0.0,Schistidium_atrofuscum_AT_HM053886:4.0):8.0,((((((((((((((((((Schistidium_sp_AT_CONC_6530:0.0,((Schistidium_sp_AT_ROCK_6585:0.0,((((Schistidium_sp_AT_ROCK_6693:0.0,((Schistidium_sp_AT_TARM_6573:0.0,Schistidium_elegantulum_NO_HM031072:0.0):0.0,Schistidium_sp_DE_ETICS_6616:0.0,Schistidium_crassipilum_AT_CONC_6572:0.0):0.0):0.0,Schistidium_crassipilum_DE_ETICS_6597:0.0):0.0,Schistidium_sp_DE_ETICS_6688:0.0):0.0,Schistidium_sp_DE_ETICS_6623:0.0):0.0):0.0,Schistidium_sp_AT_ROCK_6673:0.0,Schistidium_elegantulum_AT_CONC_6671:0.0,Schistidium_sp_AT_CONC_6690:0.0,Schistidium_crassipilum_AT_ROCK_6588:0.0,Schistidium_crassipilum_AT_CONC_6577:0.0,Schistidium_elegantulum_DE_ETICS_6668:0.0,Schistidium_elegantulum_GB_LMST_6738:0.0):0.0):0.0,Schistidium_sp_DE_TARM_6646:0.0,Schistidium_crassipilum_DE_ETICS_6595:0.0):0.0,Schistidium_sp_AT_CONC_6672:0.0):0.0,Schistidium_crassipilum_GB_CONC_6608:0.0):0.0,Schistidium_sp_DE_ETICS_6596:0.0):0.0,Schistidium_sp_AT_CONC_6679:0.0,Schistidium_sp_DE_ROCK_6633:0.0,Schistidium_elegantulum_cf_AT_CONC_6670:0.0,Schistidium_elegantulum_AT_ROCK_6695:0.0):0.0,Schistidium_sp_DE_ETICS_6686:0.0):0.0,Schistidium_elegantulum_GB_CEMEN_6713:0.0):0.0,Schistidium_sp_DE_ETICS_6612:0.0):0.0,Schistidium_elegantulum_DE_ETICS_6669:0.0):0.0,Schistidium_sp_AT_CONC_6689:0.0,Schistidium_sp_AT_ROCK_6589:0.0,Schistidium_sp_DE_TARM_6644:0.0,Schistidium_sp_DE_ETICS_6621:0.0):0.0,Schistidium_crassipilum_AT_CONC_6570:0.0,Schistidium_crassipilum_GB_CONC_6651:0.0):0.0,Schistidium_elegantulum_GB_WALL_6528:0.0):0.0,Schistidium_crassipilum_DE_ETICS_6593:0.0):0.0,Schistidium_sp_AT_CONC_6581:0.0,Schistidium_sp_AT_CONC_6675:0.0):0.0,Schistidium_crassipilum_AT_CONC_6578:0.0):0.0,Schistidium_sp_AT_ROCK_6692:0.0):1.0,(Schistidium_elegantulum_cf_AT_CONC_6529:0.0,Schistidium_elegantulum_RU_HM031071:1.0,Schistidium_elegantulum_cf_IT_ROCK_6700:0.0,Schistidium_sp_AT_CONC_6716:0.0,Schistidium_elegantulum_cf_IT_ROCK_6701:0.0,Schistidium_elegantulum_cf_IT_ROCK_6661:0.0):6.0):9.0):9.0,((((((((Schistidium_boreale_RU_HM031060:0.0,((Schistidium_boreale_RU_HM031069:0.0,Schistidium_boreale_RU_HM053889:0.0,Schistidium_boreale_SE_HM053890:0.0):1.0,((((((((Schistidium_canadense_RU_HM031067:0.0,((Schistidium_canadense_US_HM053917:0.0,Schistidium_lancifolium_IR_HQ890514:0.0):0.0,Schistidium_lancifolium_RU_HQ890513:1.0):0.0):0.0,Schistidium_canadense_US_HM053916:1.0):0.0,Schistidium_lancifolium_RU_HQ890512:1.0):0.0,Schistidium_lancifolium_US_HQ890517:1.0,Schistidium_lancifolium_RU_HQ890516:1.0):0.0,Schistidium_canadense_US_HM053914:0.0,Schistidium_canadense_US_HM053915:0.0,Schistidium_lancifolium_IR_HQ890515:0.0):1.0,Schistidium_holmenianum_RU_HM053912:2.0):0.0,Schistidium_lancifolium_RU_HM031064:1.0):2.0,(Schistidium_sp_DE_ROCK_6637:0.0,Schistidium_sp_DE_ROCK_6640:0.0):3.0):0.0):0.0):0.0,Schistidium_boreale_RU_HM053888:0.0):2.0,(Schistidium_trichodon_AT_HM053953:0.0,(((((((((((((Schistidium_papillosum_AT_ROCK_6533:0.0,Schistidium_papillosum_AT_ROCK_6718:0.0,Schistidium_papillosum_IT_ROCK_6657:0.0,Schistidium_papillosum_IT_ROCK_6663:0.0):1.0,(Schistidium_papillosum_RU_HM031065:1.0,((Schistidium_andreaeopsis_CA_HM053882:0.0,Schistidium_andreaeopsis_RU_HM053881:0.0):2.0,(Schistidium_apocarpum_GB_BDG_6653:0.0,Schistidium_apocarpum_GB_ROCK_6743:0.0,Schistidium_apocarpum_GB_HM031076:2.0,Schistidium_apocarpum_GB_ROCK_6744:0.0,Schistidium_apocarpum_RU_HM031074:0.0,Schistidium_apocarpum_RU_HM031075:0.0,Schistidium_apocarpum_IT_ROCK_6664:0.0,Schistidium_apocarpum_RU_HM031077:0.0,Schistidium_apocarpum_AT_CONC_6714:0.0,Schistidium_crassipilum_GB_WALL_6602:0.0,Schistidium_apocarpum_IT_ROCK_6662:0.0,Schistidium_apocarpum_AT_CONC_6584:0.0,Schistidium_sp_AT_ROCK_6592:0.0,Schistidium_sp_AT_ROCK_6587:0.0,Schistidium_sp_DE_ROCK_6638:0.0):1.0):1.0):0.0):0.0,Schistidium_strictum_NO_HM053944:1.0):0.0,Schistidium_holmenianum_CA_HM053913:0.0):0.0,Schistidium_papillosum_GB_LMST_6739:0.0):0.0,Schistidium_papillosum_cf_SE_HM053876:0.0):0.0,Schistidium_papillosum_RU_HM031062:1.0):0.0,Schistidium_strictum_GB_ROCK_6527:2.0):1.0,Schistidium_papillosum_RU_HM031061:2.0):3.0,Schistidium_pruinosum_RU_HM053933:7.0):0.0,Schistidium_papillosum_RU_HM031063:1.0):0.0,Schistidium_papillosum_RU_HQ890520:1.0):1.0,(Schistidium_pruinosum_RU_HM053932:1.0,(Schistidium_sp_DE_ETICS_6615:0.0,Schistidium_sp_IT_ROCK_6659:0.0):1.0):7.0):8.0):0.0):0.0,Schistidium_trichodon_AT_CONC_6534:0.0):0.0,Schistidium_trichodon_RU_HM053954:0.0):0.0,Schistidium_trichodon_GB_LMST_6742:0.0):0.0,Schistidium_trichodon_GB_LMST_6741:0.0):0.0,Schistidium_sp_DE_TARM_6647:0.0):10.0):18.0):3.0,((Schistidium_pulchrum_cf_AT_ROCK_6660:16.0,((Schistidium_pulchrum_RU_HM031051:1.0,((Schistidium_pulchrum_RU_HM031052:0.0,Schistidium_pulchrum_RU_HM031050:1.0):0.0,Schistidium_pulchrum_RU_HM031053:0.0):0.0):0.0,Schistidium_pulchrum_RU_HQ890521:2.0):1.0):9.0,(Schistidium_grandirete_RU_HM053911:1.0,Schistidium_grandirete_RU_HM053910:0.0):2.0):12.0);
+[!  TreeBASE tree URI: http://purl.org/phylo/treebase/phylows/tree/TB2:Tr92308]
+
+
+END;
