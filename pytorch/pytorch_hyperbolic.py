@@ -174,11 +174,13 @@ def build_distance_hyperbolic(G, scale):
 @argh.arg("-s", "--scale", help="Scale factor")
 @argh.arg("-l", "--learning-rate", help="Learning rate")
 @argh.arg("-t", "--tol", help="Tolerances for projection")
+@argh.arg("-y", "--use-yellowfin", help="Turn off yellowfin")
 @argh.arg("--epochs", help="number of steps in optimization")
 @argh.arg("--print-freq", help="print loss this every this number of steps")
 @argh.arg("--model-save-file", help="Save model file")
 @argh.arg("--batch-size", help="Batch size")
-def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100, print_freq=1, model_save_file=None, batch_size=16):
+def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100,
+          use_yellowfin=False, print_freq=1, model_save_file=None, batch_size=16):
     logging.basicConfig(level=logging.DEBUG,
                         format="%(asctime)s.%(msecs)03d" + " learn " + "%(levelname)s %(name)s: %(message)s",
                         datefmt='%FT%T',)
@@ -197,12 +199,10 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100, p
     m   = cudaify( Hyperbolic_Emb(G.order(), rank) )
     logging.info(f"Constucted model with rank={rank}")
 
-
-    # TODO add yellowfin
-    opt = torch.optim.SGD(m.parameters(), lr=learning_rate)
-
+    from yellowfin import YFOptimizer
+    opt = YFOptimizer(m.parameters()) if use_yellowfin else torch.optim.SGD(m.parameters(), lr=learning_rate)
+    
     for i in range(epochs):
-        # TODO add in minibatching
         l = 0.0
         for u in z:
             l += step(m, opt, u).data[0]
