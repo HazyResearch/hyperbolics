@@ -156,12 +156,25 @@ def example():
 
 
 # Should be moved to utility
+from multiprocessing import Pool
 
-def build_distance(G, scale):
-    n = G.order()    
+def djikstra_wrapper( _x ):
+    (mat, x) = _x
+    return csg.dijkstra(mat, indices=x, unweighted=True, directed=False)
+def build_distance(G, scale, num_workers=None):
+    n = G.order()
+    p = Pool() if num_workers is None else Pool(num_workers)
+    
     adj_mat_original = nx.to_scipy_sparse_matrix(G)
-    H = csg.dijkstra(adj_mat_original, indices=range(n), unweighted=True, directed=False)
-    H = np.reshape(H,(n,n))
+
+    # Simple chunking
+    nChunks = 128
+    chunk_size = n//nChunks
+    chunks     = [ list(range(k*chunk_size, (k+1)*chunk_size)) for k in range(nChunks)]
+    if n - (n//nChunks) > 0: chunks.append(list(range(n-n//nChunks, n)))
+    Hs = p.map(djikstra_wrapper, [(adj_mat_original, chunk) for chunk in chunks])
+    H  = np.concatenate(Hs,0)
+    #H = np.reshape(np.array(H),(n,n))
     H *= scale
     return H
 
@@ -179,8 +192,9 @@ def build_distance_hyperbolic(G, scale):
 @argh.arg("--print-freq", help="print loss this every this number of steps")
 @argh.arg("--model-save-file", help="Save model file")
 @argh.arg("--batch-size", help="Batch size")
+@argh.arg("--num-workers", help="Number of workers for loading. Default is to use all cores")
 def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100,
-          use_yellowfin=False, print_freq=1, model_save_file=None, batch_size=16):
+          use_yellowfin=False, print_freq=1, model_save_file=None, batch_size=16, num_workers=None):
     logging.basicConfig(level=logging.DEBUG,
                         format="%(asctime)s.%(msecs)03d" + " learn " + "%(levelname)s %(name)s: %(message)s",
                         datefmt='%FT%T',)
@@ -189,7 +203,9 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100,
     (n, G) = data_prep.load_graph(int(dataset))
     logging.info(f"Loaded Graph {dataset} with {n} nodes")
     
-    Z   = build_distance(G, scale)   # load the whole matrix
+    Z   = build_distance(G, scale, num_workers=num_workers)   # load the whole matrix
+
+    
     logging.info(f"Built distance matrix with {scale} factor")
     idx  = torch.LongTensor([(i,j)  for i in range(n) for j in range(n) if i != j])
     vals = torch.DoubleTensor([Z[i,j] for i in range(n) for j in range(n) if i != j])
