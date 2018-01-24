@@ -168,13 +168,19 @@ def build_distance(G, scale, num_workers=None):
     adj_mat_original = nx.to_scipy_sparse_matrix(G)
 
     # Simple chunking
-    nChunks = 128
-    chunk_size = n//nChunks
-    chunks     = [ list(range(k*chunk_size, (k+1)*chunk_size)) for k in range(nChunks)]
-    if n - (n//nChunks) > 0: chunks.append(list(range(n-n//nChunks, n)))
-    Hs = p.map(djikstra_wrapper, [(adj_mat_original, chunk) for chunk in chunks])
-    H  = np.concatenate(Hs,0)
-    #H = np.reshape(np.array(H),(n,n))
+    nChunks     = 128
+    if n > nChunks:
+        chunk_size  = n//nChunks
+        extra_chunk_size = (n - (n//nChunks)*nChunks)
+        logging.info(f"\t Creating {nChunks} of size {chunk_size} and an extra chunk of size {extra_chunk_size}")
+
+        chunks     = [ list(range(k*chunk_size, (k+1)*chunk_size)) for k in range(nChunks)]
+        if extra_chunk_size >0: chunks.append(list(range(n-n//nChunks, n)))
+        Hs = p.map(djikstra_wrapper, [(adj_mat_original, chunk) for chunk in chunks])
+        H  = np.concatenate(Hs,0)
+    else:
+        H = djisktra_wrapper(adj_mat_original, range(n))
+        
     H *= scale
     return H
 
