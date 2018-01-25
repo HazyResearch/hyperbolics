@@ -10,7 +10,7 @@ def work_command(run_name, dataset, rank, gpu, batch_size, epochs, scale):
     return exec_str
 
 
-def get_scale_dict(col=1, scale_file="scripts/scale_eps_1.txt"):
+def get_scale_dict(scale_file):
      with open(scale_file) as fh: ls = fh.readlines()
      d = dict()
      for l in ls:
@@ -24,10 +24,11 @@ def get_scale_dict(col=1, scale_file="scripts/scale_eps_1.txt"):
 @argh.arg("--batch-size", help="Batch Size")
 @argh.arg("--gpus", help="Number of GPUS")
 @argh.arg("--nParallel", help="Number of Concurrent jobs")
-def build(run_name, epochs=100, batch_size=16384, gpus=2, nParallel=3):
+@argh.arg("--scale-file", help="File with dictionary of scalings for datatsets")
+def build(run_name, epochs=100, batch_size=16384, gpus=2, nParallel=3, scale_file="scripts/scale_eps_1.txt"):
     os.mkdir(run_name)
 
-    scale_dict = get_scale_dict()
+    scale_dict = get_scale_dict(scale_file)
     cmds       = defaultdict(list)
     for dataset in [12,13,6,7,11]:
           gpu = dataset % gpus
