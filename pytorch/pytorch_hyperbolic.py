@@ -162,6 +162,7 @@ from multiprocessing import Pool
 def djikstra_wrapper( _x ):
     (mat, x) = _x
     return csg.dijkstra(mat, indices=x, unweighted=True, directed=False)
+
 def build_distance(G, scale, num_workers=None):
     n = G.order()
     p = Pool() if num_workers is None else Pool(num_workers)
@@ -181,7 +182,7 @@ def build_distance(G, scale, num_workers=None):
         H  = np.concatenate(Hs,0)
         logging.info(f"\tFinal Matrix {H.shape}")
     else:
-        H = djisktra_wrapper(adj_mat_original, range(n))
+        H = djikstra_wrapper( (adj_mat_original, list(range(n))) )
         
     H *= scale
     return H
@@ -189,7 +190,26 @@ def build_distance(G, scale, num_workers=None):
 def build_distance_hyperbolic(G, scale):
     return np.cosh(build_distance(G,scale)-1.)/2.
 
+# 
+class GraphRowSampler(torch.utils.data.Dataset):
+    def __init__(self, G, scale):
+        self.graph = nx.to_scipy_sparse_matrix(G)
+        self.n     = G.order()
+        self.scale = scale
+        logging.info(f"{type(self.graph)}")
+        
+    def __getitem__(self, index):
+        h   = djikstra_wrapper( (self.graph, [index]) )
+        idx = torch.LongTensor([ (index, j) for j in range(self.n) if j != index])
+        v   = torch.DoubleTensor( [ h[0,j] for j in range(self.n) if j != index] )
+        return (idx, v)
+    
+    def __len__(self): return self.n
 
+    def __repr__(self):
+        return f"DATA: {self.n} points with scale {self.scale}"
+        
+                                
 @argh.arg("dataset", help="dataset number")
 @argh.arg("-r", "--rank", help="Rank to use")
 @argh.arg("-s", "--scale", help="Scale factor")
@@ -201,8 +221,10 @@ def build_distance_hyperbolic(G, scale):
 @argh.arg("--model-save-file", help="Save model file")
 @argh.arg("--batch-size", help="Batch size")
 @argh.arg("--num-workers", help="Number of workers for loading. Default is to use all cores")
+@argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
 def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100,
-          use_yellowfin=False, print_freq=1, model_save_file=None, batch_size=16, num_workers=None):
+          use_yellowfin=False, print_freq=1, model_save_file=None, batch_size=16,
+          num_workers=None, lazy_generation=False):
     logging.basicConfig(level=logging.DEBUG,
                         format="%(asctime)s.%(msecs)03d" + " learn " + "%(levelname)s %(name)s: %(message)s",
                         datefmt='%FT%T',)
@@ -211,16 +233,21 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100,
     G = data_prep.load_graph(int(dataset))
     n = G.order()
     logging.info(f"Loaded Graph {dataset} with {n} nodes")
-    
-    Z   = build_distance(G, scale, num_workers=num_workers)   # load the whole matrix
 
+    if lazy_generation:
+        def collate(ls):
+            x, y = zip(*ls)
+            return torch.cat(x), torch.cat(y)
+        z = DataLoader(GraphRowSampler(G, scale), batch_size, shuffle=True, collate_fn=collate)
+        logging.info("Built data Sampler")
+    else:
+        Z   = build_distance(G, scale, num_workers=num_workers)   # load the whole matrix    
+        logging.info(f"Built distance matrix with {scale} factor")
+        idx  = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
+        vals = torch.DoubleTensor([Z[i,j] for i in range(n) for j in range(i+1, n)])
+        z  = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True)
+        logging.info("Built data loader")
     
-    logging.info(f"Built distance matrix with {scale} factor")
-    idx  = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
-    vals = torch.DoubleTensor([Z[i,j] for i in range(n) for j in range(i+1, n)])
-    z  = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True)
-    logging.info("Built data loader")
-
     m   = cudaify( Hyperbolic_Emb(G.order(), rank) )
     logging.info(f"Constucted model with rank={rank}")
 
