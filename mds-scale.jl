@@ -12,7 +12,8 @@ unshift!(PyVector(pyimport("sys")["path"]), "")
 setprecision(BigFloat, 1024)
 
 
-function power_method(A,d;T=10000, tol=big(1e-1)^90)
+function power_method(A,d,tol;T=10000)
+    tol=big(1e-1)^tol
     (n,n) = size(A)
     x_all = big.(qr(randn(n,d))[1])
     _eig  = zeros(BigFloat, d)
