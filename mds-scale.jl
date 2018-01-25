@@ -49,7 +49,7 @@ end
 # Get scaling factor tau
 function get_emb_par(G, k, eps, weighted)
     n       = G[:order]();
-    degrees = G[:degree]();
+    degrees = Dict(G[:degree]());
     cd      = collect(degrees);
     d_max   = maximum([cd[i][2] for i in 1:n])
 
@@ -59,7 +59,7 @@ function get_emb_par(G, k, eps, weighted)
     v       = -2*k*log(tan(beta/2))
     
     for edge in G[:edges]()   
-        (deg1, deg2) = (degrees[edge[1]+1], degrees[edge[2]+1])      
+        (deg1, deg2) = (degrees[edge[1]], degrees[edge[2]])      
         alpha        = 2*big(pi)/(max(deg1,deg2))-2*beta
         len          = -big(2)*k*log(tan(alpha/2))
         w            = weighted ? edge[2]["weight"] : 1

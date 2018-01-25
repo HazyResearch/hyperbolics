@@ -240,7 +240,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100,
     # TODO: PRINT Data diagnostics
     logging.warn("Call data diagnoistics function!")
     
-    if model_save_file is not None: torch.save(m, model_save)
+    if model_save_file is not None: torch.save(m, model_save_file)
 
 if __name__ == '__main__':
     _parser = argh.ArghParser() 
