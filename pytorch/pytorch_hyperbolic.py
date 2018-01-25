@@ -172,7 +172,7 @@ def build_distance(G, scale, num_workers=None):
     if n > nChunks:
         chunk_size  = n//nChunks
         extra_chunk_size = (n - (n//nChunks)*nChunks)
-        logging.info(f"\t Creating {nChunks} of size {chunk_size} and an extra chunk of size {extra_chunk_size}")
+        logging.info(f"\tCreating {nChunks} of size {chunk_size} and an extra chunk of size {extra_chunk_size}")
 
         chunks     = [ list(range(k*chunk_size, (k+1)*chunk_size)) for k in range(nChunks)]
         if extra_chunk_size >0: chunks.append(list(range(n-extra_chunk_size, n)))

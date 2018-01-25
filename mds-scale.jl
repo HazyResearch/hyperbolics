@@ -1,5 +1,5 @@
 using PyCall
-using GenericSVD
+#using GenericSVD
 @pyimport numpy as np
 @pyimport networkx as nx
 @pyimport scipy.sparse.csgraph as csg
@@ -8,28 +8,30 @@ unshift!(PyVector(pyimport("sys")["path"]), "")
 
 setprecision(BigFloat, 8192)
 
-# for computations with big precision
-function power_method(_A,d;T=5000)
-    (n,n) = size(_A)
-    A     = copy(_A)
+
+function power_method(A,d;T=5000, tol=big(1e-100))
+    (n,n) = size(A)
     x_all = big.(qr(randn(n,d))[1])
     _eig  = zeros(BigFloat, d)
     for j=1:d
-        x     = big.(randn(n))
-        x    /= vecnorm(x)
-        eig_d = 0.0
-        for i=1:T        
-            x       = A*x
-            eig     = vecnorm(x)
-            x       /= eig
-            eig_d   = _eig[j] - eig
-            _eig[j] = eig
+        x = x_all[:,j]
+        x /= norm(x)
+        for t=1:T
+            x = A*x
+            if j > 1
+                x -= sum(x_all[:,1:(j-1)]*diagm(vec(x'x_all[:,1:(j-1)])),2)
+            end
+            nx = norm(x)
+            x /= nx
+            if abs(nx - _eig[j]) < tol
+                println("\t Done with eigenvalue $(j) at iteration $(t) at $(Float64(abs(nx - _eig[j]))) ")
+                break
+            end
+            _eig[j]    = nx
         end
-        #println("Log difference = $(log(abs(eig_d)))")
-        x_all[:,j] = x
-        A         -= _eig[j]*x*x'
+        x_all[:,j] = x 
     end
-    return (_eig,x_all)
+    return (_eig, x_all)
 end
 
 function power_method_sign(A,r;verbose=false, T=5000)
@@ -47,7 +49,7 @@ function get_emb_par(G, k, eps, weighted)
     n       = G[:order]();
     degrees = G[:degree]();
     cd      = collect(degrees);
-	d_max   = maximum([cd[i][2] for i in 1:n])
+    d_max   = maximum([cd[i][2] for i in 1:n])
 
     (nu, tau) = (0, 0)
     	
@@ -55,7 +57,7 @@ function get_emb_par(G, k, eps, weighted)
     v       = -2*k*log(tan(beta/2))
     
     for edge in G[:edges]()   
-        (deg1, deg2) = (degrees[edge[1]], degrees[edge[2]])      
+        (deg1, deg2) = (degrees[edge[1]+1], degrees[edge[2]+1])      
         alpha        = 2*big(pi)/(max(deg1,deg2))-2*beta
         len          = -big(2)*k*log(tan(alpha/2))
         w            = weighted ? edge[2]["weight"] : 1
