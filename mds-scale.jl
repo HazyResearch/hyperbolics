@@ -8,10 +8,10 @@ unshift!(PyVector(pyimport("sys")["path"]), "")
 @pyimport load_dist as ld
 @pyimport distortions as dis
 
-setprecision(BigFloat, 8192)
+setprecision(BigFloat, 1024)
 
 
-function power_method(A,d;T=5000, tol=big(1e-100))
+function power_method(A,d;T=10000, tol=big(1e-90))
     (n,n) = size(A)
     x_all = big.(qr(randn(n,d))[1])
     _eig  = zeros(BigFloat, d)
@@ -25,9 +25,13 @@ function power_method(A,d;T=5000, tol=big(1e-100))
             end
             nx = norm(x)
             x /= nx
-            if abs(nx - _eig[j]) < tol
-                println("\t Done with eigenvalue $(j) at iteration $(t) at $(Float64(abs(nx - _eig[j]))) ")
+            cur_dist = abs(nx - _eig[j])
+            if !isinf(cur_dist) &&  min(cur_dist, cur_dist/nx) < tol
+                println("\t Done with eigenvalue $(j) at iteration $(t) at abs_tol=$(Float64(abs(nx - _eig[j]))) rel_tol=$(Float64(abs(nx - _eig[j])/nx))")
                 break
+            end
+            if t % 500 == 0
+                println("\t $(t) $(cur_dist)\n\t\t $(cur_dist/nx)")
             end
             _eig[j]    = nx
         end
