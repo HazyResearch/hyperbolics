@@ -222,7 +222,7 @@ class GraphRowSampler(torch.utils.data.Dataset):
 @argh.arg("--num-workers", help="Number of workers for loading. Default is to use all cores")
 @argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
 @argh.arg("--log-name", help="Log to a file")
-def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100,
+def learn(dataset, rank=2, scale=2., learning_rate=1e-3, tol=1e-8, epochs=100,
           use_yellowfin=False, print_freq=1, model_save_file=None, batch_size=16,
           num_workers=None, lazy_generation=False, log_name=None):
     # Log configuration
@@ -284,8 +284,8 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100,
     H    = build_distance(G, scale, num_workers=num_workers) if lazy_generation else Z
     Hrec = dist_matrix(m.w.data).cpu().numpy()
     logging.info("Compare matrices built")  
-    dist_max, dist, good = dis.distortion(H, Hrec, n, 2)
-    logging.info(f"Distortion avg/max, bad = {dist}, {dist_max}, {good}")  
+    dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, 2)
+    logging.info(f"Distortion avg={dist} wc={dist_max} nan_elements={good}")  
     mapscore = dis.map_score(H/scale, Hrec, n, 2) 
     logging.info(f"MAP = {mapscore}")   
 

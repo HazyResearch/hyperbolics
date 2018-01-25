@@ -28,15 +28,18 @@ def build(run_name, epochs=100, batch_size=16384, gpus=2, nParallel=3):
           with open(fname,"w") as fh:
              fh.writelines("\n".join(cmds[gpu]))
           cmd_files.append(fname)
-          
+
+    exec_cmd = "\"source path.src; bash -c {}\""
     with open(f"{run_name}/drive.sh", "w") as fh:
         cmds = []
         for cmd_f in cmd_files:
-             exec_cmd = "\"source path.src; bash -c {}\" &"
-             cmd = f"cat {cmd_f} | parallel -P {nParallel} {exec_cmd}"
+             cmd = f"cat {cmd_f} | parallel --gnu -P {nParallel} {exec_cmd}"
              cmds.append(cmd)
         fh.writelines("\n".join(cmds))
-          
+
+    with open(f"{run_name}/main.sh", "w") as fh:
+        fh.writelines(f"cat {run_name}/drive.sh | parallel --gnu -P {gpus} {exec_cmd}")
+
 if __name__ == '__main__':
     _parser = argh.ArghParser() 
     _parser.add_commands([build])
