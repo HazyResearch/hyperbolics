@@ -3,6 +3,7 @@ import logging, argh
 import data_prep
 import networkx as nx
 import scipy.sparse.csgraph as csg
+import distortions as dis
 # This describes a hyperbolic optimizer in Pytorch. It requires two modifications:
 # 
 # * When declaring a parameter, one uses a class called "Hyperbolic Parameter". It assumes that the _last_ dimension is in the disk. E.g., a tensor of size n x m x d means that you have n x m elements of H_D. d >= 2.
@@ -106,14 +107,12 @@ class Hyperbolic_Emb(nn.Module):
         if self.project: self.w.proj()
 
 
-# compute marix of squard distances
+# compute marix of non-squard distances
 def dist_matrix(_data):
     m    = _data.size(0)
-    rets = torch.DoubleTensor(m, m).zero_()
+    rets = cudaify( torch.DoubleTensor(m, m).zero_() )
     for i in range(m):
-        xx = dist(_data[i,:].clone().unsqueeze(0).repeat(m,1), _data)**2
-        for j in range(m):
-            rets[i,j] = xx[j]
+        rets[i,:] = dist(_data[i,:].clone().unsqueeze(0).repeat(m,1), _data)
     return rets
 
 
@@ -222,18 +221,28 @@ class GraphRowSampler(torch.utils.data.Dataset):
 @argh.arg("--batch-size", help="Batch size")
 @argh.arg("--num-workers", help="Number of workers for loading. Default is to use all cores")
 @argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
+@argh.arg("--log-name", help="Log to a file")
 def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100,
           use_yellowfin=False, print_freq=1, model_save_file=None, batch_size=16,
-          num_workers=None, lazy_generation=False):
+          num_workers=None, lazy_generation=False, log_name=None):
+    # Log configuration
+    formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
-                        format="%(asctime)s.%(msecs)03d" + " learn " + "%(levelname)s %(name)s: %(message)s",
+                        format=formatter,
                         datefmt='%FT%T',)
+    if log_name is not None:
+        logging.info(f"Logging to {log_name}")
+        log = logging.getLogger()
+        fh  = logging.FileHandler(log_name)
+        fh.setFormatter( formatter )
+        log.addHandler(fh)
 
     if model_save_file is None: logging.warn("No Model Save selected!")
     G = data_prep.load_graph(int(dataset))
     n = G.order()
     logging.info(f"Loaded Graph {dataset} with {n} nodes")
 
+    
     if lazy_generation:
         def collate(ls):
             x, y = zip(*ls)
@@ -266,10 +275,20 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100,
             logging.info(f"{i} loss={l}")
     logging.info(f"final loss={l}")
 
-    # TODO: PRINT Data diagnostics
-    logging.warn("Call data diagnoistics function!")
-    
-    if model_save_file is not None: torch.save(m, model_save_file)
+    if model_save_file is not None:
+        logging.info(f"Saving model into {model_save_file}") 
+        torch.save(m, model_save_file)
+    #
+    # DATA Diagnostics
+    #
+    H    = build_distance(G, scale, num_workers=num_workers) if lazy_generation else Z
+    Hrec = dist_matrix(m.w.data).cpu().numpy()
+    logging.info("Compare matrices built")  
+    dist_max, dist, good = dis.distortion(H, Hrec, n, 2)
+    logging.info(f"Distortion avg/max, bad = {dist}, {dist_max}, {good}")  
+    mapscore = dis.map_score(H, Hrec, n, 2) 
+    logging.info(f"MAP = {mapscore}")   
+
 
 if __name__ == '__main__':
     _parser = argh.ArghParser() 
