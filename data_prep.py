@@ -3,9 +3,9 @@ import networkx as nx
 import scipy as sp
 import numpy as np
 
-#from Bio import Phylo
-#import nltk.corpus as nc
-#import word_net_prep as wnp
+from Bio import Phylo
+import nltk.corpus as nc
+import word_net_prep as wnp
 
 def load_graph(opt):
     if opt == 1:

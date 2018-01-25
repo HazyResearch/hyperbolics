@@ -6,7 +6,7 @@ using PyCall
 unshift!(PyVector(pyimport("sys")["path"]), "")
 @pyimport data_prep as dp
 @pyimport load_dist as ld
-#@pyimport distortions as dis
+@pyimport distortions as dis
 
 setprecision(BigFloat, 8192)
 
@@ -163,8 +163,7 @@ println(string("./dists/dist_mat",data_set,".p"))
 H = ld.load_dist_mat(string("./dists/dist_mat",data_set,".p"));
 n,_ = size(H)
 
-H *= scale;
-Z = (cosh.(H)-1)./2
+Z = (cosh.(big.(H.*scale))-1)./2
 
 println("Doing HMDS...")
 tic()
@@ -182,13 +181,18 @@ if found_dimension > 1
     end
     toc()
 
-    println("Getting distortion")
+    println("Getting metrics")
     tic()
     Hrec = acosh.(1+2*Zrec)
-    dist_max, dist, good = distortion(H, Hrec)
-    toc()
-    println("Distortion avg/max, dimension = $(dist), $(dist_max), $(found_dimension)")  
-else
+    Hrec = convert(Array{Float64,2},Hrec)
+    Hrec /= convert(Float64,scale)
+    
+    dist_max, dist, good = dis.distortion(H, Hrec, n, 2)
+    println("Distortion avg/max, bad = $(convert(Float64,dist)), $(convert(Float64,dist_max)), $(convert(Float64,good))")  
+    mapscore = dis.map_score(H, Hrec, n, 2) 
+    println("MAP = $(mapscore)")   
+    println("Dimension = $(found_dimension)")
+    toc() else
     println("Dimension = 1!")
 end
 
