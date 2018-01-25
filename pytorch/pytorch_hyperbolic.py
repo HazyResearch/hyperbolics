@@ -228,7 +228,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100,
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
-                        format=formatter,
+                        format='%(asctime)s %(message)s',
                         datefmt='%FT%T',)
     if log_name is not None:
         logging.info(f"Logging to {log_name}")
