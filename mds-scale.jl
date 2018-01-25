@@ -1,4 +1,5 @@
 using PyCall
+using JLD
 #using GenericSVD
 @pyimport numpy as np
 @pyimport networkx as nx
@@ -8,17 +9,15 @@ unshift!(PyVector(pyimport("sys")["path"]), "")
 @pyimport load_dist as ld
 @pyimport distortions as dis
 
-setprecision(BigFloat, 8192)
-
-
-function power_method(A,d;T=5000, tol=big(1e-100))
+function power_method(A,d,tol;T=10000)
+    tol=big(0.1^(tol))
     (n,n) = size(A)
     x_all = big.(qr(randn(n,d))[1])
     _eig  = zeros(BigFloat, d)
     for j=1:d
         x = x_all[:,j]
         x /= norm(x)
-        for t=1:T
+        for t=1:T            
             x = A*x
             if j > 1
                 x -= sum(x_all[:,1:(j-1)]*diagm(vec(x'x_all[:,1:(j-1)])),2)
@@ -36,8 +35,8 @@ function power_method(A,d;T=5000, tol=big(1e-100))
     return (_eig, x_all)
 end
 
-function power_method_sign(A,r;verbose=false, T=5000)
-    _d, _U    = power_method(A'A,r;T=T)
+function power_method_sign(A,r,tol;verbose=false, T=10000)
+    _d, _U    = power_method(A'A,r, tol;T=T)
     X         = _U'A*_U 
     _d_signed = vec(diag(X))
     if verbose
@@ -94,12 +93,13 @@ function distortion(H1, H2)
     return (convert(Float64, mc*me), convert(Float64, avg), n*(n-1)/2-good)
 end
 # hMDS exact:
-function h_mds(Z, k, n)
+function h_mds(Z, k, n, tol)
     println("First e call")
     tic()
-    eval, evec = power_method_sign(Z,1)  
+    eval, evec = power_method_sign(Z,1,tol)  
     lambda = eval[1]
     u = evec[:,1]
+    println("lambda = $(convert(Float64,lambda))")
 
     toc()
     #EZ = eig(Z);
@@ -124,7 +124,7 @@ function h_mds(Z, k, n)
     # power method:
     println("Second e call")
     tic()
-    lambdasM, usM = power_method_sign(M,k) 
+    lambdasM, usM = power_method_sign(M,k,tol) 
     posE = 1;
     while (lambdasM[posE] > 0 && posE<k)
         posE+=1;
@@ -149,16 +149,14 @@ end
 
 data_set = parse(Int32,(ARGS[1]))
 k = parse(Int32, (ARGS[2]))
-eps = parse(Float64, (ARGS[3]))
+scale = parse(Float64, (ARGS[3]))
+prec = parse(Int64, (ARGS[4]))
+tol = parse(Int64, (ARGS[5]))
 
-G = dp.load_graph(data_set)
+setprecision(BigFloat, prec)
 
-#println("Loaded graph on $(n) nodes");
-
-# scale factor from combinatorial embedding
-scale = get_emb_par(G, 1, eps, false)
-println("Scaling = $(convert(Float64,scale))");
-println(string("./dists/dist_mat",data_set,".p"))   
+#println("Scaling = $(convert(Float64,scale))");
+#println(string("./dists/dist_mat",data_set,".p"))   
 
 H = ld.load_dist_mat(string("./dists/dist_mat",data_set,".p"));
 n,_ = size(H)
@@ -167,7 +165,10 @@ Z = (cosh.(big.(H.*scale))-1)./2
 
 println("Doing HMDS...")
 tic()
-Xrec, found_dimension = h_mds(Z, k, n)
+Xrec, found_dimension = h_mds(Z, k, n, tol)
+
+# save the recovered points:
+save(string("Xrec_dataset_",data_set,"r=",k,"prec=",prec,"tol=",tol,".jld"), "H", H);
 toc()
 
 if found_dimension > 1
@@ -195,4 +196,3 @@ if found_dimension > 1
     toc() else
     println("Dimension = 1!")
 end
-
