@@ -254,7 +254,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100,
         logging.info(f"Built distance matrix with {scale} factor")
         idx  = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
         vals = torch.DoubleTensor([Z[i,j] for i in range(n) for j in range(i+1, n)])
-        z  = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True)
+        z  = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True, pin_memory=True)
         logging.info("Built data loader")
     
     m   = cudaify( Hyperbolic_Emb(G.order(), rank) )
