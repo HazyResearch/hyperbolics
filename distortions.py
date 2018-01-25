@@ -44,19 +44,14 @@ def map_row(H1, H2, n, row):
     j = 0
     # skip yourself, you're always the nearest guy    
     for i in range(1,n): 
-        n_correct += 1
-        precs[j] = n_correct/float(i)
-        j += 1
-        if j == m:
-            break
-            
+        if edge_mask[sorted_dist[i]]:
+            n_correct += 1
+            precs[j] = n_correct/float(i)
+            j += 1
+            if j == m:
+                break
     return sum(precs)/m 
 
 def map_score(H1, H2, n, jobs):
     maps = Parallel(n_jobs=jobs)(delayed(map_row)(H1[i,:],H2[i,:],n,i) for i in range(n))
     return sum(maps)/n 
-
-        
-# test    
-#H1 = np.array([[0,1,1],[1,0,1],[1,1,0]])
-#H2 = np.array([[0,4,6],[4,0,10],[6,10,0]])
