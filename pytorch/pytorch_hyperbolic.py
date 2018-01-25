@@ -286,7 +286,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100,
     logging.info("Compare matrices built")  
     dist_max, dist, good = dis.distortion(H, Hrec, n, 2)
     logging.info(f"Distortion avg/max, bad = {dist}, {dist_max}, {good}")  
-    mapscore = dis.map_score(H, Hrec, n, 2) 
+    mapscore = dis.map_score(H/scale, Hrec, n, 2) 
     logging.info(f"MAP = {mapscore}")   
 
 

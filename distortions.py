@@ -35,11 +35,10 @@ def distortion(H1, H2, n, jobs):
 
 def map_row(H1, H2, n, row):
     edge_mask = (H1 == 1.0).astype(float)
-    m = sum(edge_mask).astype(int)
+    m = np.sum(edge_mask).astype(int)
     d = H2
     sorted_dist = np.argsort(d)
     precs = np.zeros(m)    
-    
     n_correct = 0
     j = 0
     # skip yourself, you're always the nearest guy    
@@ -50,8 +49,8 @@ def map_row(H1, H2, n, row):
             j += 1
             if j == m:
                 break
-    return sum(precs)/m 
+    return np.sum(precs)/m 
 
 def map_score(H1, H2, n, jobs):
     maps = Parallel(n_jobs=jobs)(delayed(map_row)(H1[i,:],H2[i,:],n,i) for i in range(n))
-    return sum(maps)/n 
+    return np.sum(maps)/n 
