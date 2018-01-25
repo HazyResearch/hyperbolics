@@ -23,6 +23,7 @@ def get_scale_dict(col=1, scale_file="scripts/scale_eps_1.txt"):
 @argh.arg("--epochs", help="Number of epochs to run")
 @argh.arg("--batch-size", help="Batch Size")
 @argh.arg("--gpus", help="Number of GPUS")
+@argh.arg("--nParallel", help="Number of Concurrent jobs")
 def build(run_name, epochs=100, batch_size=16384, gpus=2, nParallel=3):
     os.mkdir(run_name)
 
