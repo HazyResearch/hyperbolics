@@ -4,11 +4,21 @@ from collections import defaultdict
 #cat run_file.sh | parallel -P 4 "source path.src; bash -c {}"
 
 
-def work_command(run_name, dataset, rank, gpu, batch_size, epochs):
+def work_command(run_name, dataset, rank, gpu, batch_size, epochs, scale):
     run_stem = f"{run_name}/dataset_{dataset}.r={rank}"
-    exec_str = f"CUDA_VISIBLE_DEVICES=\"{gpu}\" python pytorch/pytorch_hyperbolic.py learn {dataset} --model-save-file {run_stem}.model  -r {rank} --batch-size {batch_size} --epochs {epochs} --log-name {run_stem}.log"
+    exec_str = f"CUDA_VISIBLE_DEVICES=\"{gpu}\" python pytorch/pytorch_hyperbolic.py learn {dataset} -s {scale} --model-save-file {run_stem}.model  -r {rank} --batch-size {batch_size} --epochs {epochs} --log-name {run_stem}.log"
     return exec_str
 
+
+def get_scale_dict(col=1, scale_file="scripts/scale_eps_1.txt"):
+     with open(scale_file) as fh: ls = fh.readlines()
+     d = dict()
+     for l in ls:
+         l.strip()
+         k,v = l.strip().split("\t")
+         d[k] = v
+     return d
+ 
 @argh.arg("run_name", help="Director to store the run")
 @argh.arg("--epochs", help="Number of epochs to run")
 @argh.arg("--batch-size", help="Batch Size")
@@ -16,11 +26,12 @@ def work_command(run_name, dataset, rank, gpu, batch_size, epochs):
 def build(run_name, epochs=100, batch_size=16384, gpus=2, nParallel=3):
     os.mkdir(run_name)
 
-    cmds = defaultdict(list)
+    scale_dict = get_scale_dict()
+    cmds       = defaultdict(list)
     for dataset in range(1,13):
           gpu = dataset % gpus
           for rank in [2,5,10,50,100,200]:
-            cmds[gpu].append(work_command(run_name, dataset, rank, gpu, batch_size, epochs))
+            cmds[gpu].append(work_command(run_name, dataset, rank, gpu, batch_size, epochs, scale_dict[str(dataset)]))
 
     cmd_files = []
     for gpu in range(gpus):
