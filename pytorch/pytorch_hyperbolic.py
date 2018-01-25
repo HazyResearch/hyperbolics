@@ -92,14 +92,15 @@ class Hyperbolic_Emb(nn.Module):
         super(Hyperbolic_Emb, self).__init__()
         self.n = n
         self.d = d
-        self.project = project
+        self.pairs = n*(n-1)/2. 
+        self.project   = project
         self.w = Hyperbolic_Parameter(h_proj( 1e-3 * torch.rand(n, d).double() ) )
         
     def loss(self, _x):
         idx, values = _x
         wi = torch.index_select(self.w, 0, idx[:,0])
         wj = torch.index_select(self.w, 0, idx[:,1])
-        return torch.sum((dist(wi,wj) - values)**2)
+        return torch.sum((dist(wi,wj) - values)**2)/self.pairs
 
     def normalize(self):
         if self.project: self.w.proj()
@@ -207,15 +208,16 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100,
                         datefmt='%FT%T',)
 
     if model_save_file is None: logging.warn("No Model Save selected!")
-    (n, G) = data_prep.load_graph(int(dataset))
+    G = data_prep.load_graph(int(dataset))
+    n = G.order()
     logging.info(f"Loaded Graph {dataset} with {n} nodes")
     
     Z   = build_distance(G, scale, num_workers=num_workers)   # load the whole matrix
 
     
     logging.info(f"Built distance matrix with {scale} factor")
-    idx  = torch.LongTensor([(i,j)  for i in range(n) for j in range(n) if i != j])
-    vals = torch.DoubleTensor([Z[i,j] for i in range(n) for j in range(n) if i != j])
+    idx  = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
+    vals = torch.DoubleTensor([Z[i,j] for i in range(n) for j in range(i+1, n)])
     z  = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True)
     logging.info("Built data loader")
 
