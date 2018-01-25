@@ -252,7 +252,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-3, tol=1e-8, epochs=100,
     logging.info(f"Constucted model with rank={rank}")
 
     from yellowfin import YFOptimizer
-    opt = YFOptimizer(m.parameters()) if use_yellowfin else torch.optim.SGD(m.parameters(), lr=learning_rate)
+    opt = YFOptimizer(m.parameters()) if use_yellowfin else torch.optim.Adagrad(m.parameters()) # torch.optim.SGD(m.parameters(), lr=learning_rate)
     
     for i in range(epochs):
         l = 0.0
