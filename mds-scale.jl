@@ -5,6 +5,8 @@ using PyCall
 @pyimport scipy.sparse.csgraph as csg
 unshift!(PyVector(pyimport("sys")["path"]), "")
 @pyimport data_prep as dp
+@pyimport load_dist as ld
+#@pyimport distortions as dis
 
 setprecision(BigFloat, 8192)
 
@@ -145,22 +147,22 @@ function h_mds(Z, k, n)
     return Xrec, posE-1
 end
 
-data_set = parse(Float64,(ARGS[1]))
+data_set = parse(Int32,(ARGS[1]))
 k = parse(Int32, (ARGS[2]))
 eps = parse(Float64, (ARGS[3]))
 
-(n, G) = dp.load_graph(data_set)
+G = dp.load_graph(data_set)
 
-println("Loaded graph on $(n) nodes");
+#println("Loaded graph on $(n) nodes");
 
 # scale factor from combinatorial embedding
 scale = get_emb_par(G, 1, eps, false)
 println("Scaling = $(convert(Float64,scale))");
+println(string("./dists/dist_mat",data_set,".p"))   
 
-n = G[:order]()    
-adj_mat_original = nx.to_scipy_sparse_matrix(G)
-H = big.(csg.dijkstra(adj_mat_original, indices=[0:n-1], unweighted=true, directed=false))
-H = reshape(H,(n,n))
+H = ld.load_dist_mat(string("./dists/dist_mat",data_set,".p"));
+n,_ = size(H)
+
 H *= scale;
 Z = (cosh.(H)-1)./2
 

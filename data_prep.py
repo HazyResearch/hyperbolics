@@ -35,6 +35,8 @@ def load_graph(opt):
         G = nx.read_edgelist("data/ca-CSphd.mtx")	
     elif opt == 12:
         G = nx.balanced_tree(3,3)
+    elif opt == 13:
+        G = nx.balanced_tree(2,2)
     else:
         assert(False)
         (n,C) = wnp.load_big_component()
@@ -45,4 +47,4 @@ def load_graph(opt):
     n = Gc.order()
     #print(n)	
     C = nx.to_scipy_sparse_matrix(Gc)
-    return (n, Gc)
+    return Gc
