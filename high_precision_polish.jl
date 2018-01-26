@@ -21,7 +21,7 @@ function hess(_A)
         # Note this is I - 2 * u *u '
         #v   = vcat(zeros(BigFloat,j), u)
         x          = A[j+1:n,j]
-        #v[0:j]     = 0.
+        #v[1:j]     = 0.
         v[j]       = 0.
         v[j+1:n]   = x
         v[j+1]    += sign(A[j+1,j])*norm(x)
@@ -67,21 +67,24 @@ function root_square(g,x)
 end
 #http://www.numdam.org/article/M2AN_1990__24_6_693_0.pdf
 function solve_to_tol(g, tol)
-    g_0 = copy(g)
+    g_0 = deepcopy(g)
     x   = poly([big(0.0)])
     # tol > (2*degree(g))^(2^(-k)) - 1
-    k = -Int64(ceil(log2(log(1+tol)/log(big(2*degree(g))))))
+    k = -Int64(ceil(log2(log(big(1.)+tol)/log(big(2*degree(g))))))
     for j=1:k
         g_0 = root_square(g_0,x)
     end
     z = big(2.)^(-k)
-    return knuth_bound(g_0)^(z)
+    return knuth_bound(g_0)^(z),k
 end
 
+#
+# assumes [lo,hi] is a bracket i.e., sign(g(lo)*g(hi)) < 0
+#
 function bisection(g,lo,hi; tol=big(0.1)^20, T=5000)
    mid = big(0.)
-   for t in 1:T
-       assert(g(lo)*g(hi) < 0.0)
+   for t = 1:T
+       assert(sign(g(lo))*sign(g(hi)) < 0.0)
        mid = lo + (hi - lo)/big(2.)
        if abs(g(mid)) < tol return mid end
        if g(mid)*g(hi) < big(0.)
@@ -89,23 +92,26 @@ function bisection(g,lo,hi; tol=big(0.1)^20, T=5000)
        else
             hi = mid
        end
-    end
-    return mid
+   end
+   println("WARN: Bisection did not reach $(tol) at $(abs(g(mid))) $(T) distance = $(abs(hi-lo)) ")
+   return mid
 end
 
 tol=big(0.1)^(20)
 x  = poly([big(0.0)])
 
 function find_largest_root(g, tol)
-    u     = solve_to_tol(g, big(0.1)^(15))
-    m_err = big(2.*degree(g))^(float(2)^-38)
-    z     = bisection(g, u/m_err, u*m_err; tol=tol)
-    
+    s_tol = big(0.1)^(12) # this is our root resolution!
+    u,k   = solve_to_tol(g, s_tol)
+    z     = big(2.)^(-float(k))
+    m_err = big(2.*degree(g))^(z)
+    #println("\t\t $(sign(g(u/m_err))) $(sign(g(u))) $(u)")
+    z     = bisection(g, u/m_err, u; tol=tol)
     return z,div(g, x-z)
 end
 
 function find_k_largest_roots(g, k, tol)
-    gg = copy(g)
+    gg = deepcopy(g)
     roots = zeros(BigFloat, k)
     for i=1:k
         (u,gg) = find_largest_root(gg, tol)
