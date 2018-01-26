@@ -7,20 +7,35 @@ function reflector(x)
     u /= norm(u)
     return u
 end
+
 # U*_A*U' = A
 function hess(_A)
     A     = copy(_A)
     (n,n) = size(A)
-    U     = eye(n)
+    U     = big.(eye(n))
+    v     = zeros(BigFloat,n)
+    
     for j = 1:(n-1)
-        u = reflector(vec(A[j+1:n,j]))
+        
+        #u = reflector(vec(A[j+1:n,j]))
         # Note this is I - 2 * u *u '
-        v  = vcat(zeros(BigFloat,j), u)
+        #v   = vcat(zeros(BigFloat,j), u)
+        x          = A[j+1:n,j]
+        #v[0:j]     = 0.
+        v[j]       = 0.
+        v[j+1:n]   = x
+        v[j+1]    += sign(A[j+1,j])*norm(x)
+        v         /= norm(v[j+1:n])
+        u          = v[j+1:n]
+        
         U  -= 2*v*(v'U) # (I-2*v*v')*U
         #
-        A[(j+1):n,j:n] = A[j+1:n,j:n] - 2*u*(u'*A[j+1:n,j:n])
-        A[j:n,(j+1):n] = A[j:n,j+1:n] - 2*(A[j:n,j+1:n]*u)*u'
-        A[(j+2):n,j]   = 0.
+        #A[(j+1):n,j:n] = A[j+1:n,j:n] - 2*u*(u'*A[j+1:n,j:n])
+        A[(j+1):n,j:n] -= 2*u*(u'*A[j+1:n,j:n])
+        #A[j:n,(j+1):n] = A[j:n,j+1:n] - 2*(A[j:n,j+1:n]*u)*u'
+        A[j:n,(j+1):n] -= 2*(A[j:n,j+1:n]*u)*u'
+        #A[(j+2):n,j]   = big(0.)
+        #A[j,(j+2):n]   = big(0.) 
         if j % 16 == 0 print(".") end 
     end
     return A,U
