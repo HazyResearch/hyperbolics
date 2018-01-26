@@ -222,8 +222,9 @@ class GraphRowSampler(torch.utils.data.Dataset):
 @argh.arg("--num-workers", help="Number of workers for loading. Default is to use all cores")
 @argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
 @argh.arg("--log-name", help="Log to a file")
-def learn(dataset, rank=2, scale=2., learning_rate=1e-3, tol=1e-8, epochs=100,
-          use_yellowfin=False, print_freq=1, model_save_file=None, batch_size=16,
+@argh.arg("--use-sgd", help="Force using plan SGD")
+def learn(dataset, rank=2, scale=2., learning_rate=1e-2, tol=1e-8, epochs=100,
+          use_yellowfin=False, use_sgd=False, print_freq=1, model_save_file=None, batch_size=16,
           num_workers=None, lazy_generation=False, log_name=None):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
@@ -261,7 +262,8 @@ def learn(dataset, rank=2, scale=2., learning_rate=1e-3, tol=1e-8, epochs=100,
     logging.info(f"Constucted model with rank={rank}")
 
     from yellowfin import YFOptimizer
-    opt = YFOptimizer(m.parameters()) if use_yellowfin else torch.optim.Adagrad(m.parameters()) # torch.optim.SGD(m.parameters(), lr=learning_rate)
+    opt = YFOptimizer(m.parameters()) if use_yellowfin else torch.optim.Adagrad(m.parameters()) # 
+    if use_sgd: opt = torch.optim.SGD(m.parameters(), lr=learning_rate)
     
     for i in range(epochs):
         l = 0.0
@@ -285,7 +287,7 @@ def learn(dataset, rank=2, scale=2., learning_rate=1e-3, tol=1e-8, epochs=100,
     Hrec = dist_matrix(m.w.data).cpu().numpy()
     logging.info("Compare matrices built")  
     dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, 2)
-    logging.info(f"Distortion avg={dist_avg} wc={dist_max} nan_elements={nan_elements}")  
+    logging.info(f"Distortion avg={avg_dist} wc={dist_max} nan_elements={nan_elements}")  
     mapscore = dis.map_score(H/scale, Hrec, n, 2) 
     logging.info(f"MAP = {mapscore}")   
 

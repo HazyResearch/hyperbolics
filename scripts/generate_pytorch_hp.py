@@ -6,7 +6,7 @@ from collections import defaultdict
 
 def work_command(run_name, dataset, rank, gpu, batch_size, epochs, scale):
     run_stem = f"{run_name}/dataset_{dataset}.r={rank}"
-    exec_str = f"CUDA_VISIBLE_DEVICES=\"{gpu}\" python pytorch/pytorch_hyperbolic.py learn {dataset} -s {scale} --model-save-file {run_stem}.model  -r {rank} --batch-size {batch_size} --epochs {epochs} --log-name {run_stem}.log"
+    exec_str = f"CUDA_VISIBLE_DEVICES=\"{gpu}\" python pytorch/pytorch_hyperbolic.py learn {dataset} -s {scale} --model-save-file {run_stem}.model  -r {rank} --batch-size {batch_size} --epochs {epochs} --log-name {run_stem}.log --print-freq 10"
     return exec_str
 
 
