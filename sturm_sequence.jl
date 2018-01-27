@@ -26,12 +26,41 @@ function sturm_algorithm(f,a,b,tol)
     sturm_binary_search(F, a, b, tol)
 end
 
+
+#
+# assumes [lo,hi] is a bracket i.e., sign(g(lo)*g(hi)) < 0
+#
+function local_bisection(g,lo,hi, tol; T=5000)
+   mid = big(0.)
+   for t = 1:T
+       assert(sign(g(lo))*sign(g(hi)) < 0.0)
+       mid = (lo+hi)/big(2.)
+       if abs(lo-hi) < tol || abs(g(mid)) < tol return (1,mid) end
+       if sign(g(mid)*g(hi)) < 0.
+            lo = mid
+       else
+            hi = mid
+       end
+   end
+   println("WARN: Bisection did not reach $(tol) at $(abs(g(mid))) $(T) distance = $(abs(hi-lo)) ")
+   return (1,mid)
+end
+
 function single_binary_search(F,a,b,tol;T=1000)
     ch = sign_changes(F,a) - sign_changes(F,b)
     g  = F[1]
     assert(ch == 1)
     lo,hi  = a,b
     for t=1:T
+        # check if we found a bracket, and use regular bisection then
+        if g(lo)*g(hi) < 0.0
+            println("\t Found a bracket. Starting bisection. ")
+            return local_bisection(g,lo,hi, tol)
+        end
+
+        #
+        # Find a good sturm midpoint.
+        #
         mid = (lo+hi)/big(2.)
         jiggle_counter = 0
         while any(sign_pattern(F,mid) .== 0)
@@ -59,6 +88,7 @@ function single_binary_search(F,a,b,tol;T=1000)
         else
             lo = mid
         end
+        if t % 100 == 0 print(".") end
     end
     println("Search without convergence")
     println("a=$(lo)\nb=$(hi)")
@@ -66,6 +96,7 @@ function single_binary_search(F,a,b,tol;T=1000)
     println("$(abs(lo-hi))\n\t $(abs(g(mid)))\n $( min( abs(big(1.)-lo/hi), abs(big(1.) - hi/lo)) )") 
     assert(false)
 end
+
 
 function sturm_binary_search(F,a,b,tol)
     g  = F[1]
