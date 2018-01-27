@@ -35,9 +35,9 @@ function single_binary_search(F,a,b,tol;T=1000)
         mid = (lo+hi)/big(2.)
         jiggle_counter = 0
         while any(sign_pattern(F,mid) .== 0)
-            mid += tol/2.0
+            mid            += abs(hi-lo)/big(500.0)
             jiggle_counter += 1
-            assert(mid < b && jiggle_counter < 100)
+            assert(mid < hi && jiggle_counter < 100)
         end
 
         #if sign(g(a)*g(b)) < 1 || abs(a-b) < tol || abs(g(mid)) < tol return Set([(1,a,b)]) end
@@ -111,7 +111,7 @@ function sturm_binary_search_queue(F,a,b,tol)
         # Breadth first strategy
         (ch,a,b) = shift!(active) # pop!(active)
         if ch == 1
-            println("\t Search started")
+            println("\t Search started log_gap = $(Float64.(log(abs(b-a))))")
             (ch,r) = single_binary_search(F,a,b,tol)
             push!(completed, (ch,r))
             println("\t Found $(ch) root. Single. active=$(length(active)) completed=$(length(completed)) roots=$(active_roots())")
