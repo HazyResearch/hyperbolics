@@ -54,7 +54,7 @@ function single_binary_search(F,a,b,tol;T=1000)
     for t=1:T
         # check if we found a bracket, and use regular bisection then
         if g(lo)*g(hi) < 0.0
-            println("\t Found a bracket. Starting bisection. ")
+            println("\t\t Found a bracket. Starting bisection. ")
             return local_bisection(g,lo,hi, tol)
         end
 
