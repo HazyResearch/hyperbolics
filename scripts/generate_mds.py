@@ -16,8 +16,27 @@ def get_scale_dict(col=1, scale_file="scripts/scale_eps_1.txt"):
 
 @argh.arg("run_name", help="Director to store the run")
 @argh.arg("--prec", help="Precision")
-@argh.arg("--tol", help="Tolerance")
+@argh.arg("--max-k", help="Max-k")
+@argh.arg("--nParallel", help="Parallel")
+def tri(run_name, prec="2048", max_k=200, nParallel=6):
+    os.mkdir(run_name)
+    scale_dict = get_scale_dict()
+    cmds       = list()
+    for dataset in range(1,13):
+        scale = scale_dict[str(dataset)]
+        cmds.append(f"julia serialize_helper.jl --prec {prec} --max_k {max_k} --scale {scale} {dataset} {run_name}/tri.{dataset}.jld")
+        
+    fname = f"{run_name}/tri.run.cmds"
+    with open(fname,"w") as fh:
+        fh.writelines("\n".join(cmds))
 
+    exec_cmd = "\"source path.src; bash -c {}\""
+    with open(f"{run_name}/main.sh", "w") as fh:
+        fh.writelines(f"cat {run_name}/tri.run.cmds | parallel --gnu -P {nParallel} {exec_cmd}")
+
+@argh.arg("run_name", help="Director to store the run")
+@argh.arg("--prec", help="Precision")
+@argh.arg("--tol", help="Tolerance")
 def build(run_name, prec="2048", tol="100"):
     os.mkdir(run_name)
     scale_dict = get_scale_dict()
@@ -46,5 +65,5 @@ def build(run_name, prec="2048", tol="100"):
                 
 if __name__ == '__main__':
     _parser = argh.ArghParser() 
-    _parser.add_commands([build])
+    _parser.add_commands([build, tri])
     _parser.dispatch()

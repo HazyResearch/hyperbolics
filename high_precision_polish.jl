@@ -3,7 +3,8 @@ using JLD
 
 using PyCall
 unshift!(PyVector(pyimport("sys")["path"]), "")
-@pyimport load_dist as ld
+@pyimport data_prep as dp
+@pyimport pytorch.graph_helpers as gh
 
 function reflector(x)
     e = zeros(BigFloat,length(x))
@@ -210,9 +211,11 @@ function k_largest(A,k,tol)
     ee, U'_eigs, T
 end
 
-function serialize(data_set, fname, scale, k_max, prec)
+function serialize(data_set, fname, scale, k_max, prec, num_workers=4)
     setprecision(BigFloat, prec)
-    H = ld.load_dist_mat(string("./dists/dist_mat",data_set,".p"));
+    #H = ld.load_dist_mat(string("./dists/dist_mat",data_set,".p"));
+    G = dp.load_graph(data_set)
+    H = gh.build_distance(G, scale, num_workers=num_workers) 
     n,_ = size(H)
     Z = (cosh.(big.(H.*scale))-1)./2
 

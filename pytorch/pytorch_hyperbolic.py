@@ -4,6 +4,7 @@ import data_prep
 import networkx as nx
 import scipy.sparse.csgraph as csg
 import distortions as dis
+import graph_helpers as gh
 # This describes a hyperbolic optimizer in Pytorch. It requires two modifications:
 # 
 # * When declaring a parameter, one uses a class called "Hyperbolic Parameter". It assumes that the _last_ dimension is in the disk. E.g., a tensor of size n x m x d means that you have n x m elements of H_D. d >= 2.
@@ -155,39 +156,6 @@ def example():
             logging.info(f"{t:2} -> {ll:0.2f}")
 
 
-# Should be moved to utility
-from multiprocessing import Pool
-
-def djikstra_wrapper( _x ):
-    (mat, x) = _x
-    return csg.dijkstra(mat, indices=x, unweighted=True, directed=False)
-
-def build_distance(G, scale, num_workers=None):
-    n = G.order()
-    p = Pool() if num_workers is None else Pool(num_workers)
-    
-    adj_mat_original = nx.to_scipy_sparse_matrix(G)
-
-    # Simple chunking
-    nChunks     = 128
-    if n > nChunks:
-        chunk_size  = n//nChunks
-        extra_chunk_size = (n - (n//nChunks)*nChunks)
-        logging.info(f"\tCreating {nChunks} of size {chunk_size} and an extra chunk of size {extra_chunk_size}")
-
-        chunks     = [ list(range(k*chunk_size, (k+1)*chunk_size)) for k in range(nChunks)]
-        if extra_chunk_size >0: chunks.append(list(range(n-extra_chunk_size, n)))
-        Hs = p.map(djikstra_wrapper, [(adj_mat_original, chunk) for chunk in chunks])
-        H  = np.concatenate(Hs,0)
-        logging.info(f"\tFinal Matrix {H.shape}")
-    else:
-        H = djikstra_wrapper( (adj_mat_original, list(range(n))) )
-        
-    H *= scale
-    return H
-
-def build_distance_hyperbolic(G, scale):
-    return np.cosh(build_distance(G,scale)-1.)/2.
 
 # 
 class GraphRowSampler(torch.utils.data.Dataset):
@@ -251,7 +219,7 @@ def learn(dataset, rank=2, scale=2., learning_rate=1e-2, tol=1e-8, epochs=100,
         z = DataLoader(GraphRowSampler(G, scale), batch_size, shuffle=True, collate_fn=collate)
         logging.info("Built data Sampler")
     else:
-        Z   = build_distance(G, scale, num_workers=num_workers)   # load the whole matrix    
+        Z   = gh.build_distance(G, scale, num_workers=num_workers)   # load the whole matrix    
         logging.info(f"Built distance matrix with {scale} factor")
         idx  = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
         vals = torch.DoubleTensor([Z[i,j] for i in range(n) for j in range(i+1, n)])
