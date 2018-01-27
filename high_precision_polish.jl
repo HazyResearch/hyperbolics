@@ -193,35 +193,44 @@ end
 
 # Multiple roots.
 function s_proj(x)
-    return x*diagm(sqrt.(vec(mapslices(x, abs2.(x), 2)))) 
+    return x*diagm(big(1.)./sqrt.(vec(mapslices(sum, abs2.(x), 1)))) 
 end
 
 function o_proj(x) qr(x)[1] end
 
-function inverse_power_T(a,b,mu, m; T=100, o_tol=big(0.1))
+# Really a inverse rayleigh iteration
+function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(0.1))
     if m == 1 return inverse_power_T(a,b,mu) end
     
-    n  = length(a)
-    x  = o_proj(randn(n,m))
-    y  = solve_tridiagonal(a-mu,b,x)  # replace with tri solve
-    l  = dot(y,x)
-    mu = mu + 1/l
-    err = norm(y - l * x) / norm(y)
+    n       = length(a)
+    x       = o_proj(big.(randn(n,m)))
+    y       = zeros(x)
+    mus     = big.(mu*ones(m))
+    err     = big.(zeros(m))
+    function step()
+        for i=1:m 
+            y[:,i]  = solve_tridiagonal(a-mus[i],b,x[:,i])  # replace with tri solve
+            l       = dot(y[:,i],x[:,i])
+            mus[i]  = mus[i] + 1/l
+            err[i]  = norm(y[:,i] - l * x[:,i]) / norm(y[:,i])
+        end
+    end
+    step()
+    
     # NB: Reorthogonalize?
     for k=1:T
         x = s_proj(y)
+        # Reorthogonalize, periodically.
         if vecnorm(I - x'x) > o_tol x = o_proj(x) end
-        y = solve_tridiagonal(a-mu,b,x)
-        l = y' * x;
-        mu = mu + 1 / l
-        err = norm(y - l * x) / norm(y)
+        step()
+        if maximum(err) < tol return (mu,x) end
     end
     
     return mu,x
 end
 
 
-function k_largest_sturm(f,a,b,k, tol) return Sturm.sturm_search(Sturm.build_sturm_sequence(f), a, b, tol) end
+function largest_sturm(f,a,b, tol) return Sturm.sturm_search(Sturm.build_sturm_sequence(f), a, b, tol) end
 
 ## Main function
 function k_largest(A,k,tol)
@@ -233,8 +242,8 @@ function k_largest(A,k,tol)
     lo    = minimum([minimum([T[i,i] - (abs(T[i,i-1]) + abs(T[i,i+1])) for i=2:(n-1)]), T[1,1] - abs(T[1,2]), T[n,n] - abs(T[n,n-1])])
     
     println("\t Char poly computed lo=$(lo) hi=$(hi)")
-    (m,roots) = k_largest_sturm(f, lo, hi, k, tol)
-    println("\t All Roots found")
+    (m,roots) = largest_sturm(f, lo, hi, tol)
+    println("\t All Roots found $(length(roots)) $(sum(m))")
 
     #
     # Solve for eigenvectors
@@ -242,9 +251,11 @@ function k_largest(A,k,tol)
     _eigs = zeros(BigFloat, n, k)
     ee    = zeros(BigFloat, k)
     cur   = 1
-    for i=1:k
-        (mu, v)         = inverse_power_T(diag(T), diag(T,1), roots[i], m[i])
-        _e              = min(k,(cur+m[i])) 
+    for i=1:min(length(roots),k)
+        (mu, v)         = inverse_power_T(diag(T), diag(T,1), roots[i], m[i], tol)
+        _e              = min(k,(cur+m[i]-1))
+        println("\t\t\t Returned eigenvector of size $(size(v)) with multiplicity $(m[i]) cur=$(cur) _e=$(_e)")
+
         _eigs[:,cur:_e] = v
         ee[cur:_e]      = mu
         if _e == k break end
@@ -270,7 +281,7 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(0
     n,_ = size(H)
     Z = (cosh.(big.(H))-1)./2
 
-    println("First e call")
+    println("First pass. All Eigenvectors.")
     tic()
     eval, evec, T0 = k_largest(Z,1,tol)  
     lambda = eval[1]
@@ -290,11 +301,12 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(0
     
     M = -(D * Z * D - ones(n) * v' - v * ones(n)')/2;
     M = (M + M')/2;
-      
+    println("M Matrix constructed. Creating dataset.")
     tic()
     (T,U) = hess(M)
     println("\t Tridiagonal formed error=$(Float64(vecnorm(U*M*U' - T)))")
+    M_val, M_eigs, M_T = k_largest(Z,k_max,tol)
     toc()
-    JLD.save(fname,"T",T,"U",U,"M",M)
+    JLD.save(fname,"T",T,"U",U,"M",M,"M_val", M_val, "M_eigs", M_eigs, "M_T", M_T )
     println("\t Saved into $(fname)")
 end
