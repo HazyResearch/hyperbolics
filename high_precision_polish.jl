@@ -217,7 +217,7 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4)
     G = dp.load_graph(data_set)
     H = gh.build_distance(G, scale, num_workers=num_workers) 
     n,_ = size(H)
-    Z = (cosh.(big.(H.*scale))-1)./2
+    Z = (cosh.(big.(H))-1)./2
 
     println("First e call")
     tic()
@@ -239,8 +239,11 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4)
     
     M = -(D * Z * D - ones(n) * v' - v * ones(n)')/2;
     M = (M + M')/2;
-       
+      
+    tic()
     (T,U) = hess(M)
     println("\t Tridiagonal formed error=$(Float64(vecnorm(U*M*U' - T)))")
+    toc()
     JLD.save(fname,"T",T,"U",U,"M",M)
+    println("\t Saved into $(fname)")
 end
