@@ -211,13 +211,23 @@ function k_largest(A,k,tol)
     ee, U'_eigs, T
 end
 
-function serialize(data_set, fname, scale, k_max, prec, num_workers=4)
+function quick_serialize(data_set, fname, scale, prec)
     setprecision(BigFloat, prec)
-    #H = ld.load_dist_mat(string("./dists/dist_mat",data_set,".p"));
     G = dp.load_graph(data_set)
     H = gh.build_distance(G, scale, num_workers=num_workers) 
     n,_ = size(H)
-    Z = (cosh.(big.(H.*scale))-1)./2
+    Z = (cosh.(big.(H))-1)./2
+    (T,U) = hess(A)
+    println("\t Tridiagonal formed $(Float64(vecnorm(U*A*U' - T)))")
+    save(fname, "T", T, "U", U)
+end
+
+function serialize(data_set, fname, scale, k_max, prec, num_workers=4)
+    setprecision(BigFloat, prec)
+    G = dp.load_graph(data_set)
+    H = gh.build_distance(G, scale, num_workers=num_workers) 
+    n,_ = size(H)
+    Z = (cosh.(big.(H))-1)./2
 
     println("First e call")
     tic()
