@@ -283,14 +283,19 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(0
 
     println("First pass. All Eigenvectors.")
     tic()
-    eval, evec, T0 = k_largest(Z,1,tol)  
+    eval, evec, T = k_largest(Z,1,tol)  
     lambda = eval[1]
     u      = evec[:,1]
     println("lambda = $(convert(Float64,lambda))")
     toc()
-    
+
+    # u is the Perron vector, so it should be component-wise positive.
     u = u[1] < 0 ? -u : u
 
+
+    #
+    # TODO Update notation to match paper.
+    # 
     b     = big(1) + sum(u)^2/(lambda*u'*u);
     alpha = b-sqrt(b^2-big(1));
     u_s   = u./(sum(u))*lambda*(big(1)-alpha);
@@ -298,15 +303,14 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(0
     dinv  = big(1)./d;
     v     = diagm(dinv)*(u_s.-alpha)./(big(1)+alpha);
     D     = big.(diagm(dinv));
-    
+
     M = -(D * Z * D - ones(n) * v' - v * ones(n)')/2;
     M = (M + M')/2;
-    println("M Matrix constructed. Creating dataset.")
+    
+    println("Gram matrix constructed. Creating dataset.")
     tic()
-    (T,U) = hess(M)
-    println("\t Tridiagonal formed error=$(Float64(vecnorm(U*M*U' - T)))")
-    M_val, M_eigs, M_T = k_largest(Z,k_max,tol)
+    M_val, M_eigs, M_T = k_largest(M,k_max,tol)
     toc()
-    JLD.save(fname,"T",T,"U",U,"M",M,"M_val", M_val, "M_eigs", M_eigs, "M_T", M_T )
+    JLD.save(fname,"T",T,"M",M,"M_val", M_val, "M_eigs", M_eigs, "M_T", M_T )
     println("\t Saved into $(fname)")
 end
