@@ -1,4 +1,9 @@
 using Polynomials
+using JLD
+
+using PyCall
+unshift!(PyVector(pyimport("sys")["path"]), "")
+@pyimport load_dist as ld
 
 function reflector(x)
     e = zeros(BigFloat,length(x))
@@ -34,6 +39,9 @@ function hess(_A)
         A[(j+1):n,j:n] -= 2*u*(u'*A[j+1:n,j:n])
         #A[j:n,(j+1):n] = A[j:n,j+1:n] - 2*(A[j:n,j+1:n]*u)*u'
         A[j:n,(j+1):n] -= 2*(A[j:n,j+1:n]*u)*u'
+        #
+        # These will be zero, but this just cleans them up
+        #
         #A[(j+2):n,j]   = big(0.)
         #A[j,(j+2):n]   = big(0.) 
         if j % 16 == 0 print(".") end 
@@ -99,14 +107,30 @@ end
 
 tol=big(0.1)^(20)
 x  = poly([big(0.0)])
+function deriv(f) return Poly([ k*coeffs(f)[k+1] for k=1:degree(f)]) end
+function newton(f, u; tol=tol, T=1000)
+    df = deriv(f)
+    x  = copy(u)
+    for t=1:T
+        x_next = x - f(x)/df(x)
+        if abs(x_next - x)/x_next <= tol && f(x_next) <= tol
+            #println("Done in $(t) iterations $(f(x_next))")
+            return x_next
+        end
+        x = x_next
+    end
+    println("WARNING: Newton failed to converge")
+    return x
+end
 
-function find_largest_root(g, tol)
+function find_largest_root(g, tol;use_bisection=false)
     s_tol = big(0.1)^(12) # this is our root resolution!
     u,k   = solve_to_tol(g, s_tol)
     z     = big(2.)^(-float(k))
     m_err = big(2.*degree(g))^(z)
     #println("\t\t $(sign(g(u/m_err))) $(sign(g(u))) $(u)")
-    z     = bisection(g, u/m_err, u; tol=tol)
+    z     = use_bisection ? bisection(g, u/m_err, u; tol=tol) : newton(g, u, tol=tol)
+        
     return z,div(g, x-z)
 end
 
@@ -186,3 +210,37 @@ function k_largest(A,k,tol)
     ee, U'_eigs
 end
 
+# TODO: Get this working and right it out.
+function serialize(data_set, fname, scale, k_max; prec=1024)
+    setprecision(BigFloat, 1024)
+    H = ld.load_dist_mat(string("./dists/dist_mat",data_set,".p"));
+    n,_ = size(H)
+    Z = (cosh.(big.(H.*scale))-1)./2
+
+    println("First e call")
+    tic()
+    eval, evec = k_largest(Z,1,tol)  
+    lambda = eval[1]
+    u      = evec[:,1]
+    println("lambda = $(convert(Float64,lambda))")
+    toc()
+    
+    u = u[1] < 0 ? -u : u
+
+    b     = big(1) + sum(u)^2/(lambda*u'*u);
+    alpha = b-sqrt(b^2-big(1));
+    u_s   = u./(sum(u))*lambda*(big(1)-alpha);
+    d     = (u_s+big(1))./(big(1)+alpha);
+    dinv  = big(1)./d;
+    v     = diagm(dinv)*(u_s.-alpha)./(big(1)+alpha);
+    D     = big.(diagm(dinv));
+    
+    M = -(D * Z * D - ones(n) * v' - v * ones(n)')/2;
+    M = (M + M')/2;
+       
+    println("Second e call")
+    tic()
+    vs, eigs = k_largest(M,k_max,tol)
+    println("Saving into $(fname)")
+    JLD.save(fname,"vs",vs,"eigs",eigs)
+end
