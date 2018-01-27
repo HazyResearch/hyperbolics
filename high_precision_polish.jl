@@ -1,4 +1,9 @@
 using Polynomials
+using JLD
+
+using PyCall
+unshift!(PyVector(pyimport("sys")["path"]), "")
+@pyimport load_dist as ld
 
 function reflector(x)
     e = zeros(BigFloat,length(x))
@@ -21,7 +26,7 @@ function hess(_A)
         # Note this is I - 2 * u *u '
         #v   = vcat(zeros(BigFloat,j), u)
         x          = A[j+1:n,j]
-        #v[0:j]     = 0.
+        #v[1:j]     = 0.
         v[j]       = 0.
         v[j+1:n]   = x
         v[j+1]    += sign(A[j+1,j])*norm(x)
@@ -34,6 +39,9 @@ function hess(_A)
         A[(j+1):n,j:n] -= 2*u*(u'*A[j+1:n,j:n])
         #A[j:n,(j+1):n] = A[j:n,j+1:n] - 2*(A[j:n,j+1:n]*u)*u'
         A[j:n,(j+1):n] -= 2*(A[j:n,j+1:n]*u)*u'
+        #
+        # These will be zero, but this just cleans them up
+        #
         #A[(j+2):n,j]   = big(0.)
         #A[j,(j+2):n]   = big(0.) 
         if j % 16 == 0 print(".") end 
@@ -67,21 +75,24 @@ function root_square(g,x)
 end
 #http://www.numdam.org/article/M2AN_1990__24_6_693_0.pdf
 function solve_to_tol(g, tol)
-    g_0 = copy(g)
+    g_0 = deepcopy(g)
     x   = poly([big(0.0)])
     # tol > (2*degree(g))^(2^(-k)) - 1
-    k = -Int64(ceil(log2(log(1+tol)/log(big(2*degree(g))))))
+    k = -Int64(ceil(log2(log(big(1.)+tol)/log(big(2*degree(g))))))
     for j=1:k
         g_0 = root_square(g_0,x)
     end
     z = big(2.)^(-k)
-    return knuth_bound(g_0)^(z)
+    return knuth_bound(g_0)^(z),k
 end
 
+#
+# assumes [lo,hi] is a bracket i.e., sign(g(lo)*g(hi)) < 0
+#
 function bisection(g,lo,hi; tol=big(0.1)^20, T=5000)
    mid = big(0.)
-   for t in 1:T
-       assert(g(lo)*g(hi) < 0.0)
+   for t = 1:T
+       assert(sign(g(lo))*sign(g(hi)) < 0.0)
        mid = lo + (hi - lo)/big(2.)
        if abs(g(mid)) < tol return mid end
        if g(mid)*g(hi) < big(0.)
@@ -89,23 +100,42 @@ function bisection(g,lo,hi; tol=big(0.1)^20, T=5000)
        else
             hi = mid
        end
-    end
-    return mid
+   end
+   println("WARN: Bisection did not reach $(tol) at $(abs(g(mid))) $(T) distance = $(abs(hi-lo)) ")
+   return mid
 end
 
 tol=big(0.1)^(20)
 x  = poly([big(0.0)])
+function deriv(f) return Poly([ k*coeffs(f)[k+1] for k=1:degree(f)]) end
+function newton(f, u; tol=tol, T=5000)
+    df = deriv(f)
+    x  = copy(u)
+    for t=1:T
+        x_next = x - f(x)/df(x)
+        if abs(x_next - x)/x_next <= tol && f(x_next) <= tol
+            #println("Done in $(t) iterations $(f(x_next))")
+            return x_next
+        end
+        x = x_next
+    end
+    println("WARNING: Newton failed to converge")
+    return x
+end
 
-function find_largest_root(g, tol)
-    u     = solve_to_tol(g, big(0.1)^(15))
-    m_err = big(2.*degree(g))^(float(2)^-38)
-    z     = bisection(g, u/m_err, u*m_err; tol=tol)
-    
+function find_largest_root(g, tol;use_bisection=false)
+    s_tol = big(0.1)^(12) # this is our root resolution!
+    u,k   = solve_to_tol(g, s_tol)
+    z     = big(2.)^(-float(k))
+    m_err = big(2.*degree(g))^(z)
+    #println("\t\t $(sign(g(u/m_err))) $(sign(g(u))) $(u)")
+    z     = use_bisection ? bisection(g, u/m_err, u; tol=tol) : newton(g, u, tol=tol)
+        
     return z,div(g, x-z)
 end
 
 function find_k_largest_roots(g, k, tol)
-    gg = copy(g)
+    gg = deepcopy(g)
     roots = zeros(BigFloat, k)
     for i=1:k
         (u,gg) = find_largest_root(gg, tol)
@@ -140,14 +170,14 @@ function solve_tridiagonal(a, b, y)
     return x
 end
 
-function inverse_power_T(a,b,mu)
+function inverse_power_T(a,b,mu; T=100)
     n  = length(a)
     x = randn(n); x /= norm(x)
     y  = solve_tridiagonal(a-mu,b,x)  # replace with tri solve
     l  = dot(y,x)
     mu = mu + 1/l
     err = norm(y - l * x) / norm(y)
-    for k=1:10
+    for k=1:T
         x = y / norm(y)
         #y = (A - mu * I) \ x;
         y = solve_tridiagonal(a-mu,b,x)
@@ -177,6 +207,37 @@ function k_largest(A,k,tol)
         _eigs[:,i] = v
         ee[i]      = mu
     end
-    ee, U'_eigs
+    ee, U'_eigs, T
 end
 
+function serialize(data_set, fname, scale, k_max, prec)
+    setprecision(BigFloat, prec)
+    H = ld.load_dist_mat(string("./dists/dist_mat",data_set,".p"));
+    n,_ = size(H)
+    Z = (cosh.(big.(H.*scale))-1)./2
+
+    println("First e call")
+    tic()
+    eval, evec, T0 = k_largest(Z,1,tol)  
+    lambda = eval[1]
+    u      = evec[:,1]
+    println("lambda = $(convert(Float64,lambda))")
+    toc()
+    
+    u = u[1] < 0 ? -u : u
+
+    b     = big(1) + sum(u)^2/(lambda*u'*u);
+    alpha = b-sqrt(b^2-big(1));
+    u_s   = u./(sum(u))*lambda*(big(1)-alpha);
+    d     = (u_s+big(1))./(big(1)+alpha);
+    dinv  = big(1)./d;
+    v     = diagm(dinv)*(u_s.-alpha)./(big(1)+alpha);
+    D     = big.(diagm(dinv));
+    
+    M = -(D * Z * D - ones(n) * v' - v * ones(n)')/2;
+    M = (M + M')/2;
+       
+    (T,U) = hess(M)
+    println("\t Tridiagonal formed error=$(Float64(vecnorm(U*M*U' - T)))")
+    JLD.save(fname,"T",T,"U",U,"M",M)
+end
