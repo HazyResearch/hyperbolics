@@ -108,7 +108,7 @@ end
 tol=big(0.1)^(20)
 x  = poly([big(0.0)])
 function deriv(f) return Poly([ k*coeffs(f)[k+1] for k=1:degree(f)]) end
-function newton(f, u; tol=tol, T=1000)
+function newton(f, u; tol=tol, T=5000)
     df = deriv(f)
     x  = copy(u)
     for t=1:T
@@ -170,14 +170,14 @@ function solve_tridiagonal(a, b, y)
     return x
 end
 
-function inverse_power_T(a,b,mu)
+function inverse_power_T(a,b,mu; T=100)
     n  = length(a)
     x = randn(n); x /= norm(x)
     y  = solve_tridiagonal(a-mu,b,x)  # replace with tri solve
     l  = dot(y,x)
     mu = mu + 1/l
     err = norm(y - l * x) / norm(y)
-    for k=1:10
+    for k=1:T
         x = y / norm(y)
         #y = (A - mu * I) \ x;
         y = solve_tridiagonal(a-mu,b,x)
@@ -207,19 +207,18 @@ function k_largest(A,k,tol)
         _eigs[:,i] = v
         ee[i]      = mu
     end
-    ee, U'_eigs
+    ee, U'_eigs, T
 end
 
-# TODO: Get this working and right it out.
-function serialize(data_set, fname, scale, k_max; prec=1024)
-    setprecision(BigFloat, 1024)
+function serialize(data_set, fname, scale, k_max, prec)
+    setprecision(BigFloat, prec)
     H = ld.load_dist_mat(string("./dists/dist_mat",data_set,".p"));
     n,_ = size(H)
     Z = (cosh.(big.(H.*scale))-1)./2
 
     println("First e call")
     tic()
-    eval, evec = k_largest(Z,1,tol)  
+    eval, evec, T0 = k_largest(Z,1,tol)  
     lambda = eval[1]
     u      = evec[:,1]
     println("lambda = $(convert(Float64,lambda))")
@@ -238,9 +237,7 @@ function serialize(data_set, fname, scale, k_max; prec=1024)
     M = -(D * Z * D - ones(n) * v' - v * ones(n)')/2;
     M = (M + M')/2;
        
-    println("Second e call")
-    tic()
-    vs, eigs = k_largest(M,k_max,tol)
-    println("Saving into $(fname)")
-    JLD.save(fname,"vs",vs,"eigs",eigs)
+    (T,U) = hess(M)
+    println("\t Tridiagonal formed error=$(Float64(vecnorm(U*M*U' - T)))")
+    JLD.save(fname,"T",T,"U",U,"M",M)
 end
