@@ -35,7 +35,7 @@ function main()
         println("  $arg  =>  $val")
     end
     HP.serialize(parsed_args["dataset"], parsed_args["out_jld"], parsed_args["scale"],
-              parsed_args["max_k"], parsed_args["prec"])
+                 parsed_args["max_k"], parsed_args["prec"])
 end
 
 main()

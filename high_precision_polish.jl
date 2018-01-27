@@ -1,6 +1,10 @@
 using Polynomials
 using JLD
+module Sturm include("sturm_sequence.jl") end
 
+#
+# Python
+#
 using PyCall
 unshift!(PyVector(pyimport("sys")["path"]), "")
 @pyimport data_prep as dp
@@ -106,7 +110,6 @@ function bisection(g,lo,hi; tol=big(0.1)^20, T=5000)
    return mid
 end
 
-tol=big(0.1)^(20)
 x  = poly([big(0.0)])
 function deriv(f) return Poly([ k*coeffs(f)[k+1] for k=1:degree(f)]) end
 function newton(f, u; tol=tol, T=5000)
@@ -180,7 +183,6 @@ function inverse_power_T(a,b,mu; T=100)
     err = norm(y - l * x) / norm(y)
     for k=1:T
         x = y / norm(y)
-        #y = (A - mu * I) \ x;
         y = solve_tridiagonal(a-mu,b,x)
         l = y' * x;
         mu = mu + 1 / l
@@ -189,24 +191,63 @@ function inverse_power_T(a,b,mu; T=100)
     return mu,x
 end
 
+# Multiple roots.
+function s_proj(x)
+    return x*diagm(sqrt.(vec(mapslices(x, abs2.(x), 2)))) 
+end
+
+function o_proj(x) qr(x)[1] end
+
+function inverse_power_T(a,b,mu, m; T=100, o_tol=big(0.1))
+    if m == 1 return inverse_power_T(a,b,mu) end
+    
+    n  = length(a)
+    x  = o_proj(randn(n,m))
+    y  = solve_tridiagonal(a-mu,b,x)  # replace with tri solve
+    l  = dot(y,x)
+    mu = mu + 1/l
+    err = norm(y - l * x) / norm(y)
+    # NB: Reorthogonalize?
+    for k=1:T
+        x = s_proj(y)
+        if vecnorm(I - x'x) > o_tol x = o_proj(x) end
+        y = solve_tridiagonal(a-mu,b,x)
+        l = y' * x;
+        mu = mu + 1 / l
+        err = norm(y - l * x) / norm(y)
+    end
+    
+    return mu,x
+end
+
+
+function k_largest_sturm(f,a,b,k, tol) return Sturm.sturm_search(Sturm.build_sturm_sequence(f), a, b, tol) end
+
 ## Main function
 function k_largest(A,k,tol)
     (n,n) = size(A)
     (T,U) = hess(A)
     println("\t Tridiagonal formed $(Float64(vecnorm(U*A*U' - T)))")
     f     = compute_char_poly(T)
-    println("\t Char poly computed")
+    hi    = maximum([maximum([T[i,i] + (abs(T[i,i-1]) + abs(T[i,i+1])) for i=2:(n-1)]), T[1,1] + abs(T[1,2]), T[n,n] + abs(T[n,n-1])])
+    lo    = minimum([minimum([T[i,i] - (abs(T[i,i-1]) + abs(T[i,i+1])) for i=2:(n-1)]), T[1,1] - abs(T[1,2]), T[n,n] - abs(T[n,n-1])])
+    
+    println("\t Char poly computed lo=$(lo) hi=$(hi)")
+    (m,roots) = k_largest_sturm(f, lo, hi, k, tol)
+    println("\t All Roots found")
 
-    roots = find_k_largest_roots(f,k,tol)
-    println("\t Largest Roots found")
-
-    # now we solve
+    #
+    # Solve for eigenvectors
+    #
     _eigs = zeros(BigFloat, n, k)
     ee    = zeros(BigFloat, k)
+    cur   = 1
     for i=1:k
-        (mu, v)    = inverse_power_T(diag(T), diag(T,1), roots[i])
-        _eigs[:,i] = v
-        ee[i]      = mu
+        (mu, v)         = inverse_power_T(diag(T), diag(T,1), roots[i], m[i])
+        _e              = min(k,(cur+m[i])) 
+        _eigs[:,cur:_e] = v
+        ee[cur:_e]      = mu
+        if _e == k break end
     end
     ee, U'_eigs, T
 end
@@ -222,7 +263,7 @@ function quick_serialize(data_set, fname, scale, prec)
     save(fname, "T", T, "U", U)
 end
 
-function serialize(data_set, fname, scale, k_max, prec, num_workers=4)
+function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(0.1)^(50))
     setprecision(BigFloat, prec)
     G = dp.load_graph(data_set)
     H = gh.build_distance(G, scale, num_workers=num_workers) 
