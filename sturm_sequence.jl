@@ -1,8 +1,20 @@
 using Polynomials
 
 function deriv(f) return Poly([ k*coeffs(f)[k+1] for k=1:degree(f)]) end
-function sign_pattern(F,x) return [Int64(sign((F[j](x)))) for j=1:length(F)] end
-function sign_changes(F,x) return sum(abs.(diff(sign_pattern(F,x))) .> 1) end
+function mult_root(f,x,tol)
+    g = deepcopy(f)
+    for i=0:degree(f)
+        if abs(g(x)) > tol return i end
+        g = deriv(g)
+    end
+    return degree(f)
+end
+function sign_pattern(F,x, tol)
+    big_enough = [j for j=1:length(F) if abs(F[j](x)) > tol]
+    return [Int64(sign(F[j](x))) for j in big_enough]
+end
+
+function sign_changes(F,x,tol) return sum(abs.(diff(sign_pattern(F,x,tol))) .> 1) end
 function build_sturm_sequence(f)
     n    = degree(f)+1
     F    = zeros(Poly{BigFloat}, n)
@@ -47,7 +59,7 @@ function local_bisection(g,lo,hi, tol; T=5000)
 end
 
 function single_binary_search(F,a,b,tol;T=1000)
-    ch = sign_changes(F,a) - sign_changes(F,b)
+    ch = sign_changes(F,a,tol) - sign_changes(F,b, tol)
     g  = F[1]
     assert(ch == 1)
     lo,hi  = a,b
@@ -63,22 +75,22 @@ function single_binary_search(F,a,b,tol;T=1000)
         #
         mid = (lo+hi)/big(2.)
         jiggle_counter = 0
-        while any(sign_pattern(F,mid) .== 0)
-            mid            += abs(hi-lo)/big(500.0)
+        while any(sign_pattern(F,mid,tol) .== 0)
+            mid            += abs(hi-lo)/big(2.0)
             jiggle_counter += 1
             assert(mid < hi && jiggle_counter < 100)
         end
 
         #if sign(g(a)*g(b)) < 1 || abs(a-b) < tol || abs(g(mid)) < tol return Set([(1,a,b)]) end
         if abs(lo-hi) < tol || abs(g(mid)) < tol return (1,mid) end
-        lhs = sign_changes(F,lo  ) - sign_changes(F,mid)
-        rhs = sign_changes(F,mid)  - sign_changes(F,hi)
+        lhs = sign_changes(F,lo,tol )  - sign_changes(F,mid,tol)
+        rhs = sign_changes(F,mid,tol)  - sign_changes(F,hi,tol)
         if !(xor(lhs > 0,rhs > 0))
-            println("lhs=$(lhs) rhs=$(rhs)")
+            println("lhs=$(lhs) rhs=$(rhs) ch=$(ch)")
             
-            println("a=$(lo)\n\t $(sign_changes(F,lo))")
-            println("mid=$(mid)\n\t $(sign_changes(F,mid))")
-            println("mid=$(hi)\n\t $(sign_changes(F,hi))")
+            println("a  =$(lo)\n\t $(sign_changes(F,lo,tol))")
+            println("mid=$(mid)\n\t $(sign_changes(F,mid,tol))")
+            println("hi =$(hi)\n\t $(sign_changes(F,hi,tol))")
             
             println(" $(abs(a-b))\n\t $(abs(g(mid)))\n $( min( abs(big(1.)-lo/hi), abs(big(1.) - lo/hi)) )") 
             assert(false)
@@ -100,12 +112,12 @@ end
 
 function sturm_binary_search(F,a,b,tol)
     g  = F[1]
-    ch = sign_changes(F,a) - sign_changes(F,b)
+    ch = sign_changes(F,a,tol) - sign_changes(F,b,tol)
     if ch == 1 return single_binary_search(F,a,b,tol) end
 
     # Pick the next mid point, jiggling if needed.
     mid = (a+b)/big(2.)
-    while any(sign_pattern(F,mid) .== 0)
+    while any(sign_pattern(F,mid,tol) .== 0)
         mid += tol/2.0
         assert(mid < b)
     end
@@ -116,8 +128,8 @@ function sturm_binary_search(F,a,b,tol)
     if (abs(a-b) < tol || abs(g(mid)) < tol) return Set([(ch,mid)]) end
 
     # 
-    lhs = sign_changes(F,a  ) - sign_changes(F,mid)
-    rhs = sign_changes(F,mid) - sign_changes(F,b)
+    lhs = sign_changes(F,a  ,tol) - sign_changes(F,mid,tol)
+    rhs = sign_changes(F,mid,tol) - sign_changes(F,b,tol)
 
     r = Set()
     assert( lhs > 0 || rhs > 0)
@@ -132,8 +144,8 @@ function tol_check(a,b, tol)
 end
 
 function sturm_binary_search_queue(F,a,b,tol)
-    g  = F[1]
-    ch = sign_changes(F,a) - sign_changes(F,b)
+    g         = F[1]
+    ch        = sign_changes(F,a,tol) - sign_changes(F,b,tol)
     active    = push!([], (ch,a,b))
     completed = []
     function active_roots() return length(active) > 0 ? sum([z[1] for z in active]) : 0 end
@@ -145,14 +157,14 @@ function sturm_binary_search_queue(F,a,b,tol)
             println("\t Search started log_gap = $(Float64.(log(abs(b-a))))")
             (ch,r) = single_binary_search(F,a,b,tol)
             push!(completed, (ch,r))
-            println("\t Found $(ch) root. Single. active=$(length(active)) completed=$(length(completed)) roots=$(active_roots())")
+            println("\t Found $(ch) root ~$(Float64(r)). Single. active=$(length(active)) completed=$(length(completed)) roots=$(active_roots())")
             continue
         end
         assert( ch > 0 )
         # Pick the next mid point, jiggling if needed.
         mid = (a+b)/big(2.)
         jiggle_counter = 0
-        while any(sign_pattern(F,mid) .== 0)
+        while any(sign_pattern(F,mid,tol) .== 0)
             mid += tol/big(8.0)
             jiggle_counter += 1
             assert(mid < b && jiggle_counter < 1000)
@@ -163,20 +175,20 @@ function sturm_binary_search_queue(F,a,b,tol)
         # 
         #if (abs(a-b) < tol || abs(g(mid)) < tol)
         if (tol_check(a,b,tol) || abs(g(mid)) < tol)
-            println("\t Found $(ch) root. Multiple. active=$(length(active)) completed=$(length(completed)) roots=$(active_roots())")
+            println("\t Found $(ch) roots ~$(Float64(mid)). Multiple. active=$(length(active)) completed=$(length(completed)) roots=$(active_roots())")
             push!(completed, (ch,mid))
             continue
         end
 
         # break the intervals in two
-        lhs = sign_changes(F,a  ) - sign_changes(F,mid)
-        rhs = sign_changes(F,mid) - sign_changes(F,b)
+        lhs = sign_changes(F,a  ,tol) - sign_changes(F,mid,tol)
+        rhs = sign_changes(F,mid,tol) - sign_changes(F,b,tol)
 
         assert( lhs + rhs == ch )
         if lhs > 0 push!(active, (lhs,a  ,mid) ) end
         if rhs > 0 push!(active, (rhs,mid,b  )  ) end
         if (lhs > 0) && (rhs > 0)
-            println("\t Broken! $(ch) -> $(lhs)  $(rhs) ")
+            println("\t Broken! $(ch) -> $(lhs) + $(rhs) ~[$(Float64.([ch,lhs,rhs]))]")
             println("\t\t active=$(length(active)) completed=$(length(completed)) roots=$(active_roots())")
             println("\t\t $([z[1] for z in active])")
         end
@@ -188,7 +200,9 @@ end
 function sturm_search(F,a,b,tol)
     root_pairs = sturm_binary_search_queue(F,a,b,tol)
     (ms,rs)    = collect(zip(root_pairs...))
+    # Toss away these ms, as they mean something different!
     (ms,rs)    = (collect(ms), collect(rs))
+    ms         = [max(ms[i],mult_root(F[1],rs[i],tol)) for i in 1:length(rs)]
     idx        = sortperm(rs,rev=true)
     return (ms[idx], rs[idx])
 end

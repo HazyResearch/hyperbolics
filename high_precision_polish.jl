@@ -174,7 +174,27 @@ function solve_tridiagonal(a, b, y)
     return x
 end
 
-function inverse_power_T(a,b,mu; T=100)
+function tri_multiply(a,b,x)
+    if length(size(x)) == 1
+        n         = length(x)
+        r         = a .* x
+        r[1:n-1] += b .* x[2:n]
+        r[2:n]   += b .* x[1:n-1]
+        return r
+    end
+
+    # matrix version
+    (n,d) = size(x)
+    r     = zeros(x)
+    for i=1:d
+        r[:,i]      = a .* x[:,i]
+        r[1:n-1,i] += b .* x[2:n,i]
+        r[2:n,i]   += b .* x[1:n-1,i]
+    end
+    return r
+end
+
+function inverse_power_T_single(a,b,mu, tol; T=1000)
     n  = length(a)
     x = randn(n); x /= norm(x)
     y  = solve_tridiagonal(a-mu,b,x)  # replace with tri solve
@@ -187,7 +207,12 @@ function inverse_power_T(a,b,mu; T=100)
         l = y' * x;
         mu = mu + 1 / l
         err = norm(y - l * x) / norm(y)
+        if err < tol
+            println("\t\t\t Inverse_power_T_sngle Early Exit $(k)")
+            break
+        end
     end
+    println("\t\t Single Eigenvector Differences $(Float64(log(vecnorm(tri_multiply(a,b,x) - x*mu)))) $(Float64(err))")
     return mu,x
 end
 
@@ -199,8 +224,12 @@ end
 function o_proj(x) qr(x)[1] end
 
 # Really a inverse rayleigh iteration
-function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(0.1))
-    if m == 1 return inverse_power_T(a,b,mu) end
+function inverse_power_T(a,b,mu, m, tol; T=1000, o_tol=big(1e-8))
+    if m == 1 
+        _mu, _x = inverse_power_T_single(a,b, mu, tol)
+        return (reshape([_mu], 1), reshape(_x,length(_x),1))
+    end
+    
     
     n       = length(a)
     x       = o_proj(big.(randn(n,m)))
@@ -223,17 +252,22 @@ function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(0.1))
         # Reorthogonalize, periodically.
         if vecnorm(I - x'x) > o_tol x = o_proj(x) end
         step()
-        if maximum(err) < tol return (mu,x) end
+        if maximum(err) < tol
+            raw_error   = Float64(log(vecnorm(tri_multiply(a,b,x) - x*diagm(mus))))
+            ortho_error = Float64(log(vecnorm(I-x'x)))
+            println("\t\t Eigenvector Differences iteration=$(k) $(raw_error) ortho=$(ortho_error) $(Float64(maximum(err)))")
+            return (mus,x)
+        end
     end
-    
-    return mu,x
+    println("\t\t Eigenvector Differences ~$(Float64.(mus)) $(log(vecnorm(tri_multiply(a,b,x) - x*diagm(mus)))) ortho=$(log(vecnorm(I-x'x))) $(Float64(maximum(err)))")
+    return mus,x
 end
 
 
 function largest_sturm(f,a,b, tol) return Sturm.sturm_search(Sturm.build_sturm_sequence(f), a, b, tol) end
 
 ## Main function
-function k_largest(A,k,tol)
+function k_largest(A,_k,tol)
     (n,n) = size(A)
     (T,U) = hess(A)
     println("\t Tridiagonal formed $(Float64(vecnorm(U*A*U' - T)))")
@@ -248,19 +282,39 @@ function k_largest(A,k,tol)
     #
     # Solve for eigenvectors
     #
-    _eigs = zeros(BigFloat, n, k)
-    ee    = zeros(BigFloat, k)
-    cur   = 1
-    for i=1:min(length(roots),k)
-        (mu, v)         = inverse_power_T(diag(T), diag(T,1), roots[i], m[i], tol)
-        _e              = min(k,(cur+m[i]-1))
-        println("\t\t\t Returned eigenvector of size $(size(v)) with multiplicity $(m[i]) cur=$(cur) _e=$(_e)")
+    n_distinct_roots = length(roots)
+    n_roots          = min(sum(m),_k)
 
-        _eigs[:,cur:_e] = v
-        ee[cur:_e]      = mu
-        if _e == k break end
+    _eigs = zeros(BigFloat, n, n_roots)
+    _vals = zeros(BigFloat, n_roots)
+    cur   = 1
+    for i=1:n_distinct_roots
+        _m              = m[i]
+        (mu, v)         = inverse_power_T(diag(T), diag(T,1), roots[i], _m, tol)
+        println("\t\t\t Returned eigenvector for values ~$(Float64.(mu)) of size $(size(v)) with multiplicity $(_m) reported as $(m[i])")
+        println("\t\t\t After polish m = $(Sturm.mult_root(f,mu[1],tol)) $(Float64.(vecnorm(mu-mu[1])))")
+        # TODO: IF new $m$ is higher, rerun! (and check if the vector goes up--and orthogonal)
+        _e              = min(n_roots,cur+_m-1)        
+        println("\t\t\t Indexing info: cur=$(cur) _e=$(_e) $(n_roots)")
+        _eigs[:,cur:_e] = v[:,1:_m]
+        _vals[cur:_e]   = mu[1:_m]
+        
+        cur += _m
+        if _e >= n_roots break end
     end
-    ee, U'_eigs, T
+    eig_vecs = U'_eigs
+
+    A_apx_error = Float64(log(vecnorm(eig_vecs*diagm(_vals)*eig_vecs' - A))/vecnorm(A))
+    T_apx_error = Float64(log(vecnorm(_eigs*diagm(_vals)*_eigs' - T)/vecnorm(T)))
+    println("\t Completed Eigenvectors. Norm Difference A_apx=$(A_apx_error) T_apx=$(T_apx_error) log(|A|)=$(Float64(log(vecnorm(A)))) log(|T|)=$(Float64(log(vecnorm(T))))")
+    println("\t\t $(Float64(vecnorm(A))) $(Float64(vecnorm(T)))")
+    # HACK. REMOVE
+    a_eigs=eigs(Float64.(A))[1]
+    t_eigs=eigs(Float64.(T))[1]
+    println("\t\t HACK REMOVE ME $(a_eigs) $(length(a_eigs)) $(rank(Float64.(A))) $(size(A))")
+    println("\t\t t_eigs=$(t_eigs)")
+    println("\t\t ee    =$(Float64.(_vals))")
+    return (_vals, eig_vecs, T)
 end
 
 function quick_serialize(data_set, fname, scale, prec)
@@ -274,7 +328,7 @@ function quick_serialize(data_set, fname, scale, prec)
     save(fname, "T", T, "U", U)
 end
 
-function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(0.1)^(50))
+function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(1e-1)^(60))
     setprecision(BigFloat, prec)
     G = dp.load_graph(data_set)
     H = gh.build_distance(G, scale, num_workers=num_workers) 
@@ -294,7 +348,7 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(0
 
 
     #
-    # TODO Update notation to match paper.
+    # TODO. Update notation to match paper.
     # 
     b     = big(1) + sum(u)^2/(lambda*u'*u);
     alpha = b-sqrt(b^2-big(1));
@@ -311,6 +365,8 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(0
     tic()
     M_val, M_eigs, M_T = k_largest(M,k_max,tol)
     toc()
+    
+    
     JLD.save(fname,"T",T,"M",M,"M_val", M_val, "M_eigs", M_eigs, "M_T", M_T )
     println("\t Saved into $(fname)")
 end
