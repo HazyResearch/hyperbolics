@@ -1,7 +1,7 @@
 using Polynomials
 
 function deriv(f) return Poly([ k*coeffs(f)[k+1] for k=1:degree(f)]) end
-function sign_pattern(F,x) return [sign((F[j](x))) for j=1:length(F)] end
+function sign_pattern(F,x) return [Int64(sign((F[j](x)))) for j=1:length(F)] end
 function sign_changes(F,x) return sum(abs.(diff(sign_pattern(F,x))) .> 1) end
 function build_sturm_sequence(f)
     n    = degree(f)+1
