@@ -160,7 +160,7 @@ function solve_tridiagonal(a, b, y)
     d    = zeros(BigFloat,n)
     c[1] = a[1]
     d[1] = y[1]
-    for i=2:n 
+    for i=2:n
         c[i] = a[i]-b[i-1]^2/c[i-1] 
         d[i] = y[i]-(b[i-1]*d[i-1])/c[i-1]
     end
@@ -202,10 +202,10 @@ function inverse_power_T_single(a,b,mu, tol; T=1000)
     mu = mu + 1/l
     err = norm(y - l * x) / norm(y)
     for k=1:T
-        x = y / norm(y)
-        y = solve_tridiagonal(a-mu,b,x)
-        l = y' * x;
-        mu = mu + 1 / l
+        x  = y / norm(y)
+        y  = solve_tridiagonal(a-mu,b,x)
+        l  = y' * x;
+        mu = mu + big(1.) / l
         err = norm(y - l * x) / norm(y)
         if err < tol
             println("\t\t\t Inverse_power_T_sngle Early Exit $(k)")
@@ -218,11 +218,11 @@ end
 
 # Multiple roots.
 function s_proj(x,tol)
-    z        = sqrt.(vec(mapslices(sum, abs2.(x), 1)))
-    zero_idx = abs.(z) .< tol
-    z        = 1./z
-    z[zero_idx] = 0.0
-    return x*diagm(z) 
+    z           = sqrt.(vec(mapslices(sum, abs2.(x), 1)))
+    zero_idx    = abs.(z) .< tol
+    z           = 1./z
+    z[zero_idx] = big(0.0)
+    return x*diagm(z)
 end
 
 function o_proj(x) qr(x)[1] end
@@ -245,7 +245,7 @@ function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(1e-8))
         for i=1:m 
             y[:,i]  = solve_tridiagonal(a-mus[i],b,x[:,i])  # replace with tri solve
             l       = dot(y[:,i],x[:,i])
-            mus[i]  = mus[i] + 1/l
+            mus[i]  = abs(l) > tol ? mus[i] + 1/l : mus[i]
             err[i]  = norm(y[:,i] - l * x[:,i]) / norm(y[:,i])
         end
     end
@@ -261,7 +261,7 @@ function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(1e-8))
         if maximum(err) < tol
             raw_error   = Float64(log(vecnorm(tri_multiply(a,b,x) - x*diagm(mus))))
             ortho_error = Float64(log(vecnorm(I-x'x)))
-            println("\t\t Eigenvector Differences iteration=$(k) $(raw_error) ortho=$(ortho_error) $(Float64(maximum(err)))")
+            println("\t\t Eigenvector Differences iteration=$(k) raw=$(raw_error) ortho=$(ortho_error) $(Float64(maximum(err)))")
             return (mus,x)
         end
         if k % 10 == 0
