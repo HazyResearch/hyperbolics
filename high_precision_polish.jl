@@ -251,7 +251,7 @@ function tri_multiply(a,b,x)
     return r
 end
 
-function inverse_power_T_single(a,b,mu, tol; T=1000)
+function inverse_power_T_single(a,b,mu, tol; T=128)
     n  = length(a)
     x = tri_multiply(a,b,randn(n)); x /= norm(x)
     
@@ -269,6 +269,7 @@ function inverse_power_T_single(a,b,mu, tol; T=1000)
             println("\t\t\t Inverse_power_T_sngle Early Exit $(k)")
             break
         end
+        if k % 16 == 0 print(".") end 
     end
     println("\t\t Single Eigenvector Differences $(Float64(log(vecnorm(tri_multiply(a,b,x) - x*mu)))) $(Float64(err))")
     return mu,x
@@ -297,7 +298,7 @@ function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(1e-8))
     x       = o_proj(big.(randn(n,m)))
     y       = zeros(x)
     mus     = big.(copy(mu))
-    println("--> $(Float64.(mus))")
+    println("\t\t\t--> $(Float64.(mus))")
     err     = big.(zeros(m))
     function step()
         for i=1:m
@@ -327,13 +328,13 @@ function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(1e-8))
         if maximum(err) < tol 
             raw_error   = Float64(log(vecnorm(tri_multiply(a,b,x) - x*diagm(mus))))
             ortho_error = Float64(log(vecnorm(I-x'x)))
-            println("\t\t Eigenvector Differences iteration=$(k) raw=$(raw_error) ortho=$(ortho_error) $(Float64(maximum(err)))")
+            println("\t\t Eigenvector Differences $(m) iteration=$(k) raw=$(raw_error) ortho=$(ortho_error) $(Float64(maximum(err)))")
             return (mus,x)
         end
         if k % 10 == 0
             raw_error   = Float64(log(vecnorm(tri_multiply(a,b,x) - x*diagm(mus))))
             ortho_error = Float64(log(vecnorm(I-x'x)))
-            println("\t\t <intermediate> Eigenvector Differences iteration=$(k) $(raw_error) ortho=$(ortho_error) $(Float64(maximum(err)))")
+            println("\t\t <intermediate> Eigenvector Differences $(m) iteration=$(k) $(raw_error) ortho=$(ortho_error) $(Float64(maximum(err)))")
         end
     end
     raw_error   = Float64(log(vecnorm(tri_multiply(a,b,x) - x*diagm(mus))))
@@ -355,7 +356,7 @@ function k_largest_simple(A,_k,tol;use_blocks=true)
     (T,U)   = hess(A)
     matrix_blocks = collect(1:(n-1))[diag(T,1) .< tol]
     println("\t Tridiagonal formed $(Float64(vecnorm(U*A*U' - T)))")
-    println("\t Number of small off-diagonal elements=$( sum(diag(T,1) .< tol)))")
+    println("\t Number of small off-diagonal elements=$( sum(diag(T,1) .< tol))")
     println("\t Matrix Blocks = $(matrix_blocks)")
     
     hi      = maximum([maximum([T[i,i] + (abs(T[i,i-1]) + abs(T[i,i+1])) for i=2:(n-1)]), T[1,1] + abs(T[1,2]), T[n,n] + abs(T[n,n-1])])
@@ -516,11 +517,14 @@ end
 
 function k_largest_simple_block(A,_k,tol)
     (n,n)   = size(A)
+
+    tic()
     (T,U)   = hess(A)
     matrix_blocks = collect(1:(n-1))[abs.(diag(T,1)) .< tol]
     println("\t Tridiagonal formed $(Float64(vecnorm(U*A*U' - T)))")
-    println("\t Number of small off-diagonal elements=$( sum(abs.(diag(T,1)) .< tol)))")
+    println("\t Number of small off-diagonal elements=$( sum(abs.(diag(T,1)) .< tol))")
     println("\t <blocks> Matrix Blocks = $(matrix_blocks)")
+    toc()
 
     _eigs  = zeros(T)
     _vals  = zeros(BigFloat, n)
