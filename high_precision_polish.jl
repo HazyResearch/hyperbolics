@@ -148,13 +148,58 @@ function find_k_largest_roots(g, k, tol)
     return roots
 end
 
+# 
+function solve_tridiagonal_tol(a, b, y, tol)
+    n = length(a)
+    # Keep the coefficients down. Do gaussian elimination
+    # c_i b_i     |   c_i b_i
+    # b_i a_{i+1} |     0 c_{i+1}
+    # c_{i+1} = a_{i+1} - b_i^2/c_i
+    c    = zeros(BigFloat,n)
+    d    = zeros(BigFloat,n)
+    c[1] = a[1]
+    d[1] = y[1]
+    for i=2:n
+        if abs(c[i-1]) > tol
+            c[i] = a[i]-b[i-1]^2/c[i-1] 
+            d[i] = y[i]-(b[i-1]*d[i-1])/c[i-1]
+        else
+            # then we can eliminate c_i
+            c[i] = big(0.0) # a[i]
+            d[i] = y[i]
+        end
+    end
+    
+    # Now do back substitution
+    x    = zeros(BigFloat, n)
+    if abs(c[n]) < tol
+        #if abs(d[n]) < tol
+        #assert(abs(d[n]) < tol)
+        x[n] = 1.0 # both are zero, so unneeded.
+    else
+        x[n] = d[n]/c[n]
+    end
+    
+    for j=(n-1):-1:1
+        # if c is zero then d = b*x[j+1] + c*x[j]
+        if abs(c[j]) < tol
+            #println("$(Float64(b[j]*x[j+1] - d[j])) b=$(Float64(b[j])) x=$(Float64(x[j+1])) d=$(Float64(d[j])) c=$(Float64(c[j]))")
+            #assert(abs(b[j]*x[j+1] - d[j]) < tol)
+        else
+            x[j] = (d[j] - b[j]*x[j+1])/c[j]
+        end
+    end
+    return x
+end
+
+
 # diagm(a) + diagm(b,1) + diagm(b,-1)
 #
 function solve_tridiagonal(a, b, y)
     n = length(a)
     # Keep the coefficients down. Do gaussian elimination
-    # c_i b_i        c_i b_i
-    # b_i a_{i+1}      0 c_{i+1}
+    # c_i b_i     |   c_i b_i
+    # b_i a_{i+1} |     0 c_{i+1}
     # c_{i+1} = a_{i+1} - b_i^2/c_i
     c    = zeros(BigFloat,n)
     d    = zeros(BigFloat,n)
@@ -196,14 +241,15 @@ end
 
 function inverse_power_T_single(a,b,mu, tol; T=1000)
     n  = length(a)
-    x = randn(n); x /= norm(x)
-    y  = solve_tridiagonal(a-mu,b,x)  # replace with tri solve
+    x = tri_multiply(a,b,randn(n)); x /= norm(x)
+    
+    y  = solve_tridiagonal_tol(a-mu,b,x, tol)  # replace with tri solve
     l  = dot(y,x)
     mu = mu + 1/l
     err = norm(y - l * x) / norm(y)
     for k=1:T
         x  = y / norm(y)
-        y  = solve_tridiagonal(a-mu,b,x)
+        y  = solve_tridiagonal_tol(a-mu,b,x,tol)
         l  = y' * x;
         mu = mu + big(1.) / l
         err = norm(y - l * x) / norm(y)
@@ -242,10 +288,11 @@ function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(1e-8))
     println("--> $(Float64.(mus))")
     err     = big.(zeros(m))
     function step()
-        for i=1:m 
-            y[:,i]  = solve_tridiagonal(a-mus[i],b,x[:,i])  # replace with tri solve
+        for i=1:m
+            assert(!any(isnan.(x)))
+            y[:,i]  = solve_tridiagonal_tol(a-mus[i],b,x[:,i], tol)  # replace with tri solve
             l       = dot(y[:,i],x[:,i])
-            mus[i]  = abs(l) > tol ? mus[i] + 1/l : mus[i]
+            mus[i]  = abs(l) > tol ? mus[i] + big(1.)/l : mus[i]
             err[i]  = norm(y[:,i] - l * x[:,i]) / norm(y[:,i])
         end
     end
@@ -280,11 +327,23 @@ function largest_sturm(f,a,b, tol) return Sturm.sturm_search(Sturm.build_sturm_s
 function k_largest_simple(A,_k,tol)
     (n,n)   = size(A)
     (T,U)   = hess(A)
-    k       = min(n-1,_k)
     println("\t Tridiagonal formed $(Float64(vecnorm(U*A*U' - T)))")
-    elems   = k == 1 ? maximum(diag(T)) : (sort(diag(T),rev=true)[1:k])
-    (mu, v) = inverse_power_T(diag(T), diag(T,1), elems , k, tol, o_tol=0.1)
-    return (mu, U'v, T)
+    
+    hi      = maximum([maximum([T[i,i] + (abs(T[i,i-1]) + abs(T[i,i+1])) for i=2:(n-1)]), T[1,1] + abs(T[1,2]), T[n,n] + abs(T[n,n-1])])
+    k       = min(n,_k)
+    elems   = k == 1 ? maximum(hi) : (sort(diag(T),rev=true)[1:k])
+    (mu, v) = inverse_power_T(diag(T), diag(T,1), elems , k, tol)
+    idx     = sortperm(abs.(mu),rev=true)
+    _vals   = mu[idx]
+    _eigs   = v[:,idx]
+    eig_vecs = U'_eigs
+
+    A_apx_error = Float64(log(vecnorm(eig_vecs*diagm(_vals)*eig_vecs' - A)/vecnorm(A)))
+    T_apx_error = Float64(log(vecnorm(_eigs*diagm(_vals)*_eigs' - T)/vecnorm(T)))
+    println("\t Completed Eigenvectors. Norm Difference A_apx=$(A_apx_error) T_apx=$(T_apx_error) log(|A|)=$(Float64(log(vecnorm(A)))) log(|T|)=$(Float64(log(vecnorm(T))))")
+    println("\t\t $(Float64(vecnorm(A))) $(Float64(vecnorm(T)))")
+  
+    return (_vals, eig_vecs, T)
 end
     
 
