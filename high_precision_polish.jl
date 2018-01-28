@@ -314,6 +314,7 @@ function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(1e-8))
             # Dual Errors
             l       = dot(y[:,i],x[:,i])
             mus[i]  = abs(l) > tol ? mus[i] + big(1.)/l : mus[i]
+            #err[i]  = abs(l) > tol ? norm(y[:,i] - l * x[:,i]) / norm(y[:,i]) : big(0.0)
             err[i]  = abs(l) > tol ? norm(y[:,i] - l * x[:,i]) / norm(y[:,i]) : big(0.0)
         end
     end
