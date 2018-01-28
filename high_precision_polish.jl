@@ -65,6 +65,7 @@ function compute_char_poly(Z)
     return f
 end
 
+
 #
 # This section is about computing the largest 0s
 #
@@ -293,16 +294,16 @@ function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(1e-8))
             y[:,i]  = solve_tridiagonal_tol(a-mus[i],b,x[:,i], tol)  # replace with tri solve
 
             # Primal Errors
-            yy      = y[:,i]/norm(y[:,i])
-            z       = tri_multiply(a,b,yy)
-            mu_t    = dot(z,yy)
-            err[i]  = abs(mu_t-mus[i])
-            mus[i]   = mu_t
+            ## yy      = y[:,i]/norm(y[:,i])
+            ## z       = tri_multiply(a,b,yy)
+            ## mu_t    = dot(z,yy)
+            ## err[i]  = abs(mu_t-mus[i])
+            ## mus[i]  = mu_t
 
             # Dual Errors
-            #l       = dot(y[:,i],x[:,i])
-            #mus[i]  = abs(l) > tol ? mus[i] + big(1.)/l : mus[i]
-            #err[i]  = abs(l) > tol ? norm(y[:,i] - l * x[:,i]) / norm(y[:,i]) : big(0.0)
+            l       = dot(y[:,i],x[:,i])
+            mus[i]  = abs(l) > tol ? mus[i] + big(1.)/l : mus[i]
+            err[i]  = abs(l) > tol ? norm(y[:,i] - l * x[:,i]) / norm(y[:,i]) : big(0.0)
         end
     end
     step()
@@ -326,17 +327,27 @@ function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(1e-8))
             println("\t\t <intermediate> Eigenvector Differences iteration=$(k) $(raw_error) ortho=$(ortho_error) $(Float64(maximum(err)))")
         end
     end
-    println("\t\t Eigenvector Differences ~$(Float64.(mus)) $(log(vecnorm(tri_multiply(a,b,x) - x*diagm(mus)))) ortho=$(log(vecnorm(I-x'x))) $(Float64(maximum(err)))")
+    raw_error   = Float64(log(vecnorm(tri_multiply(a,b,x) - x*diagm(mus))))
+    ortho_error = Float64(log(vecnorm(I-x'x)))
+
+    println("\t\t Eigenvector Differences ~$(Float64.(mus)) $(raw_error) ortho=$(ortho_error) $(Float64(maximum(err)))")
     return mus,x
 end
 
 
 function largest_sturm(f,a,b, tol) return Sturm.sturm_search(Sturm.build_sturm_sequence(f), a, b, tol) end
 
-function k_largest_simple(A,_k,tol)
+
+
+function k_largest_simple(A,_k,tol;use_blocks=true)
+    # HACK!
+    if use_blocks return k_largest_simple_block(A,_k,tol) end
     (n,n)   = size(A)
     (T,U)   = hess(A)
+    matrix_blocks = collect(1:(n-1))[diag(T,1) .< tol]
     println("\t Tridiagonal formed $(Float64(vecnorm(U*A*U' - T)))")
+    println("\t Number of small off-diagonal elements=$( sum(diag(T,1) .< tol)))")
+    println("\t Matrix Blocks = $(matrix_blocks)")
     
     hi      = maximum([maximum([T[i,i] + (abs(T[i,i-1]) + abs(T[i,i+1])) for i=2:(n-1)]), T[1,1] + abs(T[1,2]), T[n,n] + abs(T[n,n-1])])
     k       = min(n,_k)
@@ -473,4 +484,84 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(1
     
     JLD.save(fname,"T",T,"M",M,"M_val", M_val, "M_eigs", M_eigs, "M_T", M_T )
     println("\t Saved into $(fname)")
+end
+
+
+## New block-based factorization
+function op_factor(T,_k,tol)
+    (n,n)   = size(T)
+    assert(  n >= 2 )
+    
+    hi      = max(T[1,1] + abs(T[1,2]), T[n,n] + abs(T[n,n-1]))
+    if n > 2
+        hi      = max(maximum([T[i,i] + (abs(T[i,i-1]) + abs(T[i,i+1])) for i=2:(n-1)]),hi)
+    end
+    k       = min(n,_k)
+    elems   = k == 1 ? maximum(hi) : (sort(diag(T),rev=true)[1:k])
+    (mu, v) = inverse_power_T(diag(T), diag(T,1), elems , k, tol)
+    idx     = sortperm(abs.(mu),rev=true)
+    _vals   = mu[idx]
+    _eigs   = v[:,idx]
+    return _vals, _eigs
+end
+
+function k_largest_simple_block(A,_k,tol)
+    (n,n)   = size(A)
+    (T,U)   = hess(A)
+    matrix_blocks = collect(1:(n-1))[abs.(diag(T,1)) .< tol]
+    println("\t Tridiagonal formed $(Float64(vecnorm(U*A*U' - T)))")
+    println("\t Number of small off-diagonal elements=$( sum(abs.(diag(T,1)) .< tol)))")
+    println("\t <blocks> Matrix Blocks = $(matrix_blocks)")
+
+    _eigs  = zeros(T)
+    _vals  = zeros(BigFloat, n)
+    _start = 1
+    for _end in matrix_blocks
+        idx = _start:_end
+        #
+        # handle 1x1 and 2x2 blocks in special cases
+        #
+        if _start == _end
+            _vals[_start]        = T[_start,_start]
+            _eigs[_start,_start] = big(1.)
+        elseif _start + 1 == _end
+            _T = T[idx,idx]
+            tr = trace(_T)
+            _det = _T[1,1]*_T[2,2] - _T[2,1]^2
+            _vals[_start]  = tr/2 + sqrt(tr^2/4 - _det)
+            _vals[_end  ]  = tr/2 - sqrt(tr^2/4 - _det)
+            if abs(T[1,2]) < tol
+                _eigs[_start,_start] = 1
+                _eigs[_end  ,_end]   = 1
+            else
+                _eigs[_start,_start] = _vals[_start] - _T[2,2]
+                _eigs[_start,_end]   = _vals[_end  ] - _T[2,2]
+                _eigs[_end, idx   ]  = T[1,2]
+            end
+        else
+            # TODO: Take advantage of k
+            _op_vals, _op_eigs = op_factor(T[idx,idx], length(idx), tol)
+            _vals[idx]         = _op_vals
+            _eigs[idx,idx]     = _op_eigs
+        end
+        _start = _end + 1
+    end
+    
+    eig_vecs = U'_eigs
+    A_apx_error = Float64(log(vecnorm(eig_vecs*diagm(_vals)*eig_vecs' - A)/vecnorm(A)))
+    T_apx_error = Float64(log(vecnorm(_eigs*diagm(_vals)*_eigs' - T)/vecnorm(T)))
+
+    println("\t Completed Eigenvectors. Norm Difference A_apx=$(A_apx_error) T_apx=$(T_apx_error) log(|A|)=$(Float64(log(vecnorm(A)))) log(|T|)=$(Float64(log(vecnorm(T))))")
+    println("\t\t $(Float64(vecnorm(A))) $(Float64(vecnorm(T)))")
+
+
+    # HACK. REMOVE
+    a_eigs=eigs(Float64.(A))[1]
+    t_eigs=eigs(Float64.(T))[1]
+    s_idx =sortperm(Float64.(abs.(_vals)), rev=true)
+    println("\t\t HACK REMOVE ME $(repr(a_eigs)) $(length(a_eigs)) $(rank(Float64.(A))) $(size(A))")
+    println("\t\t t_eigs=$(t_eigs)")
+    println("\t\t ee    =$(Float64.(_vals[s_idx]))")
+    
+    return (_vals, eig_vecs, T)
 end

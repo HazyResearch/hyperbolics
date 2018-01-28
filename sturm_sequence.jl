@@ -1,5 +1,8 @@
 using Polynomials
-
+#
+# http://homepage.divms.uiowa.edu/~atkinson/m171.dir/sec_9-4.pdf
+# http://www.maths.ed.ac.uk/~aar/papers/bamawi.pdf
+#
 function deriv(f) return Poly([ k*coeffs(f)[k+1] for k=1:degree(f)]) end
 function mult_root(f,x,tol)
     g = deepcopy(f)
@@ -32,13 +35,19 @@ function build_sturm_sequence(f)
     return F[1:k]
 end
 
-function sturm_algorithm(f,a,b,tol)
-    println("Starting $( (a,b) )")
-    F  = build_sturm_sequence(f)
-    sturm_binary_search(F, a, b, tol)
+
+
+# http://www.maths.ed.ac.uk/~aar/papers/bamawi.pdf
+# q sequence
+function sturm_seq(a,b,z)
+    n    = length(a)
+    q    = zeros(BigFloat, n)
+    q[1] = a[1] - z
+    for i=2:n
+        q[i] = (a[i] - z) - b[i]^2/q[i-1] 
+    end
+    return Int64.(sign.(q))
 end
-
-
 #
 # assumes [lo,hi] is a bracket i.e., sign(g(lo)*g(hi)) < 0
 #
