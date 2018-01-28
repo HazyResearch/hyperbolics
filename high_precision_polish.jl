@@ -151,47 +151,58 @@ end
 
 # 
 function solve_tridiagonal_tol(a, b, y, tol)
-    n = length(a)
-    # Keep the coefficients down. Do gaussian elimination
-    # c_i b_i     |   c_i b_i
-    # b_i a_{i+1} |     0 c_{i+1}
-    # c_{i+1} = a_{i+1} - b_i^2/c_i
-    c    = zeros(BigFloat,n)
-    d    = zeros(BigFloat,n)
-    c[1] = a[1]
-    d[1] = y[1]
-    for i=2:n
-        if abs(c[i-1]) > tol
-            c[i] = a[i]-b[i-1]^2/c[i-1] 
-            d[i] = y[i]-(b[i-1]*d[i-1])/c[i-1]
-        else
-            # then we can eliminate c_i
-            c[i] = big(0.0) # a[i]
-            d[i] = y[i]
-        end
-    end
-    
-    # Now do back substitution
-    x    = zeros(BigFloat, n)
-    if abs(c[n]) < tol
-        #if abs(d[n]) < tol
-        #assert(abs(d[n]) < tol)
-        x[n] = 1.0 # both are zero, so unneeded.
-    else
-        x[n] = d[n]/c[n]
-    end
-    
-    for j=(n-1):-1:1
-        # if c is zero then d = b*x[j+1] + c*x[j]
-        if abs(c[j]) < tol
-            #println("$(Float64(b[j]*x[j+1] - d[j])) b=$(Float64(b[j])) x=$(Float64(x[j+1])) d=$(Float64(d[j])) c=$(Float64(c[j]))")
-            #assert(abs(b[j]*x[j+1] - d[j]) < tol)
-        else
-            x[j] = (d[j] - b[j]*x[j+1])/c[j]
-        end
-    end
-    return x
+    return SymTridiagonal(a,b)\y
 end
+    ## n = length(a)
+    ## # Keep the coefficients down. Do gaussian elimination
+    ## # c_i b_i     |   c_i b_i
+    ## # b_i a_{i+1} |     0 c_{i+1}
+    ## # c_{i+1} = a_{i+1} - b_i^2/c_i
+    ## c    = zeros(BigFloat,n)
+    ## d    = zeros(BigFloat,n)
+    ## c[1] = a[1]
+    ## d[1] = y[1]
+    ## row_ops = []
+    ## for i=2:n
+    ##     if abs(c[i-1]) > tol
+    ##         c[i] = a[i]-b[i-1]^2/c[i-1] 
+    ##         d[i] = y[i]-(b[i-1]*d[i-1])/c[i-1]
+    ##     elseif abs(b[i-1]) < tol
+    ##         c[i-1] = 0.0
+    ##     else
+    ##         # This is a column operation, which we now have to keep track of
+    ##         # 0   b_i     -b_i             b_i
+    ##         # b_i c_i -->  b_i - c_{i+1}   c_{i+1}
+    ##         # namely \hat{x}_{i} = x_i - x_{i+1}
+    ##         c[i-1] = -b[i-1]
+    ##         c[i]   = a[i] + (b[i-1]-c[i-1])
+    ##         d[i]   = y[i] + (b[i-1]-c[i-1])*d[i-1]/b[i-1]
+    ##     end
+    ## end
+    
+    ## # Now do back substitution
+    ## x    = zeros(BigFloat, n)
+    ## if abs(c[n]) < tol
+    ##     if abs(d[n]) >= tol return None end
+    ##     #if abs(d[n]) < tol
+    ##     assert(abs(d[n]) < tol)
+    ##     x[n] = big(0.0) # both are zero, so unneeded.
+    ## else
+    ##     x[n] = d[n]/c[n]
+    ## end
+    
+    ## for j=(n-1):-1:1
+    ##     # if c is zero then d = b*x[j+1] + c*x[j]
+    ##     if abs(c[j]) < tol
+    ##         if abs(b[j]*x[j+1] - d[j]) >= tol return None
+    ##         println("$(Float64(b[j]*x[j+1] - d[j])) b=$(Float64(b[j])) x=$(Float64(x[j+1])) d=$(Float64(d[j])) c=$(Float64(c[j]))")
+    ##         #assert()
+    ##     else
+    ##         x[j] = (d[j] - b[j]*x[j+1])/c[j]
+    ##     end
+    ## end
+    ##return x
+##end
 
 
 # diagm(a) + diagm(b,1) + diagm(b,-1)
@@ -291,8 +302,7 @@ function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(1e-8))
     function step()
         for i=1:m
             assert(!any(isnan.(x)))
-            y[:,i]  = solve_tridiagonal_tol(a-mus[i],b,x[:,i], tol)  # replace with tri solve
-
+            u = solve_tridiagonal_tol(a-mus[i],b,x[:,i], tol)  # replace with tri solve
             # Primal Errors
             ## yy      = y[:,i]/norm(y[:,i])
             ## z       = tri_multiply(a,b,yy)
@@ -307,7 +317,6 @@ function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(1e-8))
         end
     end
     step()
-    println("--2> $(Float64.(mus))")
         
     # NB: Reorthogonalize?
     for k=1:T
@@ -498,7 +507,7 @@ function op_factor(T,_k,tol)
     end
     k       = min(n,_k)
     elems   = k == 1 ? maximum(hi) : (sort(diag(T),rev=true)[1:k])
-    (mu, v) = inverse_power_T(diag(T), diag(T,1), elems , k, tol)
+    (mu, v) = inverse_power_T(diag(T), diag(T,1), elems, k, tol)
     idx     = sortperm(abs.(mu),rev=true)
     _vals   = mu[idx]
     _eigs   = v[:,idx]
@@ -539,10 +548,11 @@ function k_largest_simple_block(A,_k,tol)
                 _eigs[_end, idx   ]  = T[1,2]
             end
         else
-            # TODO: Take advantage of k
-            _op_vals, _op_eigs = op_factor(T[idx,idx], length(idx), tol)
-            _vals[idx]         = _op_vals
-            _eigs[idx,idx]     = _op_eigs
+            k                  = min(_k,length(idx))
+            _op_vals, _op_eigs = op_factor(T[idx,idx], k, tol)
+            _idx               = _start:(_start+k-1)
+            _vals[_idx]        = _op_vals
+            _eigs[idx,_idx]    = _op_eigs
         end
         _start = _end + 1
     end
