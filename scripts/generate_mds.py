@@ -24,7 +24,7 @@ def tri(run_name, prec="2048", max_k=200, nParallel=6):
     cmds       = list()
     for dataset in range(1,13):
         scale = scale_dict[str(dataset)]
-        cmds.append(f"julia serialize_helper.jl --prec {prec} --max_k {max_k} --scale {scale} {dataset} {run_name}/tri.{dataset}.jld")
+        cmds.append(f"julia serialize_helper.jl --prec {prec} --max_k {max_k} --scale {scale} {dataset} {run_name}/tri.{dataset}.jld --stats-file {run_name}/tri.{dataset}.stats")
         
     fname = f"{run_name}/tri.run.cmds"
     with open(fname,"w") as fh:

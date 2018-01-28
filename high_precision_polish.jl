@@ -495,6 +495,7 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(1
     
     JLD.save(fname,"T",T,"M",M,"M_val", M_val, "M_eigs", M_eigs, "M_T", M_T )
     println("\t Saved into $(fname)")
+    return (H,M_val, M_eigs)
 end
 
 
