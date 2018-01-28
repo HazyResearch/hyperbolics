@@ -37,7 +37,8 @@ end
 module HP include("high_precision_polish.jl") end
 
 
-function compute_metrics(H, Xrec, name, scale)
+function compute_metrics(H, Xrec, name, parsed_args)
+    scale = parsed_args["scale"]
     println("Building recovered graph for $(name)...")
     (n,n) = size(H)
     tic()
@@ -53,16 +54,14 @@ function compute_metrics(H, Xrec, name, scale)
 
     println("Getting metrics")
     tic()
-    Hrec = acosh.(1+2*Zrec)
-    Hrec = convert(Array{Float64,2},Hrec)
-    Hrec /= convert(Float64,scale)
+    Hrec = Float64.(acosh.(1+2*Zrec)/scale)
     
-    dist_max, dist, good = dis.distortion(H, Hrec, n, 2)
-    println("\tDistortion avg/max, bad = $(convert(Float64,dist)), $(convert(Float64,dist_max)), $(convert(Float64,good))")  
-    mapscore = dis.map_score(H, Hrec, n, 2) 
+    dist_max, dist, good = dis.distortion(H/scale, Hrec, n, 2)
+    println("\tDistortion avg/max, bad = $(convert(Float64,dist)), $(convert(Float64,dist_max)), $(convert(Float64,good))")
+    mapscore = dis.map_score(Int64.(round.(H/scale)), Hrec, n, 2) 
     println("\tMAP = $(mapscore)")
     d   = Dict("MAP" => Float64(mapscore), "avg_d" => Float64(dist), "max_d" => Float64(dist_max), "good" => Float64(good))
-    ret = Dict("experiment" => "name", "values" => d)
+    ret = Dict("experiment" => name, "values" => d, "rec_size" => size(Xrec) )
     println(ret)
     return ret
 end
@@ -87,10 +86,11 @@ function main()
     stat_file = parsed_args["stats-file"]
     
     open(stat_file, "w") do f
+        write(f, "$(json(parsed_args))\n\n")
         for r in [2,5,10,20,50,100,200]
             _r  = min(r,size(x_recs)[2])
-            stats_line = compute_metrics(H, x_recs[:,1:_r]', "Metric_$(r)_$(_r)", parsed_args["scale"])
-            write(f,json(stats_line))
+            stats_line = compute_metrics(H, x_recs[:,1:_r]', "Metric_$(r)_$(_r)", parsed_args)
+            write(f,"$(json(stats_line))\n")
             if _r < r break end
         end
     end

@@ -454,6 +454,20 @@ function quick_serialize(data_set, fname, scale, prec)
     save(fname, "T", T, "U", U)
 end
 
+function compute_d(u,l,n)
+    #w = sqrt(2*l).*u
+    #c = -2*(sum(w))/(norm(w)^2)
+    #b = (c+sqrt(c^2+4))/big(2.)
+    #d = (u*b*sqrt(2*l)+1)./(1+b^2)
+    
+    b  = big(1.) + (big(1.) + sum(u)^2)/(l*norm(u)^2)
+    #println("Compute_d $(b)\n\n $((big(1.) + sum(u)^2))\n\n $((l*norm(u)^2))")
+    alpha = b - sqrt(b^2-sum(1.))
+    u     = u/(sum(u))*l*(big(1.)-alpha)
+    d     = (u+1)/(big(1.)+alpha)
+    return d, (u-alpha*ones(BigFloat, n))/(1+alpha)
+end
+    
 function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(1e-2)^(60), simple=true)
     setprecision(BigFloat, prec)
     G = dp.load_graph(data_set)
@@ -476,17 +490,29 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(1
     #
     # TODO. Update notation to match paper.
     # 
-    b     = big(1) + sum(u)^2/(lambda*u'*u);
-    alpha = b-sqrt(b^2-big(1));
-    u_s   = u./(sum(u))*lambda*(big(1)-alpha);
-    d     = (u_s+big(1))./(big(1)+alpha);
-    dinv  = big(1)./d;
-    v     = diagm(dinv)*(u_s.-alpha)./(big(1)+alpha);
-    D     = big.(diagm(dinv));
+    ## b     = big(1) + sum(u)^2/(lambda*u'*u);
+    ## alpha = b-sqrt(b^2-big(1));
+    ## u_s   = u./(sum(u))*lambda*(big(1)-alpha);
+    ## d     = (u_s+big(1))./(big(1)+alpha);
+    ## dinv  = big(1)./d;
+    ## v     = diagm(dinv)*(u_s.-alpha)./(big(1)+alpha);
+    ## D     = big.(diagm(dinv));
 
-    M = -(D * Z * D - ones(n) * v' - v * ones(n)')/2;
-    M = (M + M')/2;
-    
+    #M = -(D * Z * D - ones(n) * v' - v * ones(n)')/2;
+    #M = (M + M')/2;
+    d,dv  = compute_d(u,lambda,n)
+
+    inv_d = big(1)./d
+    D     = diagm(d);
+    v     = big(1) - inv_d;
+    # TODO: Do this faster!
+    Q     = (I-ones(BigFloat, n,n)/big(n))*diagm(inv_d)
+    G  = -Q*Z*Q'/2
+
+    ## M0 = -(diagm(inv_d) * Z * diagm(inv_d) - big.(ones(n)) * v' - v * big.(ones(n))')/2;
+    ## M0 = (M0 + M0')/big(2);   
+    ## println("DIFFERENCES = $(Float64(vecnorm(M0 - G)))")
+    M  = G
     println("Gram matrix constructed. Creating dataset.")
     tic()
     M_val, M_eigs, M_T = simple ? k_largest_simple(M,k_max, tol) : k_largest(M,k_max,tol)
