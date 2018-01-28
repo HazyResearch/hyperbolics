@@ -217,14 +217,18 @@ function inverse_power_T_single(a,b,mu, tol; T=1000)
 end
 
 # Multiple roots.
-function s_proj(x)
-    return x*diagm(big(1.)./sqrt.(vec(mapslices(sum, abs2.(x), 1)))) 
+function s_proj(x,tol)
+    z        = sqrt.(vec(mapslices(sum, abs2.(x), 1)))
+    zero_idx = abs.(z) .< tol
+    z        = 1./z
+    z[zero_idx] = 0.0
+    return x*diagm(z) 
 end
 
 function o_proj(x) qr(x)[1] end
 
 # Really a inverse rayleigh iteration
-function inverse_power_T(a,b,mu, m, tol; T=1000, o_tol=big(1e-8))
+function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(1e-8))
     if m == 1 
         _mu, _x = inverse_power_T_single(a,b, mu, tol)
         return (reshape([_mu], 1), reshape(_x,length(_x),1))
@@ -234,7 +238,8 @@ function inverse_power_T(a,b,mu, m, tol; T=1000, o_tol=big(1e-8))
     n       = length(a)
     x       = o_proj(big.(randn(n,m)))
     y       = zeros(x)
-    mus     = big.(mu*ones(m))
+    mus     = big.(copy(mu))
+    println("--> $(Float64.(mus))")
     err     = big.(zeros(m))
     function step()
         for i=1:m 
@@ -245,10 +250,11 @@ function inverse_power_T(a,b,mu, m, tol; T=1000, o_tol=big(1e-8))
         end
     end
     step()
-    
+    println("--2> $(Float64.(mus))")
+        
     # NB: Reorthogonalize?
     for k=1:T
-        x = s_proj(y)
+        x = s_proj(y, tol)
         # Reorthogonalize, periodically.
         if vecnorm(I - x'x) > o_tol x = o_proj(x) end
         step()
@@ -258,6 +264,11 @@ function inverse_power_T(a,b,mu, m, tol; T=1000, o_tol=big(1e-8))
             println("\t\t Eigenvector Differences iteration=$(k) $(raw_error) ortho=$(ortho_error) $(Float64(maximum(err)))")
             return (mus,x)
         end
+        if k % 10 == 0
+            raw_error   = Float64(log(vecnorm(tri_multiply(a,b,x) - x*diagm(mus))))
+            ortho_error = Float64(log(vecnorm(I-x'x)))
+            println("\t\t <intermediate> Eigenvector Differences iteration=$(k) $(raw_error) ortho=$(ortho_error) $(Float64(maximum(err)))")
+        end
     end
     println("\t\t Eigenvector Differences ~$(Float64.(mus)) $(log(vecnorm(tri_multiply(a,b,x) - x*diagm(mus)))) ortho=$(log(vecnorm(I-x'x))) $(Float64(maximum(err)))")
     return mus,x
@@ -265,6 +276,17 @@ end
 
 
 function largest_sturm(f,a,b, tol) return Sturm.sturm_search(Sturm.build_sturm_sequence(f), a, b, tol) end
+
+function k_largest_simple(A,_k,tol)
+    (n,n)   = size(A)
+    (T,U)   = hess(A)
+    k       = min(n-1,_k)
+    println("\t Tridiagonal formed $(Float64(vecnorm(U*A*U' - T)))")
+    elems   = k == 1 ? maximum(diag(T)) : (sort(diag(T),rev=true)[1:k])
+    (mu, v) = inverse_power_T(diag(T), diag(T,1), elems , k, tol, o_tol=0.1)
+    return (mu, U'v, T)
+end
+    
 
 ## Main function
 function k_largest(A,_k,tol)
@@ -290,21 +312,35 @@ function k_largest(A,_k,tol)
     cur   = 1
     for i=1:n_distinct_roots
         _m              = m[i]
-        (mu, v)         = inverse_power_T(diag(T), diag(T,1), roots[i], _m, tol)
+        (mu, v)         = inverse_power_T(diag(T), diag(T,1), roots[i]*ones(_m), _m, tol)
         println("\t\t\t Returned eigenvector for values ~$(Float64.(mu)) of size $(size(v)) with multiplicity $(_m) reported as $(m[i])")
-        println("\t\t\t After polish m = $(Sturm.mult_root(f,mu[1],tol)) $(Float64.(vecnorm(mu-mu[1])))")
+        new_m           = Sturm.mult_root(f,mu[1],tol)
+        println("\t\t\t After polish m = $(new_m) $(Float64.(vecnorm(mu-mu[1])))")
         # TODO: IF new $m$ is higher, rerun! (and check if the vector goes up--and orthogonal)
-        _e              = min(n_roots,cur+_m-1)        
-        println("\t\t\t Indexing info: cur=$(cur) _e=$(_e) $(n_roots)")
-        _eigs[:,cur:_e] = v[:,1:_m]
-        _vals[cur:_e]   = mu[1:_m]
+        if new_m > _m
+            println("\t\t\t RERUN!")
+            (new_mu, new_v) = inverse_power_T(diag(T), diag(T,1), roots[i]*ones(new_m), new_m, tol)
+            good_idx        = abs.(new_mu - mu[1]) .<= tol
+            if sum(good_idx) > _m
+                mu = new_mu[good_idx]
+                v  = new_v[:,good_idx]
+                _m = sum(good_idx)
+                println("\t\t\t Rerun yieled $(_m) vectors instead")
+            end
+        end
+        # Keep it in bounds
+        _e              = min(n_roots,cur+_m-1)
+        _to_keep        = _e - cur + 1
+        println("\t\t\t Indexing info: cur=$(cur) _e=$(_e) $(n_roots) $(_to_keep)")
+        _eigs[:,cur:_e] = v[:,1:_to_keep]
+        _vals[cur:_e]   = mu[1:_to_keep]
         
         cur += _m
         if _e >= n_roots break end
     end
     eig_vecs = U'_eigs
 
-    A_apx_error = Float64(log(vecnorm(eig_vecs*diagm(_vals)*eig_vecs' - A))/vecnorm(A))
+    A_apx_error = Float64(log(vecnorm(eig_vecs*diagm(_vals)*eig_vecs' - A)/vecnorm(A)))
     T_apx_error = Float64(log(vecnorm(_eigs*diagm(_vals)*_eigs' - T)/vecnorm(T)))
     println("\t Completed Eigenvectors. Norm Difference A_apx=$(A_apx_error) T_apx=$(T_apx_error) log(|A|)=$(Float64(log(vecnorm(A)))) log(|T|)=$(Float64(log(vecnorm(T))))")
     println("\t\t $(Float64(vecnorm(A))) $(Float64(vecnorm(T)))")
@@ -328,7 +364,7 @@ function quick_serialize(data_set, fname, scale, prec)
     save(fname, "T", T, "U", U)
 end
 
-function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(1e-1)^(60))
+function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(1e-2)^(60), simple=true)
     setprecision(BigFloat, prec)
     G = dp.load_graph(data_set)
     H = gh.build_distance(G, scale, num_workers=num_workers) 
@@ -337,7 +373,7 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(1
 
     println("First pass. All Eigenvectors.")
     tic()
-    eval, evec, T = k_largest(Z,1,tol)  
+    eval, evec, T = simple ? k_largest_simple(Z, 1, tol) : k_largest(Z,1,tol)  
     lambda = eval[1]
     u      = evec[:,1]
     println("lambda = $(convert(Float64,lambda))")
@@ -345,7 +381,7 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(1
 
     # u is the Perron vector, so it should be component-wise positive.
     u = u[1] < 0 ? -u : u
-
+    println("Perron = $(Float64.(minimum(u)))")
 
     #
     # TODO. Update notation to match paper.
@@ -363,7 +399,7 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(1
     
     println("Gram matrix constructed. Creating dataset.")
     tic()
-    M_val, M_eigs, M_T = k_largest(M,k_max,tol)
+    M_val, M_eigs, M_T = simple ? k_largest_simple(M,k_max, tol) : k_largest(M,k_max,tol)
     toc()
     
     

@@ -188,7 +188,7 @@ function sturm_binary_search_queue(F,a,b,tol)
         if lhs > 0 push!(active, (lhs,a  ,mid) ) end
         if rhs > 0 push!(active, (rhs,mid,b  )  ) end
         if (lhs > 0) && (rhs > 0)
-            println("\t Broken! $(ch) -> $(lhs) + $(rhs) ~[$(Float64.([ch,lhs,rhs]))]")
+            println("\t Broken! $(ch) -> $(lhs) + $(rhs) ~[$(Float64.([a,mid,b]))]")
             println("\t\t active=$(length(active)) completed=$(length(completed)) roots=$(active_roots())")
             println("\t\t $([z[1] for z in active])")
         end
