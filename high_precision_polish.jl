@@ -291,9 +291,18 @@ function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(1e-8))
         for i=1:m
             assert(!any(isnan.(x)))
             y[:,i]  = solve_tridiagonal_tol(a-mus[i],b,x[:,i], tol)  # replace with tri solve
-            l       = dot(y[:,i],x[:,i])
-            mus[i]  = abs(l) > tol ? mus[i] + big(1.)/l : mus[i]
-            err[i]  = norm(y[:,i] - l * x[:,i]) / norm(y[:,i])
+
+            # Primal Errors
+            yy      = y[:,i]/norm(y[:,i])
+            z       = tri_multiply(a,b,yy)
+            mu_t    = dot(z,yy)
+            err[i]  = abs(mu_t-mus[i])
+            mus[i]   = mu_t
+
+            # Dual Errors
+            #l       = dot(y[:,i],x[:,i])
+            #mus[i]  = abs(l) > tol ? mus[i] + big(1.)/l : mus[i]
+            #err[i]  = abs(l) > tol ? norm(y[:,i] - l * x[:,i]) / norm(y[:,i]) : big(0.0)
         end
     end
     step()
@@ -305,7 +314,7 @@ function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(1e-8))
         # Reorthogonalize, periodically.
         if vecnorm(I - x'x) > o_tol x = o_proj(x) end
         step()
-        if maximum(err) < tol
+        if maximum(err) < tol 
             raw_error   = Float64(log(vecnorm(tri_multiply(a,b,x) - x*diagm(mus))))
             ortho_error = Float64(log(vecnorm(I-x'x)))
             println("\t\t Eigenvector Differences iteration=$(k) raw=$(raw_error) ortho=$(ortho_error) $(Float64(maximum(err)))")
