@@ -26,7 +26,7 @@ function parse_commandline()
         "out_jld"
             required = true
             help = "outfile"
-        "--stat-file"
+        "--stats-file"
            help="Output stat file"
            default ="stats.out"
     end
@@ -84,7 +84,7 @@ function main()
     eigs      = eigs[:,pos_idx]
     vals      = vals[pos_idx]
     x_recs    = eigs*diagm(sqrt.(vals))
-    stat_file = parsed_args["stat-file"]
+    stat_file = parsed_args["stats-file"]
     
     open(stat_file, "w") do f
         for r in [2,5,10,20,50,100,200]
