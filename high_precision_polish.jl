@@ -471,12 +471,12 @@ function compute_d(u,l,n, scale_hack=true)
     return (d,dv)
 end
 
-function load_graph(dataset, num_workers=1)
+function load_graph(dataset; num_workers=1)
     G = dp.load_graph(dataset)
     return gh.build_distance(G, 1.0, num_workers=num_workers)
 end
 
-function serialize(data_set, fname, scale, k_max, prec, num_workers=4, simple=true)
+function serialize(dataset, fname, scale, k_max, prec, num_workers=4, simple=true)
     setprecision(BigFloat, prec)
     tol = big(2.)^(-400)
     println("Prec=$(prec) log_tol=$(Float64(log2(tol)))")
