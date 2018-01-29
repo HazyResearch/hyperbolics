@@ -470,8 +470,11 @@ function compute_d(u,l,n)
     
     println("\t\t $(Float64.(norm(u)^2)) -- $(Float64(2*l*alpha)) -- $(Float64(l*(1-alpha)/sum(u2))) $(Float64.(1-alpha)) $(Float64(vecnorm(u1-u2)))")
     println("\t\t $(Float64(2*sum(u)/norm(u)^2)) $(Float64.( (1-alpha)/alpha ) ) $(Float64.(alpha))")
-    d     = (u+big(1))/(big(1.)+alpha)
-    dv    = (u-alpha*ones(BigFloat, n))/(big(1.)+alpha)
+
+    #HACK
+    d     = max.( (u+big(1))/(big(1.)+alpha), 1.)
+    #dv    = (u-alpha*ones(BigFloat, n))/(big(1.)+alpha)
+    dv     = d - 1 
     println("sanity=$(Float64(vecnorm(u - (dv + alpha*d)))) [$(Float64(dot(d,u))) $(Float64(l))]  $(Float64(dot(dv,u))) $(Float64(l*alpha))")  
     return d, dv
 end
@@ -513,7 +516,6 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, simple=tr
     d,dv  = compute_d(u,lambda,n)
     println("DEBUG")
     println("D1=$(Float64.(d))\n")
-   
     println("Dv=$(Float64.(dv))\n")
 
     inv_d = big(1)./d
