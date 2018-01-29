@@ -35,7 +35,8 @@ function hess(_A)
         v[j]       = 0.
         v[j+1:n]   = x
         v[j+1]    += sign(A[j+1,j])*norm(x)
-        v         /= norm(v[j+1:n])
+        nv         = norm(v[j+1:n])
+        v         /= nv > big(0.) ? nv : big(1.) 
         u          = v[j+1:n]
         
         U  -= 2*v*(v'U) # (I-2*v*v')*U
@@ -271,7 +272,7 @@ function inverse_power_T_single(a,b,mu, tol; T=128)
         end
         if k % 16 == 0 print(".") end 
     end
-    println("\t\t Single Eigenvector Differences $(Float64(log(vecnorm(tri_multiply(a,b,x) - x*mu)))) $(Float64(err))")
+    println("\t\t Single Eigenvector Differences $(Float64(log(vecnorm(tri_multiply(a,b,x) - x*mu)))) $(Float64(err)) ~$(Float64(mu))")
     return mu,x
 end
 
@@ -315,7 +316,7 @@ function inverse_power_T(a,b,mu, m, tol; T=100, o_tol=big(1e-8))
             l       = dot(y[:,i],x[:,i])
             mus[i]  = abs(l) > tol ? mus[i] + big(1.)/l : mus[i]
             #err[i]  = abs(l) > tol ? norm(y[:,i] - l * x[:,i]) / norm(y[:,i]) : big(0.0)
-            err[i]  = abs(l) > tol ? norm(y[:,i] - l * x[:,i]) / norm(y[:,i]) : big(0.0)
+            err[i]  = abs(norm(y[:,i])) > tol ? norm(y[:,i] - l * x[:,i]) / norm(y[:,i]) : big(0.0) 
         end
     end
     step()
@@ -443,39 +444,48 @@ function k_largest(A,_k,tol)
     return (_vals, eig_vecs, T)
 end
 
-function quick_serialize(data_set, fname, scale, prec)
-    setprecision(BigFloat, prec)
-    G = dp.load_graph(data_set)
-    H = gh.build_distance(G, scale, num_workers=num_workers) 
-    n,_ = size(H)
-    Z = (cosh.(big.(H))-1)./2
-    (T,U) = hess(A)
-    println("\t Tridiagonal formed $(Float64(vecnorm(U*A*U' - T)))")
-    save(fname, "T", T, "U", U)
-end
+## function quick_serialize(data_set, fname, scale, prec)
+##     setprecision(BigFloat, prec)
+##     G = dp.load_graph(data_set)
+##     H = gh.build_distance(G, scale, num_workers=num_workers) 
+##     n,_ = size(H)
+##     Z = (cosh.(big.(H))-1)./2
+##     (T,U) = hess(A)
+##     println("\t Tridiagonal formed $(Float64(vecnorm(U*A*U' - T)))")
+##     save(fname, "T", T, "U", U)
+## end
 
 function compute_d(u,l,n)
-    #w = sqrt(2*l).*u
-    #c = -2*(sum(w))/(norm(w)^2)
-    #b = (c+sqrt(c^2+4))/big(2.)
-    #d = (u*b*sqrt(2*l)+1)./(1+b^2)
+
+    assert( minimum(u) >= big(0.) )
+    b     = big(1.) + sum(u)^2/(l*norm(u)^2)
+    alpha = b - sqrt(b^2-big(1.))
+    # This is the other root.
+    #alpha = b + sqrt(b^2 - big(1.)) # NOTE THIS IS THE WRONG ROOT
     
-    b  = big(1.) + (big(1.) + sum(u)^2)/(l*norm(u)^2)
-    #println("Compute_d $(b)\n\n $((big(1.) + sum(u)^2))\n\n $((l*norm(u)^2))")
-    alpha = b - sqrt(b^2-sum(1.))
-    u     = u/(sum(u))*l*(big(1.)-alpha)
-    d     = (u+1)/(big(1.)+alpha)
-    return d, (u-alpha*ones(BigFloat, n))/(1+alpha)
+    println("u=$(Float64.(u)) $( Float64.((1-alpha)^2/alpha) ) $(Float64.(2/l*sum(u)^2/norm(u)^2)) $(Float64.(sum(u)))")
+    u1    = u*(l*(big(1.)-alpha))/sum(u)
+    u2    = u*(sqrt(2*l*alpha))/norm(u)
+    u     = u1
+    
+    println("\t\t $(Float64.(norm(u)^2)) -- $(Float64(2*l*alpha)) -- $(Float64(l*(1-alpha)/sum(u2))) $(Float64.(1-alpha)) $(Float64(vecnorm(u1-u2)))")
+    println("\t\t $(Float64(2*sum(u)/norm(u)^2)) $(Float64.( (1-alpha)/alpha ) ) $(Float64.(alpha))")
+    d     = (u+big(1))/(big(1.)+alpha)
+    dv    = (u-alpha*ones(BigFloat, n))/(big(1.)+alpha)
+    println("sanity=$(Float64(vecnorm(u - (dv + alpha*d)))) [$(Float64(dot(d,u))) $(Float64(l))]  $(Float64(dot(dv,u))) $(Float64(l*alpha))")  
+    return d, dv
 end
     
-function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(1e-2)^(60), simple=true)
+function serialize(data_set, fname, scale, k_max, prec, num_workers=4, simple=true)
     setprecision(BigFloat, prec)
+    tol = big(2.)^(-400)
+    println("Prec=$(prec) log_tol=$(Float64(log2(tol)))")
     G = dp.load_graph(data_set)
-    H = gh.build_distance(G, scale, num_workers=num_workers) 
+    H = gh.build_distance(G, 1.0, num_workers=num_workers)
     n,_ = size(H)
-    Z = (cosh.(big.(H))-1)./2
-
-    println("First pass. All Eigenvectors.")
+    Z = (cosh.(scale*big.(H))-1)./big(2.)
+    
+    println("First pass. All Eigenvectors. rt_err=$(vecnorm(Float64.(acosh.(1+2*Z)/scale)-H)) $(any(isnan.(Z)))")
     tic()
     eval, evec, T = simple ? k_largest_simple(Z, 1, tol) : k_largest(Z,1,tol)  
     lambda = eval[1]
@@ -501,6 +511,10 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(1
     #M = -(D * Z * D - ones(n) * v' - v * ones(n)')/2;
     #M = (M + M')/2;
     d,dv  = compute_d(u,lambda,n)
+    println("DEBUG")
+    println("D1=$(Float64.(d))\n")
+   
+    println("Dv=$(Float64.(dv))\n")
 
     inv_d = big(1)./d
     D     = diagm(d);
@@ -508,7 +522,6 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(1
     # TODO: Do this faster!
     Q     = (I-ones(BigFloat, n,n)/big(n))*diagm(inv_d)
     G  = -Q*Z*Q'/2
-
     ## M0 = -(diagm(inv_d) * Z * diagm(inv_d) - big.(ones(n)) * v' - v * big.(ones(n))')/2;
     ## M0 = (M0 + M0')/big(2);   
     ## println("DIFFERENCES = $(Float64(vecnorm(M0 - G)))")
@@ -521,7 +534,7 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, tol=big(1
     
     JLD.save(fname,"T",T,"M",M,"M_val", M_val, "M_eigs", M_eigs, "M_T", M_T )
     println("\t Saved into $(fname)")
-    return (H,M_val, M_eigs)
+    return (H,M_val, M_eigs, M_T)
 end
 
 
@@ -551,7 +564,7 @@ function k_largest_simple_block(A,_k,tol)
     matrix_blocks = collect(1:(n-1))[abs.(diag(T,1)) .< tol]
     println("\t Tridiagonal formed $(Float64(vecnorm(U*A*U' - T)))")
     println("\t Number of small off-diagonal elements=$( sum(abs.(diag(T,1)) .< tol))")
-    println("\t <blocks> Matrix Blocks = $(matrix_blocks)")
+    println("\t <blocks> Matrix Blocks = $(matrix_blocks) $(any(isnan.(A))) $(any(isnan.(T)))")
     toc()
 
     _eigs  = zeros(T)
@@ -571,13 +584,13 @@ function k_largest_simple_block(A,_k,tol)
             _det = _T[1,1]*_T[2,2] - _T[2,1]^2
             _vals[_start]  = tr/2 + sqrt(tr^2/4 - _det)
             _vals[_end  ]  = tr/2 - sqrt(tr^2/4 - _det)
-            if abs(T[1,2]) < tol
+            if abs(_T[1,2]) < tol
                 _eigs[_start,_start] = 1
                 _eigs[_end  ,_end]   = 1
             else
                 _eigs[_start,_start] = _vals[_start] - _T[2,2]
                 _eigs[_start,_end]   = _vals[_end  ] - _T[2,2]
-                _eigs[_end, idx   ]  = T[1,2]
+                _eigs[_end, idx   ]  = _T[1,2]
             end
         else
             k                  = min(_k,length(idx))
@@ -597,13 +610,14 @@ function k_largest_simple_block(A,_k,tol)
     println("\t\t $(Float64(vecnorm(A))) $(Float64(vecnorm(T)))")
 
 
-    # HACK. REMOVE
+    # Note that if k < block size, we ee will not contain that vector
+    # TODO: Wrap this in a validation section!
+    # Also, use symmetric tridiagonal
     a_eigs=eigs(Float64.(A))[1]
-    t_eigs=eigs(Float64.(T))[1]
+    t_eigs=eigs(SymTridiagonal(Float64.(diag(T)), Float64.(diag(T,1))))[1]
     s_idx =sortperm(Float64.(abs.(_vals)), rev=true)
-    println("\t\t HACK REMOVE ME $(repr(a_eigs)) $(length(a_eigs)) $(rank(Float64.(A))) $(size(A))")
-    println("\t\t t_eigs=$(t_eigs)")
-    println("\t\t ee    =$(Float64.(_vals[s_idx]))")
-    
+    println("\t\t Low-Precision Eigenvalues $(repr(a_eigs)) $(length(a_eigs)) $(rank(Float64.(A))) $(size(A))")
+    println("\t\t t_eigs=$(t_eigs) $(length(t_eigs))")
+    println("\t\t ee    =$(Float64.(_vals[s_idx])))")
     return (_vals, eig_vecs, T)
 end

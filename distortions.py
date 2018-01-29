@@ -33,13 +33,15 @@ def distortion(H1, H2, n, jobs):
     bad = sum(dists[:,3])
     return (wc, avg, bad)
 
-def map_row(H1, H2, n, row):
+def map_row(H1, H2, n, row, verbose=False):
     edge_mask = (H1 == 1.0)
     m         = np.sum(edge_mask).astype(int)
-    #print(f"\t There are {m} edges for {row} of {n}")
+    if verbose: print(f"\t There are {m} edges for {row} of {n}")
     d = H2
     sorted_dist = np.argsort(d)
-    #print(f"\t {sorted_dist[0:5]} vs. {np.array(range(n))[edge_mask]}")
+    if verbose:
+        print(f"\t {sorted_dist[0:5]} vs. {np.array(range(n))[edge_mask]}")
+        print(f"\t {d[sorted_dist[0:5]]} vs. {H1[edge_mask]}")
     precs       = np.zeros(m)    
     n_correct   = 0
     j = 0
