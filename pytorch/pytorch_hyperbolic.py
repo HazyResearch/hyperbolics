@@ -106,7 +106,7 @@ class Hyperbolic_Emb(nn.Module):
         idx, values = _x
         wi = torch.index_select(self.w, 0, idx[:,0])
         wj = torch.index_select(self.w, 0, idx[:,1])
-        if self.learn_scale: _values = values*(1+torch.abs(self.scale)) # max(self.scale, 1.0)
+        _values = values*(1+torch.abs(self.scale)) if self.learn_scale else values # max(self.scale, 1.0)
         return torch.sum((dist(wi,wj) - _values)**2)/self.pairs
 
     def normalize(self):
