@@ -5,6 +5,7 @@ import networkx as nx
 import scipy.sparse.csgraph as csg
 import distortions as dis
 import graph_helpers as gh
+import mds_warmstart 
 # This describes a hyperbolic optimizer in Pytorch. It requires two modifications:
 # 
 # * When declaring a parameter, one uses a class called "Hyperbolic Parameter". It assumes that the _last_ dimension is in the disk. E.g., a tensor of size n x m x d means that you have n x m elements of H_D. d >= 2.
@@ -90,13 +91,14 @@ class Hyperbolic_Lines(nn.Module):
         return
 
 class Hyperbolic_Emb(nn.Module):
-    def __init__(self, n, d, project=True):
+    def __init__(self, n, d, project=True, initialize=None):
         super(Hyperbolic_Emb, self).__init__()
         self.n = n
         self.d = d
         self.pairs = n*(n-1)/2. 
         self.project   = project
-        self.w = Hyperbolic_Parameter(h_proj( 1e-3 * torch.rand(n, d).double() ) )
+        x   = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None else initialize 
+        self.w = Hyperbolic_Parameter(x)
         
     def loss(self, _x):
         idx, values = _x
@@ -191,9 +193,10 @@ class GraphRowSampler(torch.utils.data.Dataset):
 @argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
 @argh.arg("--log-name", help="Log to a file")
 @argh.arg("--use-sgd", help="Force using plan SGD")
+@argh.arg("-w", "--warm-start", help="Warm start the model with MDS")
 def learn(dataset, rank=2, scale=2., learning_rate=1e-2, tol=1e-8, epochs=100,
           use_yellowfin=False, use_sgd=False, print_freq=1, model_save_file=None, batch_size=16,
-          num_workers=None, lazy_generation=False, log_name=None):
+          num_workers=None, lazy_generation=False, log_name=None, warm_start=False):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
@@ -223,10 +226,13 @@ def learn(dataset, rank=2, scale=2., learning_rate=1e-2, tol=1e-8, epochs=100,
         logging.info(f"Built distance matrix with {scale} factor")
         idx  = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
         vals = torch.DoubleTensor([Z[i,j] for i in range(n) for j in range(i+1, n)])
-        z  = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True, pin_memory=True)
+        z  = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True, pin_memory=torch.cuda.is_available())
         logging.info("Built data loader")
-    
-    m   = cudaify( Hyperbolic_Emb(G.order(), rank) )
+
+    m_init = torch.DoubleTensor(mds_warmstart.get_model(int(dataset))[1]) if warm_start else None
+    logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
+
+    m   = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init) )
     logging.info(f"Constucted model with rank={rank}")
 
     from yellowfin import YFOptimizer
