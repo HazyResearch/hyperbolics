@@ -490,7 +490,7 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, simple=tr
     eval, evec, T = simple ? k_largest_simple(Z, 1, tol) : k_largest(Z,1,tol)  
     lambda = eval[1]
     u      = evec[:,1]
-    println("lambda = $(convert(Float64,lambda))")
+    println("lambda = $(convert(Float64,lambda)) test=$(Float64(vecnorm(Z*u - lambda*u)))")
     toc()
 
     # u is the Perron vector, so it should be component-wise positive.
