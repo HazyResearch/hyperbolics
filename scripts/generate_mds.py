@@ -5,7 +5,7 @@ def work_command(run_name, dataset, rank, scale, prec, tol):
     exec_str = f" julia mds-scale.jl {dataset} {rank} {scale} {prec} {tol} > {run_stem}.log"
     return exec_str
 
-def get_scale_dict(col=1, scale_file="scripts/scale_eps_1.txt"):
+def get_scale_dict(scale_file):
      with open(scale_file) as fh: ls = fh.readlines()
      d = dict()
      for l in ls:
@@ -18,9 +18,10 @@ def get_scale_dict(col=1, scale_file="scripts/scale_eps_1.txt"):
 @argh.arg("--prec", help="Precision")
 @argh.arg("--max-k", help="Max-k")
 @argh.arg("--nParallel", help="Parallel")
-def tri(run_name, prec="2048", max_k=200, nParallel=6):
+@argh.arg("--scale-file", help="Scale File")
+def tri(run_name, prec="2048", max_k=200, nParallel=6, scale_file="scripts/scale_eps_1.txt"):
     os.mkdir(run_name)
-    scale_dict = get_scale_dict()
+    scale_dict = get_scale_dict(scale_file)
     cmds       = list()
     for dataset in range(1,13):
         scale = scale_dict[str(dataset)]
