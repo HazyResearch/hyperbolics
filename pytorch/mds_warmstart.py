@@ -47,7 +47,7 @@ def get_model(dataset, scale = 1.0):
     # Recover our points
     (emb_d, points_d) = np.linalg.eig(G)
     good_idx = emb_d > 0
-    our_points = points_d[:,good_idx]@np.diag(np.sqrt(emb_d[good_idx]))
+    our_points = np.real(points_d[:,good_idx]@np.diag(np.sqrt(emb_d[good_idx])))
 
     # Just for evaluation
     (Z,Hrec) = data_rec(our_points)

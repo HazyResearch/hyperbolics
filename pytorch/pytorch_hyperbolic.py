@@ -195,7 +195,7 @@ class GraphRowSampler(torch.utils.data.Dataset):
 @argh.arg("--use-sgd", help="Force using plan SGD")
 @argh.arg("-w", "--warm-start", help="Warm start the model with MDS")
 def learn(dataset, rank=2, scale=2., learning_rate=1e-2, tol=1e-8, epochs=100,
-          use_yellowfin=False, use_sgd=False, print_freq=1, model_save_file=None, batch_size=16,
+          use_yellowfin=False, use_sgd=True, print_freq=1, model_save_file=None, batch_size=16,
           num_workers=None, lazy_generation=False, log_name=None, warm_start=False):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
