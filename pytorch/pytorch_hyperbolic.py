@@ -91,7 +91,7 @@ class Hyperbolic_Lines(nn.Module):
         return
 
 class Hyperbolic_Emb(nn.Module):
-    def __init__(self, n, d, project=True, initialize=None):
+    def __init__(self, n, d, project=True, initialize=None, learn_scale=False):
         super(Hyperbolic_Emb, self).__init__()
         self.n = n
         self.d = d
@@ -99,11 +99,14 @@ class Hyperbolic_Emb(nn.Module):
         self.project   = project
         x   = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None else initialize 
         self.w = Hyperbolic_Parameter(x)
-        
+        self.scale = nn.Parameter( 1e-3*torch.randn(1).double() )
+        self.learn_scale = learn_scale
+
     def loss(self, _x):
         idx, values = _x
         wi = torch.index_select(self.w, 0, idx[:,0])
         wj = torch.index_select(self.w, 0, idx[:,1])
+        if self.learn_scale: values *= self.learn_scale
         return torch.sum((dist(wi,wj) - values)**2)/self.pairs
 
     def normalize(self):
@@ -194,9 +197,10 @@ class GraphRowSampler(torch.utils.data.Dataset):
 @argh.arg("--log-name", help="Log to a file")
 @argh.arg("--use-sgd", help="Force using plan SGD")
 @argh.arg("-w", "--warm-start", help="Warm start the model with MDS")
-def learn(dataset, rank=2, scale=2., learning_rate=1e-2, tol=1e-8, epochs=100,
+@argh.arg("--learn-scale", help="Learn scale")
+def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
           use_yellowfin=False, use_sgd=True, print_freq=1, model_save_file=None, batch_size=16,
-          num_workers=None, lazy_generation=False, log_name=None, warm_start=False):
+          num_workers=None, lazy_generation=False, log_name=None, warm_start=False, learn_scale=False):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
@@ -232,7 +236,7 @@ def learn(dataset, rank=2, scale=2., learning_rate=1e-2, tol=1e-8, epochs=100,
     m_init = torch.DoubleTensor(mds_warmstart.get_model(int(dataset))[1]) if warm_start else None
     logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
 
-    m   = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init) )
+    m   = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale) )
     logging.info(f"Constucted model with rank={rank}")
 
     from yellowfin import YFOptimizer
