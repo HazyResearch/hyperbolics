@@ -106,8 +106,8 @@ class Hyperbolic_Emb(nn.Module):
         idx, values = _x
         wi = torch.index_select(self.w, 0, idx[:,0])
         wj = torch.index_select(self.w, 0, idx[:,1])
-        if self.learn_scale: values *= self.learn_scale
-        return torch.sum((dist(wi,wj) - values)**2)/self.pairs
+        if self.learn_scale: _values = values*(1+self.scale) # max(self.scale, 1.0)
+        return torch.sum((dist(wi,wj) - _values)**2)/self.pairs
 
     def normalize(self):
         if self.project: self.w.proj()
@@ -268,7 +268,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
     logging.info(f"Distortion avg={avg_dist} wc={dist_max} nan_elements={nan_elements}")  
     mapscore = dis.map_score(H/scale, Hrec, n, 2) 
     logging.info(f"MAP = {mapscore}")   
-
+    logging.info(f"scale={m.scale.data[0]}")
 
 if __name__ == '__main__':
     _parser = argh.ArghParser() 
