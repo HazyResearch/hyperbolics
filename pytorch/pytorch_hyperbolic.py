@@ -180,7 +180,20 @@ class GraphRowSampler(torch.utils.data.Dataset):
 
     def __repr__(self):
         return f"DATA: {self.n} points with scale {self.scale}"
-        
+    
+#
+# DATA Diagnostics
+#
+def major_stats(G, scale, n, m, lazy_generation, Z):
+    H    = build_distance(G, scale, num_workers=num_workers) if lazy_generation else Z
+    Hrec = dist_matrix(m.w.data).cpu().numpy()
+    logging.info("Compare matrices built")  
+    dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, 2)
+    logging.info(f"Distortion avg={avg_dist} wc={dist_max} nan_elements={nan_elements}")  
+    mapscore = dis.map_score(H, Hrec, n, 2) 
+    logging.info(f"MAP = {mapscore}")   
+    logging.info(f"scale={m.scale.data[0]}")
+
                                 
 @argh.arg("dataset", help="dataset number")
 @argh.arg("-r", "--rank", help="Rank to use")
@@ -191,6 +204,7 @@ class GraphRowSampler(torch.utils.data.Dataset):
 @argh.arg("--epochs", help="number of steps in optimization")
 @argh.arg("--print-freq", help="print loss this every this number of steps")
 @argh.arg("--model-save-file", help="Save model file")
+@argh.arg("--load-model-file", help="Load model file")
 @argh.arg("--batch-size", help="Batch size")
 @argh.arg("--num-workers", help="Number of workers for loading. Default is to use all cores")
 @argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
@@ -198,9 +212,10 @@ class GraphRowSampler(torch.utils.data.Dataset):
 @argh.arg("--use-sgd", help="Force using plan SGD")
 @argh.arg("-w", "--warm-start", help="Warm start the model with MDS")
 @argh.arg("--learn-scale", help="Learn scale")
+@argh.arg("--checkpoint-freq", help="Checkpoint Frequency (Expensive)")
 def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
-          use_yellowfin=False, use_sgd=True, print_freq=1, model_save_file=None, batch_size=16,
-          num_workers=None, lazy_generation=False, log_name=None, warm_start=False, learn_scale=False):
+          use_yellowfin=False, use_sgd=True, print_freq=1, model_save_file=None, load_model_file=None, batch_size=16,
+          num_workers=None, lazy_generation=False, log_name=None, warm_start=False, learn_scale=False, checkpoint_freq=1000):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
@@ -236,9 +251,14 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
     m_init = torch.DoubleTensor(mds_warmstart.get_model(int(dataset))[1]) if warm_start else None
     logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
 
-    m   = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale) )
-    logging.info(f"Constucted model with rank={rank}")
-
+    if load_model_file is not None:
+        m = cudaify( torch.load(load_model_file) )
+    else:
+        m = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale) )
+        m.epoch = 0
+    logging.info(f"Constucted model with rank={rank} and epochs={m.epoch}")
+    
+                
     from yellowfin import YFOptimizer
     opt = YFOptimizer(m.parameters()) if use_yellowfin else torch.optim.Adagrad(m.parameters()) # 
     if use_sgd: opt = torch.optim.SGD(m.parameters(), lr=learning_rate)
@@ -253,22 +273,22 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
                 break
         if i % print_freq == 0:
             logging.info(f"{i} loss={l}")
+        if i % checkpoint_freq == 0:
+            logging.info(f"\n*** Major Checkpoint. Computing Stats and Saving")
+            major_stats(G,scale,n,m, lazy_generation, Z)
+            if model_save_file is not None:
+                logging.info(f"Saving model into {model_save_file}.{m.epoch}") 
+                torch.save(m, f"{model_save_file}-{m.epoch}")
+            logging.info("*** End Major Checkpoint\n")
+        m.epoch += 1
+        
     logging.info(f"final loss={l}")
 
     if model_save_file is not None:
         logging.info(f"Saving model into {model_save_file}") 
-        torch.save(m, model_save_file)
-    #
-    # DATA Diagnostics
-    #
-    H    = build_distance(G, scale, num_workers=num_workers) if lazy_generation else Z
-    Hrec = dist_matrix(m.w.data).cpu().numpy()
-    logging.info("Compare matrices built")  
-    dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, 2)
-    logging.info(f"Distortion avg={avg_dist} wc={dist_max} nan_elements={nan_elements}")  
-    mapscore = dis.map_score(H/scale, Hrec, n, 2) 
-    logging.info(f"MAP = {mapscore}")   
-    logging.info(f"scale={m.scale.data[0]}")
+        torch.save(m, f"{model_save_file}-final")
+
+    major_stats(G,scale, n,m, lazy_generation, Z)
 
 if __name__ == '__main__':
     _parser = argh.ArghParser() 
