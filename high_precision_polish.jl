@@ -470,13 +470,17 @@ function compute_d(u,l,n, scale_hack=true)
     dv  = d - 1 
     return (d,dv)
 end
-    
+
+function load_graph(dataset, num_workers=1)
+    G = dp.load_graph(dataset)
+    return gh.build_distance(G, 1.0, num_workers=num_workers)
+end
+
 function serialize(data_set, fname, scale, k_max, prec, num_workers=4, simple=true)
     setprecision(BigFloat, prec)
     tol = big(2.)^(-400)
     println("Prec=$(prec) log_tol=$(Float64(log2(tol)))")
-    G = dp.load_graph(data_set)
-    H = gh.build_distance(G, 1.0, num_workers=num_workers)
+    H = load_graph(dataset, num_workers=num_workers)
     n,_ = size(H)
     Z = (cosh.(scale*big.(H))-1)./big(2.)
     
@@ -514,7 +518,7 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, simple=tr
     toc()
     
     
-    JLD.save(fname,"T",T,"M",M,"M_val", M_val, "M_eigs", M_eigs, "M_T", M_T )
+    JLD.save(fname,"T",T,"M",M,"M_val", M_val, "M_eigs", M_eigs, "M_T", M_T, "H", H, "prec", prec, "dataset", dataset, "scale", scale )
     println("\t Saved into $(fname)")
     return (H,M_val, M_eigs, M_T)
 end

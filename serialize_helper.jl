@@ -32,6 +32,8 @@ function parse_commandline()
         "--low-precision"
            help="Do low precision solves too"
            default = false
+        "--load-file"
+           help="load a file"
     end
 
     return parse_args(s)
@@ -61,7 +63,7 @@ function compute_metrics(H, Xrec, name, parsed_args)
     
     dist_max, dist, good = dis.distortion(H, Hrec, n, 2)
     println("\tDistortion avg/max, bad = $(convert(Float64,dist)), $(convert(Float64,dist_max)), $(convert(Float64,good))")
-    mapscore = dis.map_score(Int64.(round.(H/scale)), Hrec, n, 2) 
+    mapscore = dis.map_score(Int64.(H), Hrec, n, 2) 
     println("\tMAP = $(mapscore)")
     d   = Dict("MAP" => Float64(mapscore), "avg_d" => Float64(dist), "max_d" => Float64(dist_max), "good" => Float64(good))
     ret = Dict("experiment" => name, "values" => d, "rec_size" => size(Xrec) )
@@ -98,9 +100,19 @@ function main()
     for (arg,val) in parsed_args
         println("  $arg  =>  $val")
     end
-    (H,_vals,_eigs,T) = HP.serialize(parsed_args["dataset"], parsed_args["out_jld"], parsed_args["scale"],
-                                 parsed_args["max_k"], parsed_args["prec"])
-
+    
+    if parsed_args["load-file"] == nothing
+        (H,_vals,_eigs,T) = HP.serialize(parsed_args["dataset"], parsed_args["out_jld"], parsed_args["scale"],
+                                         parsed_args["max_k"], parsed_args["prec"])
+    else
+        load_file = parsed_args["load-file"]
+        println("Loading File! $(load_file)")
+        setprecision(BigFloat, parsed_args["prec"])
+        f = JLD.load(load_file)
+        (_vals,_eigs,T) = (f["M_val"], f["M_eigs"], f["M_T"])
+        H = HP.load_graph(parsed_args["dataset"])
+        println("Loaded")
+    end
     stat_file = parsed_args["stats-file"]
     prec      = parsed_args["prec"]
     open(stat_file, "w") do f
