@@ -455,28 +455,20 @@ end
 ##     save(fname, "T", T, "U", U)
 ## end
 
-function compute_d(u,l,n)
-
+function compute_d(u,l,n, scale_hack=true)
     assert( minimum(u) >= big(0.) )
-    b     = big(1.) + sum(u)^2/(l*norm(u)^2)
-    alpha = b - sqrt(b^2-big(1.))
-    # This is the other root.
-    #alpha = b + sqrt(b^2 - big(1.)) # NOTE THIS IS THE WRONG ROOT
+    b       = big(1.) + sum(u)^2/(l*norm(u)^2)
     
-    println("u=$(Float64.(u)) $( Float64.((1-alpha)^2/alpha) ) $(Float64.(2/l*sum(u)^2/norm(u)^2)) $(Float64.(sum(u)))")
-    u1    = u*(l*(big(1.)-alpha))/sum(u)
-    u2    = u*(sqrt(2*l*alpha))/norm(u)
-    u     = u1
-    
-    println("\t\t $(Float64.(norm(u)^2)) -- $(Float64(2*l*alpha)) -- $(Float64(l*(1-alpha)/sum(u2))) $(Float64.(1-alpha)) $(Float64(vecnorm(u1-u2)))")
-    println("\t\t $(Float64(2*sum(u)/norm(u)^2)) $(Float64.( (1-alpha)/alpha ) ) $(Float64.(alpha))")
-
-    #HACK
-    d     = max.( (u+big(1))/(big(1.)+alpha), 1.)
-    #dv    = (u-alpha*ones(BigFloat, n))/(big(1.)+alpha)
-    dv     = d - 1 
-    println("sanity=$(Float64(vecnorm(u - (dv + alpha*d)))) [$(Float64(dot(d,u))) $(Float64(l))]  $(Float64(dot(dv,u))) $(Float64(l*alpha))")  
-    return d, dv
+    alpha = b - sqrt(b^2-1.)
+    v   = u*(l*(1.-alpha))/sum(u)
+    d   = (v+1.)/(1.+alpha)
+    d_min = minimum(d)
+    if d_min < 1
+        println("\t\t\t Warning: Noisy d_min correction used.")
+        d/=d_min
+    end
+    dv  = d - 1 
+    return (d,dv)
 end
     
 function serialize(data_set, fname, scale, k_max, prec, num_workers=4, simple=true)
@@ -496,23 +488,11 @@ function serialize(data_set, fname, scale, k_max, prec, num_workers=4, simple=tr
     println("lambda = $(convert(Float64,lambda)) test=$(Float64(vecnorm(Z*u - lambda*u)))")
     toc()
 
-    # u is the Perron vector, so it should be component-wise positive.
+    # u is the Perron vector, so it should be the same sign.
+    # Wlog, we consider it to be negative.
     u = u[1] < 0 ? -u : u
     println("Perron = $(Float64.(minimum(u)))")
 
-    #
-    # TODO. Update notation to match paper.
-    # 
-    ## b     = big(1) + sum(u)^2/(lambda*u'*u);
-    ## alpha = b-sqrt(b^2-big(1));
-    ## u_s   = u./(sum(u))*lambda*(big(1)-alpha);
-    ## d     = (u_s+big(1))./(big(1)+alpha);
-    ## dinv  = big(1)./d;
-    ## v     = diagm(dinv)*(u_s.-alpha)./(big(1)+alpha);
-    ## D     = big.(diagm(dinv));
-
-    #M = -(D * Z * D - ones(n) * v' - v * ones(n)')/2;
-    #M = (M + M')/2;
     d,dv  = compute_d(u,lambda,n)
     println("DEBUG")
     println("D1=$(Float64.(d))\n")
