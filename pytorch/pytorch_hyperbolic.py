@@ -100,6 +100,7 @@ class Hyperbolic_Emb(nn.Module):
         if initialize is not None: logging.info(f"Initializing {np.any(np.isnan(initialize.numpy()))}")
         x   = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None  else initialize 
         self.w = Hyperbolic_Parameter(x)
+        logging.info(torch.norm(self.w.data - x))
         self.scale = nn.Parameter( 1e-3*torch.randn(1).double() )
         self.learn_scale = learn_scale
 
