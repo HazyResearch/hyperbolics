@@ -2,6 +2,8 @@ import data_prep as dp
 import pytorch.graph_helpers as gh
 import numpy as np
 import distortions as dis
+import torch
+
 def compute_d(u,l,n):
     assert( np.min(u) >= 0. )
     b       = 1. + sum(u)**2/(l*np.linalg.norm(u)**2)
@@ -53,3 +55,11 @@ def get_model(dataset, scale = 1.0):
     (Z,Hrec) = data_rec(our_points)
     print(f"Map Score {dis.map_score(H/scale, Hrec, n, 2)}")
     return (H,our_points)
+
+def get_normalized_hyperbolic(model):
+    x   = torch.DoubleTensor(model)
+    ds  = torch.norm(x,2,1)
+    ds2 = ds**2
+    # need to map \|x\|^2 = \frac{\|y\|^2}{1-\|y\|^2} => \|y\| = \frac{\|x\|^2}{1+\|x\|^2}
+    new_norm = ds/(1+ds)
+    return torch.diag(new_norm/ds) @ x

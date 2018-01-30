@@ -12,12 +12,10 @@ class Hyperbolic_Parameter(nn.Parameter):
         if project: ret.proj()
         ret.project = project
         ret.data    = data
-        logging.info(data.size())
         return ret
 
     def __init__(self, x):
         super (nn.Parameter, self).__init__(self)
-        logging.info(x)
         self.data    = x
 
     def modify_grad_inplace(self):
