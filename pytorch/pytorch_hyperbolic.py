@@ -248,12 +248,14 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
         z  = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True, pin_memory=torch.cuda.is_available())
         logging.info("Built data loader")
 
-    m_init = torch.DoubleTensor(mds_warmstart.get_model(int(dataset))[1]) if warm_start else None
-    logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
 
     if load_model_file is not None:
+        logging.info(f"Loading {load_model_file}...")
         m = cudaify( torch.load(load_model_file) )
     else:
+        m_init = torch.DoubleTensor(mds_warmstart.get_model(int(dataset))[1]) if warm_start else None
+        logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
+
         m = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale) )
         m.epoch = 0
     logging.info(f"Constucted model with rank={rank} and epochs={m.epoch}")
