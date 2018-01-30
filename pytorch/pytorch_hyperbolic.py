@@ -101,7 +101,7 @@ class Hyperbolic_Emb(nn.Module):
         x   = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None  else initialize[0:n,0:d]
         self.w = Hyperbolic_Parameter(x)
         logging.info(torch.norm(self.w.data - x))
-        self.scale = nn.Parameter( torch.abs(1e-3*torch.randn(1).double()) )
+        self.scale = nn.Parameter( torch.DoubleTensor([1e-1]))
         self.learn_scale = learn_scale
 
     def loss(self, _x):
