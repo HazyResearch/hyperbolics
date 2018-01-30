@@ -7,14 +7,13 @@ import random
 
 
 class Hyperbolic_Parameter(nn.Parameter):
-    def __init__(self, project=True):
-        super(Hyperbolic_Parameter,self).__init__()
-        if project: self.proj()
-            
-    def __init__(self, x, project=True):
-        super(Hyperbolic_Parameter,self).__init__(x)
-        if project: self.proj()
-             
+    def __new__(cls, data=None, requires_grad=True, project=False):
+        ret =  super(nn.Parameter, cls).__new__(cls, data, requires_grad=requires_grad)
+        if project: ret.proj()
+        ret.project = project
+        ret.data    = data
+        return ret
+    
     def modify_grad_inplace(self):
         d        = self.data.dim() 
         d_p      = self.grad.data
@@ -50,3 +49,5 @@ class Hyperbolic_Parameter(nn.Parameter):
             if isinstance(p,Hyperbolic_Parameter): 
                 p.modify_grad_inplace()
 
+    def __repr__(self):
+        return 'Hyperbolic parameter containing:' + self.data.__repr__()

@@ -134,6 +134,7 @@ def cu_var(x, requires_grad=None, volatile=False):
 def cudaify(x):            return x.cuda() if torch.cuda.is_available() else x
 
 def step(hm, opt, data):
+    hm.train(True)
     opt.zero_grad()
     loss = hm.loss(cu_var(data, requires_grad=False))
     loss.backward()
@@ -185,6 +186,7 @@ class GraphRowSampler(torch.utils.data.Dataset):
 # DATA Diagnostics
 #
 def major_stats(G, scale, n, m, lazy_generation, Z):
+    m.train(False)
     H    = build_distance(G, scale, num_workers=num_workers) if lazy_generation else Z
     Hrec = dist_matrix(m.w.data).cpu().numpy()
     logging.info("Compare matrices built")  
@@ -252,6 +254,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
     if load_model_file is not None:
         logging.info(f"Loading {load_model_file}...")
         m = cudaify( torch.load(load_model_file) )
+        logging.info(f"Loaded scale {m.scale.data[0]} {torch.sum(m.w.data)}")
     else:
         m_init = torch.DoubleTensor(mds_warmstart.get_model(int(dataset))[1]) if warm_start else None
         logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
@@ -279,16 +282,16 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
             logging.info(f"\n*** Major Checkpoint. Computing Stats and Saving")
             major_stats(G,scale,n,m, lazy_generation, Z)
             if model_save_file is not None:
-                logging.info(f"Saving model into {model_save_file}.{m.epoch}") 
-                torch.save(m, f"{model_save_file}-{m.epoch}")
+                logging.info(f"Saving model into {model_save_file}-{m.epoch} {torch.sum(m.w.data)} ") 
+                torch.save(m, f"{model_save_file}.{m.epoch}")
             logging.info("*** End Major Checkpoint\n")
         m.epoch += 1
         
     logging.info(f"final loss={l}")
 
     if model_save_file is not None:
-        logging.info(f"Saving model into {model_save_file}") 
-        torch.save(m, f"{model_save_file}-final")
+        logging.info(f"Saving model into {model_save_file}-final {torch.sum(m.w.data)} {m.scale.data[0]}") 
+        torch.save(m, f"{model_save_file}.final")
 
     major_stats(G,scale, n,m, lazy_generation, Z)
 
