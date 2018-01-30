@@ -97,11 +97,11 @@ class Hyperbolic_Emb(nn.Module):
         self.d = d
         self.pairs     = n*(n-1)/2. 
         self.project   = project
-        if initialize is not None: logging.info(f"Initializing {np.any(np.isnan(initialize.numpy()))}")
-        x   = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None  else initialize 
+        if initialize is not None: logging.info(f"Initializing {np.any(np.isnan(initialize.numpy()))} {initialize.size()} {d}")
+        x   = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None  else initialize[0:n,0:d]
         self.w = Hyperbolic_Parameter(x)
         logging.info(torch.norm(self.w.data - x))
-        self.scale = nn.Parameter( 1e-3*torch.randn(1).double() )
+        self.scale = nn.Parameter( torch.abs(1e-3*torch.randn(1).double()) )
         self.learn_scale = learn_scale
 
     def loss(self, _x):

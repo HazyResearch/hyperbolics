@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.autograd import Variable
-
+import logging
 import numpy as np, math
 import random
 
@@ -12,8 +12,14 @@ class Hyperbolic_Parameter(nn.Parameter):
         if project: ret.proj()
         ret.project = project
         ret.data    = data
+        logging.info(data.size())
         return ret
-    
+
+    def __init__(self, x):
+        super (nn.Parameter, self).__init__(self)
+        logging.info(x)
+        self.data    = x
+
     def modify_grad_inplace(self):
         d        = self.data.dim() 
         d_p      = self.grad.data

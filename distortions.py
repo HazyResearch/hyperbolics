@@ -21,7 +21,7 @@ def distortion_row(H1, H2, n, row):
                     mc = H1[i]/H2[i]
 
                 good += 1
-    avg /= (good);
+    avg /= good if good > 0 else 1.0
     return (mc, me, avg, n-1-good)
 
 def distortion(H1, H2, n, jobs):
