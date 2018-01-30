@@ -98,10 +98,10 @@ class Hyperbolic_Emb(nn.Module):
         self.pairs     = n*(n-1)/2. 
         self.project   = project
         if initialize is not None: logging.info(f"Initializing {np.any(np.isnan(initialize.numpy()))} {initialize.size()} {(n,d)}")
-        x   = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None  else torch.DoubleTensor(initialize[0:n,0:d])
+        x      = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None  else torch.DoubleTensor(initialize[0:n,0:d])
         self.w = Hyperbolic_Parameter(x)
         logging.info(f"{torch.norm(self.w.data - x)} {x.size()}")
-        self.scale = nn.Parameter( torch.DoubleTensor([1e-1]))
+        self.scale       = nn.Parameter( torch.DoubleTensor([1e-1]))
         self.learn_scale = learn_scale
 
     def loss(self, _x):
@@ -109,7 +109,7 @@ class Hyperbolic_Emb(nn.Module):
         wi = torch.index_select(self.w, 0, idx[:,0])
         wj = torch.index_select(self.w, 0, idx[:,1])
         _values = values*(1+torch.clamp(self.scale,-0.5,1.0)) if self.learn_scale else values 
-        return torch.sum((dist(wi,wj) - _values)**2)/self.pairs
+        return torch.sum(dist(wi,wj) - _values)**2/self.pairs
 
     def normalize(self):
         if self.project: self.w.proj()
@@ -174,7 +174,7 @@ class GraphRowSampler(torch.utils.data.Dataset):
         logging.info(f"{type(self.graph)}")
         
     def __getitem__(self, index):
-        h   = djikstra_wrapper( (self.graph, [index]) )
+        h   = gh.djikstra_wrapper( (self.graph, [index]) )
         idx = torch.LongTensor([ (index, j) for j in range(self.n) if j != index])
         v   = torch.DoubleTensor( [ h[0,j] for j in range(self.n) if j != index] )
         return (idx, v)
@@ -189,7 +189,7 @@ class GraphRowSampler(torch.utils.data.Dataset):
 #
 def major_stats(G, scale, n, m, lazy_generation, Z):
     m.train(False)
-    H    = build_distance(G, scale, num_workers=num_workers) if lazy_generation else Z
+    H    = gh.build_distance(G, scale, num_workers=1) if lazy_generation else Z
     Hrec = dist_matrix(m.w.data).cpu().numpy()
     logging.info("Compare matrices built")  
     dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, 2)
@@ -237,7 +237,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
     n = G.order()
     logging.info(f"Loaded Graph {dataset} with {n} nodes")
 
-    
+    Z = None
     if lazy_generation:
         def collate(ls):
             x, y = zip(*ls)
