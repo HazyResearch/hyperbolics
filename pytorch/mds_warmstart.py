@@ -2,7 +2,7 @@ import data_prep as dp
 import pytorch.graph_helpers as gh
 import numpy as np
 import distortions as dis
-import torch
+import torch, logging
 
 def compute_d(u,l,n):
     assert( np.min(u) >= 0. )
@@ -61,5 +61,7 @@ def get_normalized_hyperbolic(model):
     ds  = torch.norm(x,2,1)
     ds2 = ds**2
     # need to find y s.t. \|x\|^2 = \frac{\|y\|^2}{1-\|y\|^2} => \|y\|^2 = \frac{\|x\|^2}{1+\|x\|^2}
-    new_norm = torch.sqrt(ds/(1+ds))
-    return torch.diag(new_norm/ds) @ x
+    new_norm = torch.sqrt(ds2/(1.0+ds2))/((1+1e-3)*ds)
+    z = torch.diag(new_norm) @ x
+    logging.info(f"nz={torch.max(torch.norm(z,2,1))} input={torch.max(torch.norm(x,2,1))}")
+    return z
