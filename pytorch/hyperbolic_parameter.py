@@ -7,7 +7,7 @@ import random
 
 
 class Hyperbolic_Parameter(nn.Parameter):
-    def __new__(cls, data=None, requires_grad=True, project=False):
+    def __new__(cls, data=None, requires_grad=True, project=True):
         ret =  super(nn.Parameter, cls).__new__(cls, data, requires_grad=requires_grad)
         if project: ret.proj()
         ret.project = project

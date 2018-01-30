@@ -60,6 +60,6 @@ def get_normalized_hyperbolic(model):
     x   = torch.DoubleTensor(model)
     ds  = torch.norm(x,2,1)
     ds2 = ds**2
-    # need to map \|x\|^2 = \frac{\|y\|^2}{1-\|y\|^2} => \|y\| = \frac{\|x\|^2}{1+\|x\|^2}
-    new_norm = ds/(1+ds)
+    # need to find y s.t. \|x\|^2 = \frac{\|y\|^2}{1-\|y\|^2} => \|y\|^2 = \frac{\|x\|^2}{1+\|x\|^2}
+    new_norm = torch.sqrt(ds/(1+ds))
     return torch.diag(new_norm/ds) @ x
