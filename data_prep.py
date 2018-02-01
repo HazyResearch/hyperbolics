@@ -37,11 +37,11 @@ def load_graph(opt):
         G = nx.balanced_tree(3,3)
     elif opt == 13:
         G = nx.balanced_tree(2,2)
-    else:
-        assert(False)
+    elif opt == 14:
         (n,C) = wnp.load_big_component()
         G = nx.Graph(C);
-      
+    else:
+        assert(False)
     # take the largest component
     Gc = max(nx.connected_component_subgraphs(G), key=len)
     n = Gc.order()

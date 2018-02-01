@@ -3,10 +3,11 @@ import pytorch.graph_helpers as gh
 import numpy as np
 import distortions as dis
 import torch, logging
+from math import sqrt
 
 def compute_d(u,l,n):
     assert( np.min(u) >= 0. )
-    b       = 1. + sum(u)**2/(l*np.linalg.norm(u)**2)
+    b       =max(1. + (sum(u)/sqrt(l)*np.linalg.norm(u))**2,1.)
     
     alpha = b - np.sqrt(b**2-1.)
     v   = u*(l*(1.-alpha))/sum(u)
@@ -61,7 +62,7 @@ def get_normalized_hyperbolic(model):
     ds  = torch.norm(x,2,1)
     ds2 = ds**2
     # need to find y s.t. \|x\|^2 = \frac{\|y\|^2}{1-\|y\|^2} => \|y\|^2 = \frac{\|x\|^2}{1+\|x\|^2}
-    new_norm = torch.sqrt(ds2/(1.0+ds2))/((1+1e-3)*ds)
+    new_norm = torch.sqrt(ds2/((1+1e-10)*(1.0+ds2)))/ds
     z = torch.diag(new_norm) @ x
-    logging.info(f"nz={torch.max(torch.norm(z,2,1))} input={torch.max(torch.norm(x,2,1))}")
+    logging.info(f"norm_z={torch.max(torch.norm(z,2,1))} min_norm_ds={torch.min(ds)} input={torch.max(torch.norm(x,2,1))} q={np.any(np.isnan(z.numpy()))}")
     return z

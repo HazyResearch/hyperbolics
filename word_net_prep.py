@@ -1,4 +1,4 @@
-#from nltk.corpus import wordnet as wn
+from nltk.corpus import wordnet as wn
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree
 from scipy.sparse.csgraph import floyd_warshall, connected_components

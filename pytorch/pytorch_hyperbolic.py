@@ -91,7 +91,7 @@ class Hyperbolic_Lines(nn.Module):
         return
 
 class Hyperbolic_Emb(nn.Module):
-    def __init__(self, n, d, project=True, initialize=None, learn_scale=False):
+    def __init__(self, n, d, project=True, initialize=None, learn_scale=False, absolute_loss=False):
         super(Hyperbolic_Emb, self).__init__()
         self.n = n
         self.d = d
@@ -100,19 +100,43 @@ class Hyperbolic_Emb(nn.Module):
         if initialize is not None: logging.info(f"Initializing {np.any(np.isnan(initialize.numpy()))} {initialize.size()} {(n,d)}")
         x      = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None  else torch.DoubleTensor(initialize[0:n,0:d])
         self.w = Hyperbolic_Parameter(x)
-        logging.info(f"{torch.norm(self.w.data - x)} {x.size()}")
-        self.scale       = nn.Parameter( torch.DoubleTensor([1e-1]))
+        self.scale       = nn.Parameter( torch.DoubleTensor([0.0]))
         self.learn_scale = learn_scale
+        self.lo_scale    = -0.9
+        self.hi_scale    = 10.0
+        self.absolute_loss = absolute_loss
+        abs_str = "absolute" if self.absolute_loss else "relative"
+
+        self.exponential_rescale = True
+        exp_str = "exponential" if self.exponential_rescale else "Step Rescale"
+        logging.info(f"{torch.norm(self.w.data - x)} {x.size()} {abs_str} {exp_str}")
+        logging.info(self)
+
+    def step_rescale( self, values ):
+        y = cudaify( torch.ones( values.size() ).double()/(10*self.n) )
+        y[torch.lt( values.data, 5)] = 1.0
+        return Variable(y, requires_grad=False)
+        #return values**(-2)
 
     def loss(self, _x):
         idx, values = _x
         wi = torch.index_select(self.w, 0, idx[:,0])
         wj = torch.index_select(self.w, 0, idx[:,1])
-        _values = values*(1+torch.clamp(self.scale,-0.5,1.0)) if self.learn_scale else values 
-        return torch.sum(dist(wi,wj) - _values)**2/self.pairs
+        _scale = 1+torch.clamp(self.scale,self.lo_scale,self.hi_scale)
 
+        term_rescale = torch.exp( 2*(1.-values) ) if self.exponential_rescale else self.step_rescale(values) 
+        if self.absolute_loss:
+            _values = values*_scale if self.learn_scale else values 
+            return torch.sum( term_rescale*( dist(wi,wj) - _values))**2/self.pairs 
+        else:
+            _s = _scale if self.learn_scale else 1.0
+            return torch.sum( term_rescale*_s*(dist(wi,wj)/values - 1.0)**2/self.pairs )
+        
     def normalize(self):
-        if self.project: self.w.proj()
+        if self.project: 
+            self.w.proj()
+            self.scale.data = torch.clamp(self.scale.data,self.lo_scale, self.hi_scale)
+        
 
 
 # compute marix of non-squard distances
@@ -189,14 +213,14 @@ class GraphRowSampler(torch.utils.data.Dataset):
 #
 def major_stats(G, scale, n, m, lazy_generation, Z):
     m.train(False)
-    H    = gh.build_distance(G, scale, num_workers=1) if lazy_generation else Z
+    H    = gh.build_distance(G, 1.0, num_workers=1) if lazy_generation else Z/scale
     Hrec = dist_matrix(m.w.data).cpu().numpy()
     logging.info("Compare matrices built")  
     dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, 2)
     logging.info(f"Distortion avg={avg_dist} wc={dist_max} nan_elements={nan_elements}")  
     mapscore = dis.map_score(H, Hrec, n, 2) 
     logging.info(f"MAP = {mapscore}")   
-    logging.info(f"scale={m.scale.data[0]}")
+    logging.info(f"data_scale={scale} scale={m.scale.data[0]}")
 
                                 
 @argh.arg("dataset", help="dataset number")
@@ -235,7 +259,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
     if model_save_file is None: logging.warn("No Model Save selected!")
     G = data_prep.load_graph(int(dataset))
     n = G.order()
-    logging.info(f"Loaded Graph {dataset} with {n} nodes")
+    logging.info(f"Loaded Graph {dataset} with {n} nodes scale={scale}")
 
     Z = None
     if lazy_generation:
@@ -263,7 +287,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
 
         m = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale) )
         m.epoch = 0
-    logging.info(f"Constucted model with rank={rank} and epochs={m.epoch}")
+    logging.info(f"Constucted model with rank={rank} and epochs={m.epoch} isnan={np.any(np.isnan(m.w.cpu().data.numpy()))}")
     
                 
     from yellowfin import YFOptimizer

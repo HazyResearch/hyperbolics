@@ -20,22 +20,24 @@ class Hyperbolic_Parameter(nn.Parameter):
 
     def modify_grad_inplace(self):
         d        = self.data.dim() 
-        d_p      = self.grad.data
         w_norm   = torch.norm(self.data,2,d - 1, True)
         # This is the inverse of the remanian metric, which we need to correct for.
         hyper_b  = (1 - w_norm**2)**2/4
         new_size = tuple([1] * (d - 1) + [self.data.size(d-1)])
                     
-        self.grad.data   = d_p * hyper_b.repeat(*new_size) # multiply pointwise
+        self.grad.data   *= hyper_b.repeat(*new_size) # multiply pointwise
+        self.grad.data.clamp_(min=-10000.0, max=10000.0)
+
         # We could do the projection here?
         # NB: THIS IS DEATHLY SLOW. FIX IT
-        # if np.any(np.isnan(self.grad.data.cpu().numpy())):
-        #     print(self.data)
-        #     print(d_p)
-        #     raise ValueError("NaN During Hyperbolic")
+        if np.any(np.isnan(self.grad.data.cpu().numpy())):
+             print(np.any(np.isnan(self.data.cpu().numpy())))
+             print(np.any(np.isnan(self.grad.data.cpu().numpy())))
+             print(np.any(np.isnan(w_norm.cpu().numpy())))
+             raise ValueError("NaN During Hyperbolic")
  
     @staticmethod        
-    def _proj(x, eps=1e-8):
+    def _proj(x, eps=1e-10):
         current_norms = torch.norm(x,2,x.dim() - 1)
         mask_idx      = current_norms < 1.0
         modified      = 1./((1+eps)*current_norms)
@@ -44,7 +46,7 @@ class Hyperbolic_Parameter(nn.Parameter):
         modified      = modified.unsqueeze(modified.dim()).repeat(*new_size) 
         return x * modified
 
-    def proj(self, eps=1e-8):
+    def proj(self, eps=1e-10):
         self.data = Hyperbolic_Parameter._proj(self.data, eps=eps)
         
     @staticmethod
