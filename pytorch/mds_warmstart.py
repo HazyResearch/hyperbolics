@@ -29,6 +29,22 @@ def data_rec(points, scale=1.0):
             Z[i,j] = np.linalg.norm(points[i,:] - points[j,:])**2#/(di*dj)
     return (Z,np.arccosh(1+2.*Z)/scale)
 
+def center_numpy_inplace(tZ,inv_d):
+    n = tZ.shape[0]
+    for i in range(n):
+        for j in range(n):
+            tZ[i,j] *= inv_d[i]
+
+    for i in range(n):
+        for j in range(n):
+            tZ[i,j] *= inv_d[j]
+
+    mu = np.mean(tZ,1)
+    for i in range(n): tZ[:,i] -= mu
+
+    mu = np.mean(tZ,0)
+    for i in range(n): tZ[i,:] -= mu
+
 def get_model(dataset, scale = 1.0):
     G = dp.load_graph(dataset)
     H = gh.build_distance(G,1.0)
@@ -44,9 +60,11 @@ def get_model(dataset, scale = 1.0):
 
     (d1,dv) = compute_d(u,l0,n)
     inv_d = 1./d1
-    Q  = (np.eye(n)-np.ones( (n,n)) /n)*np.diag(inv_d)
-    G  = -Q@Z@Q.T/2
-
+    #Q  = (np.eye(n)-np.ones( (n,n)) /n)*np.diag(inv_d)
+    #G  = -Q@Z@Q.T/2
+    G   = -Z/2 # This does make a copy.
+    center_numpy_inplace(G, inv_d)
+    
     # Recover our points
     (emb_d, points_d) = np.linalg.eig(G)
     good_idx = emb_d > 0
