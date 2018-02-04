@@ -5,8 +5,14 @@ import distortions as dis
 import torch, logging
 from math import sqrt
 
+def cudaify(x):            return x.cuda() if torch.cuda.is_available() else x
+
 def compute_d(u,l,n):
-    assert( np.min(u) >= 0. )
+    if np.min(u) < 0.:
+        print(np.min(u))
+        print(u)
+        assert(False)
+
     b       =max(1. + (sum(u)/sqrt(l)*np.linalg.norm(u))**2,1.)
     
     alpha = b - np.sqrt(b**2-1.)
@@ -45,14 +51,35 @@ def center_numpy_inplace(tZ,inv_d):
     mu = np.mean(tZ,0)
     for i in range(n): tZ[i,:] -= mu
 
-def get_model(dataset, scale = 1.0):
+def power_method(_A,r,T=5000,tol=1e-14):
+    (n,n) = _A.shape
+    A     = cudaify( torch.DoubleTensor(_A) )
+    x     = cudaify( torch.DoubleTensor( np.random.randn(n,r)/r ) )
+    _eig  = cudaify( torch.DoubleTensor(r).zero_() )
+    for i in range(r):
+        for j in range(T):
+            y      = x[:,0:i]@(x[:,0:i].transpose(0,1)@x[:,i]) if i > 0 else 0.
+            x[:,i] = A@x[:,i] - y
+            nx     = torch.norm(x[:,i])
+            x[:,i] /= nx
+            if (abs(_eig[i]) > tol) and (abs(_eig[i] - nx)/_eig[i] < tol):
+                print(f"\teig {i} iteration {j} --> {_eig[i]}")
+                break
+            _eig[i] = nx
+           
+    return (_eig.cpu().numpy(), x.cpu().numpy())
+
+def get_eig(A,r, use_power=True):
+    return power_method(A,r) if use_power else np.linalg.eig(A)
+
+def get_model(dataset, max_k, scale = 1.0):
     G = dp.load_graph(dataset)
     H = gh.build_distance(G,1.0)
     (n,n) = H.shape
     Z = (np.cosh(scale*H) -1)/2
 
     # Find Perron vector
-    (d,U)=np.linalg.eig(Z)
+    (d,U)=get_eig(Z,1)
     idx  = np.argmax(d)
     l0   = d[idx]
     u    = U[:,idx]
@@ -66,7 +93,7 @@ def get_model(dataset, scale = 1.0):
     center_numpy_inplace(G, inv_d)
     
     # Recover our points
-    (emb_d, points_d) = np.linalg.eig(G)
+    (emb_d, points_d) = get_eig(G,max_k)
     good_idx = emb_d > 0
     our_points = np.real(points_d[:,good_idx]@np.diag(np.sqrt(emb_d[good_idx])))
 

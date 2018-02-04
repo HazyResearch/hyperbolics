@@ -16,7 +16,7 @@ def build_distance(G, scale, num_workers=None):
     adj_mat_original = nx.to_scipy_sparse_matrix(G)
 
     # Simple chunking
-    nChunks     = 128
+    nChunks     = 128 if num_worers > 1 else n
     if n > nChunks:
         chunk_size  = n//nChunks
         extra_chunk_size = (n - (n//nChunks)*nChunks)

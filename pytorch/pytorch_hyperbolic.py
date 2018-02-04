@@ -102,7 +102,7 @@ class Hyperbolic_Emb(nn.Module):
         self.w = Hyperbolic_Parameter(x)
         self.scale       = nn.Parameter( torch.DoubleTensor([0.0]))
         self.learn_scale = learn_scale
-        self.lo_scale    = -0.9
+        self.lo_scale    = -0.99
         self.hi_scale    = 10.0
         self.absolute_loss = absolute_loss
         abs_str = "absolute" if self.absolute_loss else "relative"
@@ -282,7 +282,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
         m = cudaify( torch.load(load_model_file) )
         logging.info(f"Loaded scale {m.scale.data[0]} {torch.sum(m.w.data)}")
     else:
-        m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(mds_warmstart.get_model(int(dataset))[1])) if warm_start else None
+        m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(mds_warmstart.get_model(int(dataset),rank)[1])) if warm_start else None
         logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
 
         m = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale) )
