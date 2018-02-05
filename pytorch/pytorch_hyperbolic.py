@@ -118,13 +118,23 @@ class Hyperbolic_Emb(nn.Module):
         return Variable(y, requires_grad=False)
         #return values**(-2)
 
+    def dist(self, idx):
+        wi = torch.index_select(self.w, 0, idx[:,0])
+        wj = torch.index_select(self.w, 0, idx[:,1])
+        return dist(wi,wj)*(1+self.scale)
+
+    def dist_row(self, i):
+        m = self.w.size(0)
+        return (1+self.scale)*dist(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w)
+
     def loss(self, _x):
         idx, values = _x
         wi = torch.index_select(self.w, 0, idx[:,0])
         wj = torch.index_select(self.w, 0, idx[:,1])
         _scale = 1+torch.clamp(self.scale,self.lo_scale,self.hi_scale)
 
-        term_rescale = torch.exp( 2*(1.-values) ) if self.exponential_rescale else self.step_rescale(values) 
+        #term_rescale = torch.exp( 2*(1.-values) ) if self.exponential_rescale else self.step_rescale(values)
+        term_rescale  = 1.0
         if self.absolute_loss:
             _values = values*_scale if self.learn_scale else values 
             return torch.sum( term_rescale*( dist(wi,wj) - _values))**2/self.pairs 
@@ -211,17 +221,47 @@ class GraphRowSampler(torch.utils.data.Dataset):
 #
 # DATA Diagnostics
 #
-def major_stats(G, scale, n, m, lazy_generation, Z):
+def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250):
     m.train(False)
-    H    = gh.build_distance(G, 1.0, num_workers=1) if lazy_generation else Z/scale
-    Hrec = dist_matrix(m.w.data).cpu().numpy()
-    logging.info("Compare matrices built")  
-    dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, 2)
+    if lazy_generation:
+        avg, me, mc = 0.0, 0.0, 0.0
+        good,bad    = 0,0
+        for u in z:
+            index,vs = u
+            v_rec  = m.dist(cu_var(index)).data.cpu().numpy()
+            v      = vs.cpu().numpy()
+            for i in range(len(v)):
+                if dis.entry_is_good(v[i], v_rec[i]):
+                    (_avg,me,mc) = dis.distortion_entry(v[i], v_rec[i], me, mc)
+                    avg         += _avg
+                    good        += 1
+                else:
+                    bad         += 1
+        avg_dist     = avg/good
+        dist_max     = me
+        nan_elements = bad
+        map_avg      = 0.0
+        
+        # sample for rows
+        shuffled     = list(range(n))
+        #np.random.shuffle(shuffled)
+        mm = 0
+        for i in shuffled[0:n_rows_sampled]:
+            h_rec      = m.dist_row(i).cpu().data.numpy()
+            map_avg   += dis.map_via_edges(G,i, h_rec)
+            mm        += 1         
+        mapscore = map_avg/mm
+    else:
+        H    = Z/scale
+        Hrec = dist_matrix(m.w.data).cpu().numpy()
+        logging.info("Compare matrices built")  
+        dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, 2)
+        mapscore = dis.map_score(H, Hrec, n, 2) 
+        
     logging.info(f"Distortion avg={avg_dist} wc={dist_max} nan_elements={nan_elements}")  
-    mapscore = dis.map_score(H, Hrec, n, 2) 
     logging.info(f"MAP = {mapscore}")   
     logging.info(f"data_scale={scale} scale={m.scale.data[0]}")
-
+        
                                 
 @argh.arg("dataset", help="dataset number")
 @argh.arg("-r", "--rank", help="Rank to use")
@@ -257,7 +297,9 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
         log.addHandler(fh)
 
     if model_save_file is None: logging.warn("No Model Save selected!")
-    G = data_prep.load_graph(int(dataset))
+    G  = data_prep.load_graph(int(dataset))
+    GM = nx.to_scipy_sparse_matrix(G)
+
     n = G.order()
     logging.info(f"Loaded Graph {dataset} with {n} nodes scale={scale}")
 
@@ -306,7 +348,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
             logging.info(f"{i} loss={l}")
         if i % checkpoint_freq == 0:
             logging.info(f"\n*** Major Checkpoint. Computing Stats and Saving")
-            major_stats(G,scale,n,m, lazy_generation, Z)
+            major_stats(GM,scale,n,m, lazy_generation, Z, z)
             if model_save_file is not None:
                 logging.info(f"Saving model into {model_save_file}-{m.epoch} {torch.sum(m.w.data)} ") 
                 torch.save(m, f"{model_save_file}.{m.epoch}")
@@ -319,7 +361,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
         logging.info(f"Saving model into {model_save_file}-final {torch.sum(m.w.data)} {m.scale.data[0]}") 
         torch.save(m, f"{model_save_file}.final")
 
-    major_stats(G,scale, n,m, lazy_generation, Z)
+    major_stats(GM,scale, n,m, lazy_generation, Z,z)
 
 if __name__ == '__main__':
     _parser = argh.ArghParser() 

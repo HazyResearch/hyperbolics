@@ -7,11 +7,12 @@ import random
 
 
 class Hyperbolic_Parameter(nn.Parameter):
-    def __new__(cls, data=None, requires_grad=True, project=True):
+    def __new__(cls, data=None, requires_grad=True, project=True, check_graph=False):
         ret =  super(nn.Parameter, cls).__new__(cls, data, requires_grad=requires_grad)
         if project: ret.proj()
         ret.project = project
         ret.data    = data
+        ret.check_graph = check_graph
         return ret
 
     def __init__(self, x):
@@ -30,7 +31,7 @@ class Hyperbolic_Parameter(nn.Parameter):
 
         # We could do the projection here?
         # NB: THIS IS DEATHLY SLOW. FIX IT
-        if np.any(np.isnan(self.grad.data.cpu().numpy())):
+        if self.check_graph and np.any(np.isnan(self.grad.data.cpu().numpy())):
              print(np.any(np.isnan(self.data.cpu().numpy())))
              print(np.any(np.isnan(self.grad.data.cpu().numpy())))
              print(np.any(np.isnan(w_norm.cpu().numpy())))
