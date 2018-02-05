@@ -226,6 +226,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250):
     if lazy_generation:
         avg, me, mc = 0.0, 0.0, 0.0
         good,bad    = 0,0
+        _count      = 0 
         for u in z:
             index,vs = u
             v_rec  = m.dist(cu_var(index)).data.cpu().numpy()
@@ -237,6 +238,10 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250):
                     good        += 1
                 else:
                     bad         += 1
+            _count += len(v)
+            if n_rows_sampled*n < _count:
+                logging.info(f"\t\t Completed {n} {n_rows_sampled} {_count}") 
+                break
         avg_dist     = avg/good
         dist_max     = me
         nan_elements = bad
