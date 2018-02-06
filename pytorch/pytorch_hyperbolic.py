@@ -285,10 +285,11 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250):
 @argh.arg("--use-sgd", help="Force using plan SGD")
 @argh.arg("-w", "--warm-start", help="Warm start the model with MDS")
 @argh.arg("--learn-scale", help="Learn scale")
+@argh.arg("--sample", help="Sample the distance matrix")
 @argh.arg("--checkpoint-freq", help="Checkpoint Frequency (Expensive)")
 def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
           use_yellowfin=False, use_sgd=True, print_freq=1, model_save_file=None, load_model_file=None, batch_size=16,
-          num_workers=None, lazy_generation=False, log_name=None, warm_start=False, learn_scale=False, checkpoint_freq=1000):
+          num_workers=None, lazy_generation=False, log_name=None, warm_start=False, learn_scale=False, checkpoint_freq=1000, sample=1.):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
@@ -319,11 +320,17 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
         Z   = gh.build_distance(G, scale, num_workers=num_workers)   # load the whole matrix    
         logging.info(f"Built distance matrix with {scale} factor")
         idx  = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
-        vals = torch.DoubleTensor([Z[i,j] for i in range(n) for j in range(i+1, n)])
+        
+        if sample < 1:
+            Z_sampled = gh.dist_sample_rebuild(Z, sample)
+        else:
+            Z_sampled = Z
+
+        vals = torch.DoubleTensor([Z_sampled[i,j] for i in range(n) for j in range(i+1, n)])
         z  = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True, pin_memory=torch.cuda.is_available())
         logging.info("Built data loader")
-
-
+    
+  
     if load_model_file is not None:
         logging.info(f"Loading {load_model_file}...")
         m = cudaify( torch.load(load_model_file) )
