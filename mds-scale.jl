@@ -99,6 +99,26 @@ function distortion(H1, H2)
     avg/=(good);
     return (convert(Float64, mc*me), convert(Float64, avg), n*(n-1)/2-good)
 end
+
+# this is classical MDS
+function mds(Z, k, n)
+    o = ones(n,1)
+    H = eye(n)-1/n*o*o'
+    B = -1/2*H*Z*H
+    B = 1/2*(B+B')       
+       
+    lambdasM, usM = power_method_sign(B,k,tol) 
+
+    posE = 0
+    while (posE < k && lambdasM[posE+1] > 0)
+        posE+=1;
+    end
+
+    Xrec = usM[:,1:posE-1] * diagm(lambdasM[1:posE-1] .^ 0.5);    
+    return Xrec', posE-1
+end
+
+
 # hMDS exact:
 function h_mds(Z, k, n, tol)
     println("First e call")
@@ -165,8 +185,12 @@ setprecision(BigFloat, prec)
 #println("Scaling = $(convert(Float64,scale))");
 #println(string("./dists/dist_mat",data_set,".p"))   
 
-H = ld.load_dist_mat(string("./dists/dist_mat",data_set,".p"));
+#H = ld.load_dist_mat(string("./dists/dist_mat",data_set,".p"));
+G = dp.load_graph(data_set)
+H = ld.get_dist_mat(G);
 n,_ = size(H)
+
+Xmds, dim_mds = mds(H, k, n)
 
 Z = (cosh.(big.(H.*scale))-1)./2
 
@@ -189,6 +213,15 @@ if found_dimension > 1
     end
     toc()
 
+    # the MDS distances:
+    Zmds = zeros(n,n)
+    for i = 1:n
+        for j = 1:n
+            Zmds[i,j] = norm(Xmds[:,i] - Xmds[:,j])
+        end
+    end
+
+    
     println("Getting metrics")
     tic()
     Hrec = acosh.(1+2*Zrec)
@@ -200,6 +233,17 @@ if found_dimension > 1
     mapscore = dis.map_score(H, Hrec, n, 2) 
     println("MAP = $(mapscore)")   
     println("Dimension = $(found_dimension)")
-    toc() else
+    toc() 
+    
+    println("----------------MDS Results-----------------")
+    dist_max, dist, bad = dis.distortion(H, Zmds, n, 2)
+    println("MDS Distortion avg/max, bad = $(convert(Float64,dist)), $(convert(Float64,dist_max)), $(convert(Float64,bad))")  
+    mapscore = dis.map_score(H, Zmds, n, 2)
+    println("MAP = $(mapscore)")   
+    println("Bad Dists = $(bad)")
+    println("Dimension = $( dim_mds)") 
+    
+    
+else
     println("Dimension = 1!")
 end
