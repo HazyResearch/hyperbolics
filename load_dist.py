@@ -25,3 +25,15 @@ def save_dist_mat(G, file):
 
 def load_dist_mat(file):
     return pickle.load(open(file,"rb"))
+
+def get_dist_mat(G):
+    n = G.order()
+    print("Number of nodes is ", n)
+    adj_mat = nx.to_scipy_sparse_matrix(G)
+    t = time.time()
+    
+    num_cores = multiprocessing.cpu_count()
+    dist_mat = Parallel(n_jobs=20)(delayed(compute_row)(i,adj_mat) for i in range(n))
+    dist_mat = np.vstack(dist_mat)
+    print("Time elapsed = ", time.time()-t)
+    return dist_mat
