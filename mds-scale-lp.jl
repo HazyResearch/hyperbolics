@@ -15,12 +15,16 @@ function power_method(A,d,tol;T=10000)
     x_all = qr(randn(n,d))[1]
     _eig  = zeros(d)
     for j=1:d
-        x = x_all[:,j]
+        x = view(x_all,:,j)
         x /= norm(x)
         for t=1:T            
             x = A*x
             if j > 1
-                x -= sum(x_all[:,1:(j-1)]*diagm(vec(x'x_all[:,1:(j-1)])),2)
+                #x -= sum(x_all[:,1:(j-1)]*diagm(,2)
+                yy = vec(x'view(x_all, :,1:(j-1)))
+                for k=1:(j-1)
+                    x -= view(x_all,:,k)*yy[k]
+                end
             end
             nx = norm(x)
             x /= nx
@@ -226,7 +230,9 @@ G = dp.load_graph(data_set)
 H = ld.get_dist_mat(G);
 n,_ = size(H)
 
+tic()
 Xmds, dim_mds = mds(H, k, n)
+toc()
 
 # This is 
 Z = (cosh.(H*scale)-1.0)./2
