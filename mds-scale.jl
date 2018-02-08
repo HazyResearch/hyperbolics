@@ -12,7 +12,7 @@ unshift!(PyVector(pyimport("sys")["path"]), "")
 setprecision(BigFloat, 1024)
 
 
-function power_method(A,d,tol;T=10000)
+function power_method(A,d,tol;T=200)
     tol=big(1e-1)^tol
     (n,n) = size(A)
     x_all = big.(qr(randn(n,d))[1])
@@ -42,7 +42,7 @@ function power_method(A,d,tol;T=10000)
     return (_eig, x_all)
 end
 
-function power_method_sign(A,r,tol;verbose=false, T=10000)
+function power_method_sign(A,r,tol;verbose=false, T=200)
     _d, _U    = power_method(A'A,r, tol;T=T)
     X         = _U'A*_U 
     _d_signed = vec(diag(X))

@@ -236,6 +236,12 @@ tic()
 Xmds, dim_mds = mds(H, k, n)
 toc()
 
+tic()
+println("Saving...")
+save(string("X_MDS_rec_dataset_",data_set,"r=",k,"tol=",tol,".jld"), "Xmds", Xmds);
+println("end.")
+toc()
+
 # This is 
 Z = (cosh.(H*scale)-1.0)./2
 
@@ -244,7 +250,7 @@ tic()
 Xrec, found_dimension = h_mds(Z, k, n, tol)
 
 # save the recovered points:
-save(string("Xrec_dataset_",data_set,"r=",k,"tol=",tol,".jld"), "H", H);
+save(string("X_HMDS_rec_dataset_",data_set,"r=",k,"tol=",tol,".jld"), "XRec", Xrec);
 toc()
 
 if found_dimension > 1
@@ -259,19 +265,19 @@ if found_dimension > 1
     toc()
     
     # the MDS distances:
+    tic()
     Zmds = zeros(n,n)
     for i = 1:n 
         for j = 1:n
             Zmds[i,j] = norm(Xmds[:,i] - Xmds[:,j])
         end
     end
-    
+    toc()
 
     println("Getting metrics")
     tic()
     Hrec = acosh.(1+2*Zrec)
-    Hrec = convert(Array{Float64,2},Hrec)
-    Hrec /= convert(Float64,scale)
+    Hrec /= scale
     
     dist_max, dist, good = dis.distortion(H, Hrec, n, 2)
     println("Distortion avg/max, bad = $(convert(Float64,dist)), $(convert(Float64,dist_max)), $(convert(Float64,good))")  
