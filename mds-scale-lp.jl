@@ -105,16 +105,21 @@ function mds(Z, k, n)
     B = 1/2*(B+B')       
        
     lambdasM, usM = power_method_sign(B,k,tol) 
-
-    posE = 0
-    while (posE < k && lambdasM[posE+1] > 0)
-        posE+=1;
+    lambdasM_pos = copy(lambdasM)
+    usM_pos = copy(usM)
+    
+    idx = 0
+    for i in 1:k
+        if lambdasM[i] > 0
+            idx += 1
+            lambdasM_pos[idx] = lambdasM[i]
+            usM_pos[:,idx] = usM[:,i]
+        end
     end
-
-    Xrec = usM[:,1:posE-1] * diagm(lambdasM[1:posE-1] .^ 0.5);    
-    return Xrec', posE-1
+    
+    Xrec = usM_pos[:,1:idx] * diagm(lambdasM_pos[1:idx].^ 0.5);    
+    return Xrec', idx
 end
-
 
 
 # hMDS exact:
@@ -150,13 +155,21 @@ function h_mds(Z, k, n, tol)
     println("Second e call")
     tic()
     lambdasM, usM = power_method_sign(M,k,tol) 
-    posE = 1;
-    while (lambdasM[posE] > 0 && posE<k)
-        posE+=1;
+    
+    lambdasM_pos = copy(lambdasM)
+    usM_pos = copy(usM)
+    
+    idx = 0
+    for i in 1:k
+        if lambdasM[i] > 0
+            idx += 1
+            lambdasM_pos[idx] = lambdasM[i]
+            usM_pos[:,idx] = usM[:,i]
+        end
     end
-
-    Xrec = usM[:,1:posE-1] * diagm(lambdasM[1:posE-1] .^ 0.5);
-    Xrec = Xrec';
+    
+    Xrec = usM_pos[:,1:idx] * diagm(lambdasM_pos[1:idx].^ 0.5);    
+    return Xrec', idx
     toc()
     
     # low precision:
@@ -169,7 +182,7 @@ function h_mds(Z, k, n, tol)
     #A = diagm(sv[:S].^0.5)
     #Xrec = (sv[:U][:,1:k]*A[1:k,1:k])'
        
-    return Xrec, posE-1
+    return Xrec, posE
 end
 
 data_set = parse(Int32,(ARGS[1]))
