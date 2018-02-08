@@ -157,16 +157,30 @@ function h_mds(Z, k, n, tol)
     u_s   = u./(sum(u))*lambda*((1)-alpha);
     d     = (u_s+(1))./((1)+alpha);
     dinv  = (1)./d;
-    v     = diagm(dinv)*(u_s.-alpha)./((1)+alpha);
-    D     = diagm(dinv)
+
     
-    M = -(D * Z * D - ones(n) * v' - v * ones(n)')/2;
-    M = (M + M')/2;
+    #v     = diagm(dinv)*(u_s.-alpha)./((1)+alpha);
+    v     = dinv.*(u_s.-alpha)./((1)+alpha)
+    #D     = diagm(dinv)
+    Z     = copy(Z)
+    for i=1:n
+        for j=1:n
+            Z[i,j] *= dinv[i]*dinv[j]
+        end
+    end
+    for i=1:n
+        for j=1:n
+            Z[i,j] -= (v[i] + v[j])
+        end
+    end
+    Z/=(-2.0)
+    #M = -(D * Z * D - ones(n) * v' - v * ones(n)')/2;
+    #M = (M + M')/2;
        
     # power method:
     println("Second e call")
     tic()
-    lambdasM, usM = power_method_sign(M,k,tol) 
+    lambdasM, usM = power_method_sign(Z,k,tol) 
     
     lambdasM_pos = copy(lambdasM)
     usM_pos = copy(usM)
@@ -180,9 +194,10 @@ function h_mds(Z, k, n, tol)
         end
     end
     
-    Xrec = usM_pos[:,1:idx] * diagm(lambdasM_pos[1:idx].^ 0.5);    
-    return Xrec', idx
+    Xrec = usM_pos[:,1:idx] * diagm(lambdasM_pos[1:idx].^ 0.5);
     toc()
+    
+    return Xrec', idx
     
     # low precision:
     #EM = eig(M);    
@@ -200,7 +215,7 @@ end
 data_set = parse(Int32,(ARGS[1]))
 k        = parse(Int32, (ARGS[2]))
 scale    = parse(Float64, (ARGS[3]))
-tol      = 1e-8
+tol      = 1e-9
 
 
 println("Scaling = $(convert(Float64,scale))");
