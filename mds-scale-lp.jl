@@ -15,6 +15,7 @@ function power_method(A,d,tol;T=10000)
     x_all = qr(randn(n,d))[1]
     _eig  = zeros(d)
     for j=1:d
+        tic()
         x = view(x_all,:,j)
         x /= norm(x)
         for t=1:T            
@@ -31,6 +32,7 @@ function power_method(A,d,tol;T=10000)
             cur_dist = abs(nx - _eig[j])
             if !isinf(cur_dist) &&  min(cur_dist, cur_dist/nx) < tol
                 println("\t Done with eigenvalue $(j) at iteration $(t) at abs_tol=$(Float64(abs(nx - _eig[j]))) rel_tol=$(Float64(abs(nx - _eig[j])/nx))")
+                toc()
                 break
             end
             if t % 500 == 0
