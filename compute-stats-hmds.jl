@@ -24,14 +24,37 @@ tic()
  println("Building recovered graph...")
  tic()
  Hrec = zeros(n, n)
+tic()
+G = dp.load_graph(data_set)
+H = ld.get_dist_mat(G);
+toc()
 
+tic()
+avgs = zeros(n)
+mes  = zeros(n)
+mcs  = zeros(n)
+maps = zeros(n)
+bad  = zeros(n)
 Threads.@threads for i = 1:n
-        for j = 1:n
-            v = norm(Xrec[:,i] - Xrec[:,j])^2 / ((1 - norm(Xrec[:,i])^2) * (1 - norm(Xrec[:,j])^2))
-	    Hrec[i,j] = acosh(1 +2*max(v,0.0))/scale
-        end 
+    hrow_i = zeros(n) # thread local?
+    tic()
+    for j = 1:n
+        hrow_i[j]   = norm(Xrec[:,i] - Xrec[:,j])
+        #if j == i || !entry_is_good(H[i,j], hrow_i[j]) continue end
+        if j == i continue end
+        (avg,me,mc) = distortion_entry(H[i,j], hrow_i[j], mes[i], mcs[i])
+        avgs[i] += avg/(float(n*(n-1)))
+        mes[i]   = me
+        mcs[i]   = mc
+    end
+    #maps[i] = map_row(H[i,:], hrow_i, n, i)
+    # Python call. watch the indexing.
+    maps[i] = dis.map_row(H[i,:], hrow_i, n, i-1)
+    print(".")
+    if i % 10 == 0 toc() end
 end
 toc()
+
    
 
 println("Loading H")
