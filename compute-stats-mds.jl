@@ -26,29 +26,30 @@ function distortion_entry(h,h_rec,me,mc)
     if h/h_rec > mc mc = h/h_rec end
     return (avg,me,mc)
 end
-## function map_row(H1, H2, n, row; verbose=true)
-##     edge_mask = (H1 == 1.0)
-##     m         = sum(edge_mask)
-##     if verbose print("\t There are $(m) edges for $(row) of $(n)") end
-##     sorted_dist = sortperm(H2)
-##     ## if verbose
-##     ##     print(f"\t $(sorted_dist[1:5]) vs. $(np.array(range(n))[edge_mask]}")
-##     ##     print(f"\t {d[sorted_dist[1:5]]} vs. {H1[edge_mask]}")
-##     ## end
-##     precs       = zeros(m)    
-##     n_correct   = 0
-##     j = 0
-##     # skip yourself, you're always the nearest guy    
-##     for i=2:n 
-##         if edge_mask[sorted_dist[i]]
-##             n_correct += 1
-##             precs[j] = n_correct/float(i)
-##             j += 1
-##             if j == m break end
-##         end
-##     end
-##     return sum(precs)/m 
-## end
+function map_row(H1, H2, n, row; verbose=false)
+    edge_mask = (H1 .== 1.0)
+    m         = sum(edge_mask)
+    if verbose println("\t There are $(m) edges for $(row) of $(n)") end
+    sorted_dist = sortperm(H2)
+    if verbose
+        println("\t $(sorted_dist[1:5]) vs. $(collect(1:n)[edge_mask])")
+        println("\t $(H2[sorted_dist[1:5]]) vs. $(H1[edge_mask])")
+    end
+    precs       = zeros(m)    
+    n_correct   = 0
+    j           = 1
+    # skip yourself, you're always the nearest one    
+    for i=2:n 
+        if edge_mask[sorted_dist[i]]
+            n_correct += 1
+            precs[j]   = n_correct/float(i-1)
+            j         += 1
+            if j > m break end
+        end
+    end
+    if verbose println("\t precs=$(precs)") end
+    return sum(precs)/float(m) 
+end
 
 
 tic()
@@ -78,9 +79,8 @@ Threads.@threads for i = 1:n
         mes[i]   = me
         mcs[i]   = mc
     end
-    #maps[i] = map_row(H[i,:], hrow_i, n, i)
+    maps[i] = map_row(H[i,:], hrow_i, n, i)
     # Python call. watch the indexing.
-    maps[i] = dis.map_row(H[i,:], hrow_i, n, i-1)
     print(".")
     if i % 10 == 0 toc() end
 end
