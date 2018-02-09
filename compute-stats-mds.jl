@@ -62,14 +62,18 @@ avgs = zeros(n)
 mes  = zeros(n)
 mcs  = zeros(n)
 maps = zeros(n)
-
+bad  = zeros(n)
 Threads.@threads for i = 1:n
     hrow_i = zeros(n) # thread local?
     tic()
     for j = 1:n
         hrow_i[j]   = norm(Xrec[:,i] - Xrec[:,j])
-        #if j == i || !entry_is_good(H[i,j], hrow_i[j]) continue end
         if j == i continue end
+        if isnan(hrow_i[j]) || isnan(H[i,j]) || H[i,j] == 0
+            bad[i] += 1
+            continue
+        end
+        #if j == i || !entry_is_good(H[i,j], hrow_i[j]) continue end
         (avg,me,mc) = distortion_entry(H[i,j], hrow_i[j], mes[i], mcs[i])
         avgs[i] += avg/(float(n*(n-1)))
         mes[i]   = me
@@ -87,12 +91,12 @@ toc()
 
 println("Loading H")
 println("----------------MDS Results-----------------")
-dist_max, dist, bad = dis.distortion(H, Zmds, n, 16)
-println("MDS Distortion avg/max, bad = $(dist), $(dist_max), $(bad)")
-println("MDS Distortion avg/max, bad = $(sum(avgs)), $(maximum(mes)*maximum(mcs)), $(bad)")  
-mapscore  = dis.map_score(H, Zmds, n, 16)
-println(maps)
+#dist_max, dist, bad = dis.distortion(H, Zmds, n, 16)
+#println("MDS Distortion avg/max, bad = $(dist), $(dist_max), $(bad)")
+println("MDS Distortion avg/max, bad = $(sum(avgs)), $(maximum(mes)*maximum(mcs)) $(sum(bad))")  
+#mapscore  = dis.map_score(H, Zmds, n, 16)
+#println(maps)
 mapscore2 = sum(maps)/n 
-println("MAP = $(mapscore) $(mapscore2)")   
-println("Bad Dists = $(bad)")
+println("MAP = $(mapscore2)")   
+#println("Bad Dists = $(bad)")
 println("Dimension = $( d )") 
