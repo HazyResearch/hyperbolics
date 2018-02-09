@@ -65,10 +65,9 @@ maps = zeros(n)
 bad  = zeros(n)
 println("Using $(Threads.nthreads()) threads")
 hrow_i = zeros(Threads.nthreads(),n)
-tic()
+t1   = time_ns()
 Threads.@threads for i = 1:n
     t = Threads.threadid()
-    #tic()
     for j = 1:n
         hrow_i[t,j] = norm(Xrec[:,i] - Xrec[:,j])
         if j == i continue end
@@ -85,7 +84,7 @@ Threads.@threads for i = 1:n
     maps[i] = map_row(H[i,:], hrow_i[t,:], n, i)
     # Python call. watch the indexing.
     #print(".")
-    if i % 10 == 0 ccall(:jl_,Void,(Any,), "$(i) done") end
+    if i % 10 == 0 ccall(:jl_,Void,(Any,), "$(i) done $((time_ns() - t1)/1e9)") end
 end
 toc()
 

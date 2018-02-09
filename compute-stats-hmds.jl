@@ -15,6 +15,31 @@ function distortion_entry(h,h_rec,me,mc)
     if h/h_rec > mc mc = h/h_rec end
     return (avg,me,mc)
 end
+function map_row(H1, H2, n, row; verbose=false)
+    edge_mask = (H1 .== 1.0)
+    m         = sum(edge_mask)
+    if verbose println("\t There are $(m) edges for $(row) of $(n)") end
+    sorted_dist = sortperm(H2)
+    if verbose
+        println("\t $(sorted_dist[1:5]) vs. $(collect(1:n)[edge_mask])")
+        println("\t $(H2[sorted_dist[1:5]]) vs. $(H1[edge_mask])")
+    end
+    precs       = zeros(m)    
+    n_correct   = 0
+    j           = 1
+    # skip yourself, you're always the nearest one    
+    for i=2:n 
+        if edge_mask[sorted_dist[i]]
+            n_correct += 1
+            precs[j]   = n_correct/float(i-1)
+            j         += 1
+            if j > m break end
+        end
+    end
+    if verbose println("\t precs=$(precs)") end
+    return sum(precs)/float(m) 
+end
+
 
 data_set = parse(Int32,ARGS[1])
 fname    = ARGS[2]
@@ -42,9 +67,10 @@ mes  = zeros(n)
 mcs  = zeros(n)
 maps = zeros(n)
 bad  = zeros(n)
+t1   = time_ns()
 Threads.@threads for i = 1:n
     hrow_i = zeros(n) # thread local?
-    tic()
+    #tic()
     for j = 1:n
         hrow_i[j]   = norm(Xrec[:,i] - Xrec[:,j])^2/((1 -norm(Xrec[:,i])^2)*(1- norm(Xrec[:,j])^2))
         #if j == i || !entry_is_good(H[i,j], hrow_i[j]) continue end
@@ -56,11 +82,12 @@ Threads.@threads for i = 1:n
         #Hrec[i,j] = acosh(1+2*hrow_i[j]) # TO REMOVE
     end
    
-    #maps[i] = map_row(H[i,:], hrow_i, n, i)
+    maps[i] = map_row(H[i,:], hrow_i, n, i)
     # Python call. watch the indexing.
-    maps[i] = dis.map_row(H[i,:], hrow_i, n, i-1)
-    print(".")
-    if i % 10 == 0 toc() end
+    #maps[i] = dis.map_row(H[i,:], hrow_i, n, i-1)
+    #print(".")
+    #if i % 10 == 0 toc() end
+    if i % 10 == 0 ccall(:jl_,Void,(Any,), "$(i) done $((time_ns() - t1)/1e9)") end
 end
 toc()
 
