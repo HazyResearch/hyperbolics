@@ -63,26 +63,29 @@ mes  = zeros(n)
 mcs  = zeros(n)
 maps = zeros(n)
 bad  = zeros(n)
+println("Using $(Threads.nthreads()) threads")
+hrow_i = zeros(Threads.nthreads(),n)
+tic()
 Threads.@threads for i = 1:n
-    hrow_i = zeros(n) # thread local?
-    tic()
+    t = Threads.threadid()
+    #tic()
     for j = 1:n
-        hrow_i[j]   = norm(Xrec[:,i] - Xrec[:,j])
+        hrow_i[t,j] = norm(Xrec[:,i] - Xrec[:,j])
         if j == i continue end
-        if isnan(hrow_i[j]) || isnan(H[i,j]) || H[i,j] == 0
+        if isnan(hrow_i[t,j]) || isnan(H[i,j]) || H[i,j] == 0
             bad[i] += 1
             continue
         end
         #if j == i || !entry_is_good(H[i,j], hrow_i[j]) continue end
-        (avg,me,mc) = distortion_entry(H[i,j], hrow_i[j], mes[i], mcs[i])
+        (avg,me,mc) = distortion_entry(H[i,j], hrow_i[t,j], mes[i], mcs[i])
         avgs[i] += avg/(float(n*(n-1)))
         mes[i]   = me
         mcs[i]   = mc
     end
-    maps[i] = map_row(H[i,:], hrow_i, n, i)
+    maps[i] = map_row(H[i,:], hrow_i[t,:], n, i)
     # Python call. watch the indexing.
-    print(".")
-    if i % 10 == 0 toc() end
+    #print(".")
+    if i % 10 == 0 ccall(:jl_,Void,(Any,), "$(i) done") end
 end
 toc()
 
