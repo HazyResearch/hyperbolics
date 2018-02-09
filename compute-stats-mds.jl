@@ -9,8 +9,10 @@ unshift!(PyVector(pyimport("sys")["path"]), "")
 @pyimport load_dist as ld
 @pyimport distortions as dis
 
-data_set = parse(Int32,ARGS[1])
-fname   = ARGS[2]
+data_set   = parse(Int32,ARGS[1])
+fname      = ARGS[2]
+to_sample  = parse(Int32, ARGS[3])
+
 println("Loading")
 tic()
 X_f=load(fname)
@@ -66,7 +68,9 @@ bad  = zeros(n)
 println("Using $(Threads.nthreads()) threads")
 hrow_i = zeros(Threads.nthreads(),n)
 t1   = time_ns()
-Threads.@threads for i = 1:n
+indexes = shuffle(collect(1:n))
+
+Threads.@threads for i = indexes[1:to_sample]
     t = Threads.threadid()
     for j = 1:n
         hrow_i[t,j] = norm(Xrec[:,i] - Xrec[:,j])
@@ -77,7 +81,7 @@ Threads.@threads for i = 1:n
         end
         #if j == i || !entry_is_good(H[i,j], hrow_i[j]) continue end
         (avg,me,mc) = distortion_entry(H[i,j], hrow_i[t,j], mes[i], mcs[i])
-        avgs[i] += avg/(float(n*(n-1)))
+        avgs[i] += avg/(float(to_sample*(n-1)))
         mes[i]   = me
         mcs[i]   = mc
     end
@@ -96,7 +100,7 @@ println("----------------MDS Results-----------------")
 println("MDS Distortion avg/max, bad = $(sum(avgs)), $(maximum(mes)*maximum(mcs)) $(sum(bad))")  
 #mapscore  = dis.map_score(H, Zmds, n, 16)
 #println(maps)
-mapscore2 = sum(maps)/n 
-println("MAP = $(mapscore2)")   
+mapscore2 = sum(maps)/to_sample 
+println("MAP = $(mapscore2) sampled=$(to_sample)")   
 #println("Bad Dists = $(bad)")
 println("Dimension = $( d )") 
