@@ -322,7 +322,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
         idx  = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
         
         if sample < 1:
-            Z_sampled = gh.dist_sample_rebuild(Z, sample)
+            Z_sampled = gh.dist_sample_rebuild_pos_neg(Z, sample)
         else:
             Z_sampled = Z
 
