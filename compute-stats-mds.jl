@@ -57,7 +57,6 @@ H = ld.get_dist_mat(G);
 toc()
 
 tic()
-Zmds = zeros(n,n)
 avgs = zeros(n)
 mes  = zeros(n)
 mcs  = zeros(n)
@@ -78,7 +77,6 @@ Threads.@threads for i = 1:n
         avgs[i] += avg/(float(n*(n-1)))
         mes[i]   = me
         mcs[i]   = mc
-        Zmds[i,j] = hrow_i[j]
     end
     #maps[i] = map_row(H[i,:], hrow_i, n, i)
     # Python call. watch the indexing.
