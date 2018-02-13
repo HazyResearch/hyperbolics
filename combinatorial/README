@@ -1,0 +1,35 @@
+Julia script to perform the combinatorial embedding.
+
+usage: comb.jl -d DATASET -e EPS [-s] [-m EMBEDDING-SAVE] [-v] [-h]
+
+  -d, --dataset         Dataset to embed
+  -e, --eps EPS         Epsilon distortion 
+  -s, --get-stats       Get statistics
+  -m, --embedding-save  Save embedding to file
+  -v, --verbose         Prints out row-by-row stats
+  -h, --help            Show this help message and exit
+
+Example on small attached tree:
+julia comb.jl -d smalltree.edges -e 0.1 --embedding-save embsave.test -s 
+
+Output:
+
+Combinatorial Embedding. Info:
+Data set = smalltree.edges
+Epsilon  = 0.1
+Save embedding to embsave.test
+
+Graph information
+Number of vertices = 40
+Number of edges = 39
+Max degree = 4
+
+Performing the embedding
+Looking at edges for scaling factor
+elapsed time: 2.873435797 seconds
+Scaling factor tau = 23.76915358287457
+
+Computing quality statistics
+Final MAP = 1.0
+Final d_avg = 0.01293854728190571, d_wc = 1.022360266228399
+
