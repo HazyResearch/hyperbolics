@@ -94,6 +94,7 @@ class GraphRowSampler(torch.utils.data.Dataset):
 def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250):
     m.train(False)
     if lazy_generation:
+        logging.info(f"\t Computing Major Stats lazily... ")
         avg, me, mc = 0.0, 0.0, 0.0
         good,bad    = 0,0
         _count      = 0 
@@ -234,7 +235,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
             logging.info(f"{i} loss={l}")
         if i % checkpoint_freq == 0:
             logging.info(f"\n*** Major Checkpoint. Computing Stats and Saving")
-            major_stats(GM,scale,n,m, lazy_generation, Z, z)
+            major_stats(GM,scale,n,m, True, Z, z)
             if model_save_file is not None:
                 logging.info(f"Saving model into {model_save_file}-{m.epoch} {torch.sum(m.w.data)} ") 
                 torch.save(m, f"{model_save_file}.{m.epoch}")
@@ -247,7 +248,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
         logging.info(f"Saving model into {model_save_file}-final {torch.sum(m.w.data)} {m.scale.data[0]}") 
         torch.save(m, f"{model_save_file}.final")
 
-    major_stats(GM,scale, n,m, lazy_generation, Z,z)
+    major_stats(GM,scale, n,m, True, Z,z)
 
 if __name__ == '__main__':
     _parser = argh.ArghParser() 
