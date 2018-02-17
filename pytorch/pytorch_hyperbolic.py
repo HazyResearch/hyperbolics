@@ -61,17 +61,24 @@ def step(hm, opt, data):
     hm.normalize()
     return loss
 
-
-# 
 class GraphRowSampler(torch.utils.data.Dataset):
-    def __init__(self, G, scale):
+    def __init__(self, G, scale, use_cache=True):
         self.graph = nx.to_scipy_sparse_matrix(G)
         self.n     = G.order()
         self.scale = scale
-        logging.info(f"{type(self.graph)}")
-        
+        logging.info(f"Row Sampler Cache {use_cache}")
+        self.cache = dict() if use_cache else None 
+
     def __getitem__(self, index):
-        h   = gh.djikstra_wrapper( (self.graph, [index]) )
+        h = None
+        if self.cache is None or index not in self.cache:
+            h = gh.djikstra_wrapper( (self.graph, [index]) )
+            if self.cache is not None: self.cache[index] = h
+            #logging.info(f"info {index}")
+        else:
+            h = self.cache[index]
+            #logging.info(f"hit {index}")
+            
         idx = torch.LongTensor([ (index, j) for j in range(self.n) if j != index])
         v   = torch.DoubleTensor( [ h[0,j] for j in range(self.n) if j != index] )
         return (idx, v)
