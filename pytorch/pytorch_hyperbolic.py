@@ -74,6 +74,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
         self.idx_cache = torch.LongTensor(self.n,subsample,2).zero_()
         self.cache     = set()
         self.verbose   = False
+        self.n_cached  = 0
         logging.info(self)
         
     def __getitem__(self, index):
@@ -103,6 +104,9 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
                 i += 1
             if self.verbose: logging.info(f"\t neighbors={neighbors} {self.idx_cache[index,:,1].numpy().T}")
             self.cache.add(index)
+            self.n_cached += 1
+            if self.n_cached % (max(self.n//20,1)) == 0: logging.info(f"\t Cached {self.n_cached} of {self.n}")
+            
         return (self.idx_cache[index,:], self.val_cache[index,:])
     
     def __len__(self): return self.n
