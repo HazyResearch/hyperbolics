@@ -2,6 +2,7 @@ import logging, argh
 # Data prep.
 import utils.data_prep as data_prep
 import networkx as nx
+import scipy
 import scipy.sparse.csgraph as csg
 import distortions as dis
 import graph_helpers as gh
@@ -61,26 +62,74 @@ def step(hm, opt, data):
     hm.normalize()
     return loss
 
+
+class GraphRowSubSampler(torch.utils.data.Dataset):
+    def __init__(self, G, scale, subsample):
+        super(GraphRowSubSampler, self).__init__()
+        self.graph     = nx.to_scipy_sparse_matrix(G)
+        self.n         = G.order()
+        self.scale     = scale
+        self.subsample = subsample
+        self.val_cache = torch.DoubleTensor(self.n,subsample).zero_()
+        self.idx_cache = torch.LongTensor(self.n,subsample,2).zero_()
+        self.cache     = set()
+        self.verbose   = False
+        logging.info(self)
+        
+    def __getitem__(self, index):
+        if index not in self.cache:
+            if self.verbose: logging.info(f"Cache miss for {index}")
+            h = gh.djikstra_wrapper( (self.graph, [index]) )[0,:]
+            # add in all the edges
+            cur = 0
+            self.idx_cache[index,:,0] = index
+            neighbors = scipy.sparse.find(self.graph[index,:])[1]
+            for e in neighbors:
+                self.idx_cache[index,cur,1] = int(e)
+                self.val_cache[index,cur] = self.scale
+                cur += 1
+            
+            scratch   = np.array(range(self.n))
+            np.random.shuffle(scratch)
+
+            i = 0
+            while cur < self.subsample and i < self.n:
+                v = scratch[i]
+                if v != index and v not in neighbors:
+                    self.idx_cache[index,cur,1] = int(v)
+                    self.val_cache[index,cur]   = self.scale*h[v]
+                    cur += 1
+                i += 1
+            if self.verbose: logging.info(f"\t neighbors={neighbors} {self.idx_cache[index,:,1].numpy().T}")
+            self.cache.add(index)
+        return (self.idx_cache[index,:], self.val_cache[index,:])
+    
+    def __len__(self): return self.n
+
+    def __repr__(self):
+        return f"Subsample: {self.n} points with scale {self.scale} subsample={self.subsample}"
+            
+
 class GraphRowSampler(torch.utils.data.Dataset):
     def __init__(self, G, scale, use_cache=True):
         self.graph = nx.to_scipy_sparse_matrix(G)
         self.n     = G.order()
         self.scale = scale
-        logging.info(f"Row Sampler Cache {use_cache}")
-        self.cache = dict() if use_cache else None 
-
+        self.cache = dict() if use_cache else None
+            
     def __getitem__(self, index):
         h = None
         if self.cache is None or index not in self.cache:
             h = gh.djikstra_wrapper( (self.graph, [index]) )
-            if self.cache is not None: self.cache[index] = h
+            if self.cache is not None:
+                self.cache[index] = h
             #logging.info(f"info {index}")
         else:
             h = self.cache[index]
             #logging.info(f"hit {index}")
             
         idx = torch.LongTensor([ (index, j) for j in range(self.n) if j != index])
-        v   = torch.DoubleTensor( [ h[0,j] for j in range(self.n) if j != index] )
+        v   = torch.DoubleTensor(h).view(-1)[idx[:,1]]        
         return (idx, v)
     
     def __len__(self): return self.n
@@ -152,6 +201,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250):
 @argh.arg("--batch-size", help="Batch size")
 @argh.arg("--num-workers", help="Number of workers for loading. Default is to use all cores")
 @argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
+@argh.arg("--subsample", type=int, help="Number of edges to subsample")
 @argh.arg("--log-name", help="Log to a file")
 @argh.arg("--use-sgd", help="Force using plan SGD")
 @argh.arg("-w", "--warm-start", help="Warm start the model with MDS")
@@ -160,7 +210,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250):
 @argh.arg("--checkpoint-freq", help="Checkpoint Frequency (Expensive)")
 def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
           use_yellowfin=False, use_sgd=True, print_freq=1, model_save_file=None, load_model_file=None, batch_size=16,
-          num_workers=None, lazy_generation=False, log_name=None, warm_start=False, learn_scale=False, checkpoint_freq=1000, sample=1.):
+          num_workers=None, lazy_generation=False, log_name=None, warm_start=False, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
@@ -185,7 +235,10 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
         def collate(ls):
             x, y = zip(*ls)
             return torch.cat(x), torch.cat(y)
-        z = DataLoader(GraphRowSampler(G, scale), batch_size, shuffle=True, collate_fn=collate)
+        if subsample is not None:
+            z = DataLoader(GraphRowSubSampler(G, scale, subsample), batch_size, shuffle=True, collate_fn=collate)
+        else:
+            z = DataLoader(GraphRowSampler(G, scale), batch_size, shuffle=True, collate_fn=collate)
         logging.info("Built Data Sampler")
     else:
         Z   = gh.build_distance(G, scale, num_workers=num_workers)   # load the whole matrix    
