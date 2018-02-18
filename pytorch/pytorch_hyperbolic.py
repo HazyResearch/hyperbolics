@@ -88,6 +88,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
                 self.idx_cache[index,cur,1] = int(e)
                 self.val_cache[index,cur] = self.scale
                 cur += 1
+                if cur >= self.subsample: break
             
             scratch   = np.array(range(self.n))
             np.random.shuffle(scratch)
