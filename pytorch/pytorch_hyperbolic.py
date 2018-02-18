@@ -64,7 +64,7 @@ def step(hm, opt, data):
 
 
 class GraphRowSubSampler(torch.utils.data.Dataset):
-    def __init__(self, G, scale, subsample):
+    def __init__(self, G, scale, subsample, Z=None):
         super(GraphRowSubSampler, self).__init__()
         self.graph     = nx.to_scipy_sparse_matrix(G)
         self.n         = G.order()
@@ -75,12 +75,13 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
         self.cache     = set()
         self.verbose   = False
         self.n_cached  = 0
+        self.Z         = Z
         logging.info(self)
         
     def __getitem__(self, index):
         if index not in self.cache:
             if self.verbose: logging.info(f"Cache miss for {index}")
-            h = gh.djikstra_wrapper( (self.graph, [index]) )[0,:]
+            h = gh.djikstra_wrapper( (self.graph, [index]) )[0,:] if self.Z is None else self.Z[index,:]
             # add in all the edges
             cur = 0
             self.idx_cache[index,:,0] = index
@@ -236,10 +237,12 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
     logging.info(f"Loaded Graph {dataset} with {n} nodes scale={scale}")
 
     Z = None
+    
+    def collate(ls):
+        x, y = zip(*ls)
+        return torch.cat(x), torch.cat(y)
+    
     if lazy_generation:
-        def collate(ls):
-            x, y = zip(*ls)
-            return torch.cat(x), torch.cat(y)
         if subsample is not None:
             z = DataLoader(GraphRowSubSampler(G, scale, subsample), batch_size, shuffle=True, collate_fn=collate)
         else:
@@ -248,15 +251,14 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
     else:
         Z   = gh.build_distance(G, scale, num_workers=num_workers)   # load the whole matrix    
         logging.info(f"Built distance matrix with {scale} factor")
-        idx  = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
-        
-        if sample < 1:
-            Z_sampled = gh.dist_sample_rebuild_pos_neg(Z, sample)
-        else:
-            Z_sampled = Z
 
-        vals = torch.DoubleTensor([Z_sampled[i,j] for i in range(n) for j in range(i+1, n)])
-        z  = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True, pin_memory=torch.cuda.is_available())
+        if subsample is not None:
+            z = DataLoader(GraphRowSubSampler(G, scale, subsample,Z=Z), batch_size, shuffle=True, collate_fn=collate)
+        else:
+            idx       = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
+            Z_sampled = gh.dist_sample_rebuild_pos_neg(Z, sample) if sample < 1 else Z
+            vals      = torch.DoubleTensor([Z_sampled[i,j] for i in range(n) for j in range(i+1, n)])
+            z         = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True, pin_memory=torch.cuda.is_available())
         logging.info("Built data loader")
     
   
