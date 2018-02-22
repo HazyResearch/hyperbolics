@@ -166,7 +166,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
                     bad         += 1
             _count += len(v)
             if n_rows_sampled*n < _count:
-                logging.info(f"\t\t Completed {n} {n_rows_sampled} {_count}") 
+                logging.info(f"\t\t Completed {n} {n_rows_sampled} {_count} good={good} bad={bad}") 
                 break
         avg_dist     = avg/good
         dist_max     = me
@@ -215,9 +215,11 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
 @argh.arg("--learn-scale", help="Learn scale")
 @argh.arg("--sample", help="Sample the distance matrix")
 @argh.arg("--checkpoint-freq", help="Checkpoint Frequency (Expensive)")
+@argh.arg("-e", "--exponential-rescale", type=float, help="Exponential Rescale")
 def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
           use_yellowfin=False, use_sgd=True, print_freq=1, model_save_file=None, load_model_file=None, batch_size=16,
-          num_workers=None, lazy_generation=False, log_name=None, warm_start=False, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None):
+          num_workers=None, lazy_generation=False, log_name=None, warm_start=False, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None, 
+          exponential_rescale=None):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
@@ -250,7 +252,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
             z = DataLoader(GraphRowSampler(G, scale), batch_size, shuffle=True, collate_fn=collate)
         logging.info("Built Data Sampler")
     else:
-        Z   = gh.build_distance(G, scale, num_workers=num_workers)   # load the whole matrix    
+        Z   = gh.build_distance(G, scale, num_workers=int(num_workers))   # load the whole matrix    
         logging.info(f"Built distance matrix with {scale} factor")
 
         if subsample is not None:
@@ -272,7 +274,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
         m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(mds_warmstart.get_model(int(dataset),rank)[1])) if warm_start else None
         logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
 
-        m       = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale) )
+        m       = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale, exponential_rescale=exponential_rescale) )
         m.epoch = 0
     logging.info(f"Constucted model with rank={rank} and epochs={m.epoch} isnan={np.any(np.isnan(m.w.cpu().data.numpy()))}")
 
@@ -282,7 +284,8 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
     from yellowfin import YFOptimizer
     opt = YFOptimizer(m.parameters()) if use_yellowfin else torch.optim.Adagrad(m.parameters()) # 
     if use_sgd: opt = torch.optim.SGD(m.parameters(), lr=learning_rate)
-    
+    logging.info(opt)
+
     for i in range(epochs):
         l = 0.0
         for u in z:

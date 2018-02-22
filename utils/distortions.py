@@ -62,7 +62,7 @@ def map_via_edges(G, i, h_rec):
         j += 1
         if j == m:
             break
-    return np.sum(precs)/j 
+    return np.sum(precs)/min(n,m) 
         
 
 def map_row(H1, H2, n, row, verbose=False):

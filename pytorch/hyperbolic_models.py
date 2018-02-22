@@ -69,7 +69,7 @@ def line_dist_sq(_x,y):
     return torch.norm(y - torch.diag(dot(x,y)*norm_x)@x,2,1)**2
 
 class Hyperbolic_Emb(nn.Module):
-    def __init__(self, n, d, project=True, initialize=None, learn_scale=False, absolute_loss=False):
+    def __init__(self, n, d, project=True, initialize=None, learn_scale=False, absolute_loss=False, exponential_rescale=None):
         super(Hyperbolic_Emb, self).__init__()
         self.n = n
         self.d = d
@@ -81,13 +81,13 @@ class Hyperbolic_Emb(nn.Module):
         self.w = Hyperbolic_Parameter(x)
         self.scale       = nn.Parameter( torch.DoubleTensor([0.0]))
         self.learn_scale = learn_scale
-        self.lo_scale    = -0.99
+        self.lo_scale    = -0.999
         self.hi_scale    = 10.0
         self.absolute_loss = absolute_loss
         abs_str = "absolute" if self.absolute_loss else "relative"
 
-        self.exponential_rescale = True
-        exp_str = "exponential" if self.exponential_rescale else "Step Rescale"
+        self.exponential_rescale = exponential_rescale
+        exp_str = f"Exponential {self.exponential_rescale}" if self.exponential_rescale is not None else "No Rescale"
         logging.info(f"{torch.norm(self.w.data - x)} {x.size()} {abs_str} {exp_str}")
         logging.info(self)
 
@@ -113,7 +113,7 @@ class Hyperbolic_Emb(nn.Module):
         _scale = 1+torch.clamp(self.scale,self.lo_scale,self.hi_scale)
 
         #term_rescale = torch.exp( 2*(1.-values) ) if self.exponential_rescale else self.step_rescale(values)
-        term_rescale  = 1.0
+        term_rescale  = torch.exp( self.exponential_rescale*(1.-values) ) if self.exponential_rescale is not None else 1.0 
         if self.absolute_loss:
             _values = values*_scale if self.learn_scale else values 
             return torch.sum( term_rescale*( dist(wi,wj) - _values))**2/self.pairs 
