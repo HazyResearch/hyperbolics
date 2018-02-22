@@ -39,7 +39,7 @@ def load_graph(opt):
         G = nx.balanced_tree(2,2)
     elif opt == 14:
         (n,C) = wnp.load_big_component()
-        G = nx.Graph(C);
+        G = nx.Graph(C).to_undirected();
     else:
         assert(False)
     # take the largest component
