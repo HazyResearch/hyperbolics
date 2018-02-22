@@ -146,7 +146,7 @@ class GraphRowSampler(torch.utils.data.Dataset):
 #
 # DATA Diagnostics
 #
-def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250):
+def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_workers=16):
     m.train(False)
     if lazy_generation:
         logging.info(f"\t Computing Major Stats lazily... ")
@@ -159,7 +159,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250):
             v      = vs.cpu().numpy()
             for i in range(len(v)):
                 if dis.entry_is_good(v[i], v_rec[i]):
-                    (_avg,me,mc) = dis.distortion_entry(v[i], v_rec[i], me, mc)
+                    (_avg,me,mc) = dis.distortion_entry(v[i]*scale, v_rec[i], me, mc)
                     avg         += _avg
                     good        += 1
                 else:
@@ -183,11 +183,12 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250):
             mm        += 1         
         mapscore = map_avg/mm
     else:
-        H    = Z/scale
+        #H    = Z/scale
+        H    = Z*scale
         Hrec = dist_matrix(m.w.data).cpu().numpy()
         logging.info("Compare matrices built")  
-        dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, 2)
-        mapscore = dis.map_score(H, Hrec, n, 2) 
+        dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, num_workers)
+        mapscore = dis.map_score(H, Hrec, n, num_workers) 
         
     logging.info(f"Distortion avg={avg_dist} wc={dist_max} nan_elements={nan_elements}")  
     logging.info(f"MAP = {mapscore}")   
@@ -295,7 +296,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
             logging.info(f"{i} loss={l}")
         if i % checkpoint_freq == 0:
             logging.info(f"\n*** Major Checkpoint. Computing Stats and Saving")
-            major_stats(GM,scale,n,m, True, Z, z)
+            major_stats(GM,1+m.scale.data[0],n,m, True, Z, z)
             if model_save_file is not None:
                 logging.info(f"Saving model into {model_save_file}-{m.epoch} {torch.sum(m.w.data)} ") 
                 torch.save(m, f"{model_save_file}.{m.epoch}")
@@ -308,7 +309,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
         logging.info(f"Saving model into {model_save_file}-final {torch.sum(m.w.data)} {m.scale.data[0]}") 
         torch.save(m, f"{model_save_file}.final")
 
-    major_stats(GM,scale, n,m, True, Z,z)
+    major_stats(GM,1+m.scale.data[0], n, m, True, Z,z)
 
 if __name__ == '__main__':
     _parser = argh.ArghParser() 

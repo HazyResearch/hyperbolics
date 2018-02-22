@@ -73,7 +73,8 @@ class Hyperbolic_Emb(nn.Module):
         super(Hyperbolic_Emb, self).__init__()
         self.n = n
         self.d = d
-        self.pairs     = n*(n-1)/2. 
+        #self.pairs     = n*(n-1)/2.
+        self.pairs     = n # Due to sampling, we may not be prop to n/2
         self.project   = project
         if initialize is not None: logging.info(f"Initializing {np.any(np.isnan(initialize.numpy()))} {initialize.size()} {(n,d)}")
         x      = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None  else torch.DoubleTensor(initialize[0:n,0:d])
