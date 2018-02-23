@@ -106,10 +106,10 @@ end
 function center_inplace(A)
     (n,n) = size(A)
     mu    = vec(mean(A,1))
-    for i=1:n A[i,:] -= mu end
+    Threads.@threads for i=1:n A[i,:] -= mu end
 
     mu = vec(mean(A,2))
-    for i=1:n A[:,i] -= mu end
+    Threads.@threads for i=1:n A[:,i] -= mu end
 end
 
 

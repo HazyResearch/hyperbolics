@@ -63,8 +63,24 @@ function power_method(A,d,tol;T=200)
     return (_eig, x_all)
 end
 
+# Compute Z=A'A 
+function matrix_square(A)
+    Z = zeros(A)
+    tic()
+    println("Squaring...")
+    Threads.@threads for i=1:n
+        for k=1:n
+            for j=1:n
+                Z[i,j] += A[i,j]*A[j,k]
+            end
+        end
+    end
+    toc()
+    return Z
+end
+
 function power_method_sign(A,r,tol;verbose=false, T=200)
-    _d, _U    = power_method(A'A,r, tol;T=T)
+    _d, _U    = power_method(matrix_square(A),r, tol;T=T)
     X         = _U'A*_U 
     _d_signed = vec(diag(X))
     if verbose
@@ -120,16 +136,31 @@ function distortion(H1, H2)
     avg/=(good);
     return (convert(Float64, mc*me), convert(Float64, avg), n*(n-1)/2-good)
 end
+function center_inplace(A)
+    (n,n) = size(A)
+    mu    = vec(mean(A,1))
+    Threads.@threads for i=1:n A[i,:] -= mu end
+
+    mu = vec(mean(A,2))
+    Threads.@threads for i=1:n A[:,i] -= mu end
+end
 
 # this is classical MDS
 function mds(Z, k, n)
-    o = ones(n,1)
-    H = eye(n)-1/n*o*o'
-    B = -1/2*H*Z*H
-    B = 1/2*(B+B')       
-       
-    lambdasM, usM = power_method_sign(B,k,tol) 
-
+    #o = ones(n,1)
+    #H = eye(n)-1/n*o*o'
+    #B = -1/2*H*Z*H
+    #B = 1/2*(B+B')
+    println("Entering MDS $(k) $(n)")
+    tic()
+    Zc = -copy(Z)/2
+    center_inplace(Zc)
+    println("\t MDS Centering Complete")
+    toc()
+    tic()
+    lambdasM, usM = power_method_sign(Zc,k,tol)
+    println("Power Method Complete")
+    toc()
     posE = 0
     while (posE < k && lambdasM[posE+1] > 0)
         posE+=1;
