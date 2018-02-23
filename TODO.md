@@ -10,10 +10,12 @@ Hyperbolic Embeddings
    * Fix scaling for hMDS warm-start
    * Get rid of "number based" datasets.
    * SVRG to accelerate convergence.
+   * Multithreading to load the sampler.
    
 2. (h)MDS.
    * Low precision. Speed improvements using HazyTensor
    * High precision. Multithreading!
+   * Add Scale to the saved representaiton for hMDS
 
 3. Combinatorial
    * Refactor to use arbitrary data sets.

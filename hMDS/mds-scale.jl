@@ -12,18 +12,37 @@ unshift!(PyVector(pyimport("sys")["path"]), "")
 setprecision(BigFloat, 1024)
 
 
+function big_gemv!(A,x_in,x_temp)
+    (n,n) = size(A)
+    Threads.@threads for i=1:n
+        x_out[i] = big(0.)
+        for j=1:n
+            x_out[i] += A[i,j]*x_in[j]
+        end
+    end
+    Threads.@threads for i=1:n
+       x_in[i] = x_out[i]
+    end
+end
 function power_method(A,d,tol;T=200)
     tol=big(1e-1)^tol
     (n,n) = size(A)
     x_all = big.(qr(randn(n,d))[1])
     _eig  = zeros(BigFloat, d)
+    x_temp = zeros(BigFloat,n)
+    
     for j=1:d
-        x = x_all[:,j]
+        x = view(x_all,:,j)
         x /= norm(x)
         for t=1:T            
-            x = A*x
+            #x = A*x
+            big_gemv!(A,x,x_temp)
             if j > 1
-                x -= sum(x_all[:,1:(j-1)]*diagm(vec(x'x_all[:,1:(j-1)])),2)
+                #x -= sum(x_all[:,1:(j-1)]*diagm(vec(x'x_all[:,1:(j-1)])),2)
+                yy = vec(x'view(x_all, :,1:(j-1)))
+                for k=1:(j-1)
+                    x -= view(x_all,:,k)*yy[k]
+                end
             end
             nx = norm(x)
             x /= nx

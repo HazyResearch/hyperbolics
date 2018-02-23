@@ -9,7 +9,6 @@ unshift!(PyVector(pyimport("sys")["path"]), "")
 @pyimport load_dist as ld
 @pyimport distortions as dis
 
-
 function power_method(A,d,tol;T=1000)
     (n,n) = size(A)
     x_all = qr(randn(n,d))[1]
