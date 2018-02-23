@@ -1,9 +1,9 @@
 using PyCall
 using JLD
 #using GenericSVD
-@pyimport numpy as np
-@pyimport networkx as nx
-@pyimport scipy.sparse.csgraph as csg
+#@pyimport numpy as np
+#@pyimport networkx as nx
+#@pyimport scipy.sparse.csgraph as csg
 unshift!(PyVector(pyimport("sys")["path"]), "")
 @pyimport data_prep as dp
 @pyimport load_dist as ld
@@ -97,11 +97,11 @@ toc()
 
    
 
-println("Loading H")
-tic()
-G = dp.load_graph(data_set)
-H = ld.get_dist_mat(G);
-toc()
+# println("Loading H")
+# tic()
+# G = dp.load_graph(data_set)
+# H = ld.get_dist_mat(G);
+# toc()
 
 println("----------------hMDS Results-----------------")
 #dist_max, dist, good = dis.distortion(H, Hrec/scale, n, 16)

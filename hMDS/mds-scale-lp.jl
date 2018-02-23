@@ -13,6 +13,7 @@ function power_method(A,d,tol;T=1000)
     (n,n) = size(A)
     x_all = qr(randn(n,d))[1]
     _eig  = zeros(d)
+    println("\t\t Entering Power Method $(d) $(tol) $(T) $(n)")
     for j=1:d
         tic()
         x = view(x_all,:,j)
@@ -121,6 +122,7 @@ function mds(Z, k, n)
     center_inplace(Zc)
     #B = 1/2*(B+B')       
        
+    println("\t Centered in MDS")
     lambdasM, usM = power_method_sign(Zc,k,tol) 
     lambdasM_pos = copy(lambdasM)
     usM_pos = copy(usM)
@@ -231,6 +233,7 @@ G = dp.load_graph(data_set)
 H = ld.get_dist_mat(G);
 n,_ = size(H)
 
+BLAS.set_num_threads(32) # HACK
 tic()
 Xmds, dim_mds = mds(H, k, n)
 toc()

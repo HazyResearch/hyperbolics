@@ -15,23 +15,24 @@ setprecision(BigFloat, 1024)
 function big_gemv!(A,x_in,x_temp)
     (n,n) = size(A)
     Threads.@threads for i=1:n
-        x_out[i] = big(0.)
+        x_temp[i] = big(0.)
         for j=1:n
-            x_out[i] += A[i,j]*x_in[j]
+            x_temp[i] += A[i,j]*x_in[j]
         end
     end
     Threads.@threads for i=1:n
-       x_in[i] = x_out[i]
+       x_in[i] = x_temp[i]
     end
 end
 function power_method(A,d,tol;T=200)
-    tol=big(1e-1)^tol
     (n,n) = size(A)
     x_all = big.(qr(randn(n,d))[1])
     _eig  = zeros(BigFloat, d)
     x_temp = zeros(BigFloat,n)
     
     for j=1:d
+      tic()	
+      
         x = view(x_all,:,j)
         x /= norm(x)
         for t=1:T            
@@ -48,7 +49,8 @@ function power_method(A,d,tol;T=200)
             x /= nx
             cur_dist = abs(nx - _eig[j])
             if !isinf(cur_dist) &&  min(cur_dist, cur_dist/nx) < tol
-                println("\t Done with eigenvalue $(j) at iteration $(t) at abs_tol=$(Float64(abs(nx - _eig[j]))) rel_tol=$(Float64(abs(nx - _eig[j])/nx))")
+                println("\t Done with eigenvalue $(j) at iteration $(t) at abs_tol=$(Float64(abs(nx - _eig[j]))) rel_tol=$(Float64(abs(nx - _eig[j])/nx)) tol=$(Float64(tol))")
+		toc()
                 break
             end
             if t % 500 == 0
@@ -140,7 +142,7 @@ end
 
 # hMDS exact:
 function h_mds(Z, k, n, tol)
-    println("First e call")
+    println("First e call $(tol)")
     tic()
     eval, evec = power_method_sign(Z,1,tol)  
     lambda = eval[1]
@@ -156,21 +158,33 @@ function h_mds(Z, k, n, tol)
         u = -u;
     end;
 
-    b     = big(1) + sum(u)^2/(lambda*u'*u);
-    alpha = b-sqrt(b^2-big(1));
-    u_s   = u./(sum(u))*lambda*(big(1)-alpha);
-    d     = (u_s+big(1))./(big(1)+alpha);
-    dinv  = big(1)./d;
-    v     = diagm(dinv)*(u_s.-alpha)./(big(1)+alpha);
-    D     = big.(diagm(dinv));
+    b     = big(1.) + sum(u)^2/(lambda*dot(u,u));
+    alpha = b-sqrt(b^2-1);
+    u_s   = u./(sum(u))*lambda*((1)-alpha);
+    d     = (u_s+(1))./((1)+alpha);
+    dinv  = (1)./d;
+
     
-    M = -(D * Z * D - ones(n) * v' - v * ones(n)')/2;
-    M = (M + M')/2;
+    #v     = diagm(dinv)*(u_s.-alpha)./((1)+alpha);
+    v     = dinv.*(u_s.-alpha)./((1)+alpha)
+    #D     = diagm(dinv)
+    Z     = copy(Z)
+    Threads.@threads for i=1:n
+        for j=1:n
+            Z[i,j] *= dinv[i]*dinv[j]
+        end
+    end
+    Threads.@threads for i=1:n
+        for j=1:n
+            Z[i,j] -= (v[i] + v[j])
+        end
+    end
+    Z/=(-2.0)
        
     # power method:
-    println("Second e call")
+    println("Second e call $(tol)")
     tic()
-    lambdasM, usM = power_method_sign(M,k,tol) 
+    lambdasM, usM = power_method_sign(Z,k,tol) 
     posE = 1;
     while (lambdasM[posE] > 0 && posE<k)
         posE+=1;
@@ -197,7 +211,7 @@ data_set = parse(Int32,(ARGS[1]))
 k = parse(Int32, (ARGS[2]))
 scale = parse(Float64, (ARGS[3]))
 prec = parse(Int64, (ARGS[4]))
-tol = parse(Int64, (ARGS[5]))
+tol = parse(Float64, (ARGS[5]))
 
 setprecision(BigFloat, prec)
 
@@ -205,9 +219,12 @@ setprecision(BigFloat, prec)
 #println(string("./dists/dist_mat",data_set,".p"))   
 
 #H = ld.load_dist_mat(string("./dists/dist_mat",data_set,".p"));
+tic()
 G = dp.load_graph(data_set)
 H = ld.get_dist_mat(G);
+toc()
 n,_ = size(H)
+println("Graph Loaded with $(n) nodes tol=$(tol)")
 
 Xmds, dim_mds = mds(H, k, n)
 
@@ -218,7 +235,7 @@ tic()
 Xrec, found_dimension = h_mds(Z, k, n, tol)
 
 # save the recovered points:
-save(string("Xrec_dataset_",data_set,"r=",k,"prec=",prec,"tol=",tol,".jld"), "H", H);
+save(string("Xrec_dataset_",data_set,"r=",k,"prec=",prec,"tol=",tol,".jld"), "Xrec", Xrec);
 toc()
 
 if found_dimension > 1
@@ -246,7 +263,8 @@ if found_dimension > 1
     Hrec = acosh.(1+2*Zrec)
     Hrec = convert(Array{Float64,2},Hrec)
     Hrec /= convert(Float64,scale)
-    
+ 
+    println("----------------h-MDS Results-----------------")   
     dist_max, dist, good = dis.distortion(H, Hrec, n, 2)
     println("Distortion avg/max, bad = $(convert(Float64,dist)), $(convert(Float64,dist_max)), $(convert(Float64,good))")  
     mapscore = dis.map_score(H, Hrec, n, 2) 
