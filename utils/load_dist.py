@@ -33,7 +33,7 @@ def get_dist_mat(G):
     t = time.time()
     
     num_cores = multiprocessing.cpu_count()
-    dist_mat = Parallel(n_jobs=32)(delayed(compute_row)(i,adj_mat) for i in range(n))
+    dist_mat = Parallel(n_jobs=num_cores)(delayed(compute_row)(i,adj_mat) for i in range(n))
     dist_mat = np.vstack(dist_mat)
     print("Time elapsed = ", time.time()-t)
     return dist_mat
