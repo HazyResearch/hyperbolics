@@ -210,16 +210,17 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
 @argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
 @argh.arg("--subsample", type=int, help="Number of edges to subsample")
 @argh.arg("--log-name", help="Log to a file")
-@argh.arg("--use-sgd", help="Force using plan SGD")
+@argh.arg("--force-sgd", help="Force using plain SGD")
 @argh.arg("-w", "--warm-start", help="Warm start the model with MDS")
 @argh.arg("--learn-scale", help="Learn scale")
 @argh.arg("--sample", help="Sample the distance matrix")
 @argh.arg("--checkpoint-freq", help="Checkpoint Frequency (Expensive)")
 @argh.arg("-e", "--exponential-rescale", type=float, help="Exponential Rescale")
+@argh.arg("-x", "--extra-steps", type=int, help="Steps per batch")
 def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
-          use_yellowfin=False, use_sgd=True, print_freq=1, model_save_file=None, load_model_file=None, batch_size=16,
+          use_yellowfin=False, force_sgd=False, print_freq=1, model_save_file=None, load_model_file=None, batch_size=16,
           num_workers=None, lazy_generation=False, log_name=None, warm_start=False, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None, 
-          exponential_rescale=None):
+          exponential_rescale=None, extra_steps=128):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
@@ -252,7 +253,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
             z = DataLoader(GraphRowSampler(G, scale), batch_size, shuffle=True, collate_fn=collate)
         logging.info("Built Data Sampler")
     else:
-        Z   = gh.build_distance(G, scale, num_workers=int(num_workers))   # load the whole matrix    
+        Z   = gh.build_distance(G, scale, num_workers=int(num_workers) if num_workers is not None else 16)   # load the whole matrix    
         logging.info(f"Built distance matrix with {scale} factor")
 
         if subsample is not None:
@@ -283,13 +284,25 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
     #
     from yellowfin import YFOptimizer
     opt = YFOptimizer(m.parameters()) if use_yellowfin else torch.optim.Adagrad(m.parameters()) # 
-    if use_sgd: opt = torch.optim.SGD(m.parameters(), lr=learning_rate)
+    if force_sgd: opt = torch.optim.SGD(m.parameters(), lr=learning_rate)
     logging.info(opt)
 
     for i in range(epochs):
         l = 0.0
-        for u in z:
-            l += step(m, opt, u).data[0]
+        m.train(True)
+        opt.zero_grad()
+        for the_step in range(extra_steps):
+            # Accumulate the gradient
+            for u in z:                
+                _loss = m.loss(cu_var(u, requires_grad=False))
+                _loss.backward()
+                l += _loss.data[0]
+            Hyperbolic_Parameter.correct_metric(m.parameters()) # NB: THIS IS THE NEW CALL
+            opt.step()
+            # Projection
+            m.normalize()
+
+            #l += step(m, opt, u).data[0]
 
         # Logging code
         if l < tol:
