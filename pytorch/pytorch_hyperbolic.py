@@ -1,14 +1,22 @@
 import logging, argh
 # Data prep.
-import data_prep
+import utils.data_prep as data_prep
 import networkx as nx
+import scipy
 import scipy.sparse.csgraph as csg
 import distortions as dis
 import graph_helpers as gh
-import mds_warmstart 
+import mds_warmstart
+from hyperbolic_parameter import Hyperbolic_Parameter
+from hyperbolic_models import Hyperbolic_Emb, dist
+
 # This describes a hyperbolic optimizer in Pytorch. It requires two modifications:
 # 
-# * When declaring a parameter, one uses a class called "Hyperbolic Parameter". It assumes that the _last_ dimension is in the disk. E.g., a tensor of size n x m x d means that you have n x m elements of H_D. d >= 2.
+# * When declaring a parameter, one uses a class called "Hyperbolic
+# * Parameter". It assumes that the _last_ dimension is in the
+# * disk. E.g., a tensor of size n x m x d means that you have n x m
+# * elements of H_D. d >= 2.
+# 
 #   * It inherits from parameter, so you can do anything you want with it (set its value, pass it around).
 # 
 # * So that you can use any optimizer and get the correction, after the `backward` call but before the `step`, you need to call a function called `hyperbolic_fix`. It will walk the tree, look for the hyperbolic parameters and correct them. 
@@ -22,132 +30,6 @@ from torch.utils.data import DataLoader, TensorDataset
 
 import numpy as np, math
 import random
-from hyperbolic_parameter import Hyperbolic_Parameter
-
-# We implement both in pytorch using a custom SGD optimizer. This is used to correct for the hyperbolic variables.
-# 
-# Here are the basic distance and projection functions. The distance in Poincaré space is:
-# 
-# $$ d(u,v) = \mathrm{arcosh}\left(1 + 2\frac{\|u-v\|^2}{(1-\|u\|^2)(1-\|v\|^2)}\right)$$
-# 
-# We implement a simple projection on the disk as well.
-
-
-#{\displaystyle \operatorname {arcosh} x=\ln \left(x+{\sqrt {x^{2}-1}}\right)}
-def acosh(x):
-    return torch.log(x + torch.sqrt(x**2-1))
-
-def dist(u,v):
-    z  = 2*torch.norm(u-v,2,1)**2
-    uu = 1. + torch.div(z,((1-torch.norm(u,2,1)**2)*(1-torch.norm(v,2,1)**2)))
-    return acosh(uu)
-
-#
-# Differs from the Facebook paper, slightly.
-#
-def h_proj(x, eps=1e-5):
-    current_norms = torch.norm(x,2,x.dim() - 1)
-    mask_idx      = current_norms < 1.0
-    modified      = 1./((1+eps)*current_norms)
-    modified[mask_idx] = 1.0
-    new_size      = [1]*current_norms.dim() + [x.size(x.dim()-1)]
-    modified      = modified.unsqueeze(modified.dim()).repeat(*new_size) 
-    return x * modified
-
-def dot(x,y): return torch.sum(x * y, 1)
-
-# Compute the  
-# $$\min_{v} \sum_{j=1}^{n} \mathrm{acosh}\left(1 + d^2_E(L(v), w_j)\right)^2$$
-def line_dist_sq(_x,y):
-    norm_x = torch.norm(_x)**(-2)
-    x = _x.repeat(y.size(0),1)
-    return torch.norm(y - torch.diag(dot(x,y)*norm_x)@x,2,1)**2
-
-#
-# Our models
-# 
-class Hyperbolic_Mean(nn.Module):
-    def __init__(self, d):
-        super(Hyperbolic_Mean, self).__init__()
-        self.w = Hyperbolic_Parameter( (torch.rand(d) * 1e-3).double() ) 
-            
-    def loss(self, y_data): 
-        return torch.sum(dist(self.w.repeat(y_data.size(0),1),y_data)**2)
- 
-    def normalize(self):
-        self.w.proj()
-
-class Hyperbolic_Lines(nn.Module):
-    def __init__(self, d):
-        super(Hyperbolic_Lines, self).__init__()
-        self.w = Hyperbolic_Parameter(h_proj(torch.rand(d) * 1e-3).double()) 
-            
-    # $$\min_{v} \sum_{j=1}^{n} \mathrm{acosh}\left(1 + d^2_E(L(v), w_j)\right)^2$$
-    # learn the lines in a zero centered way.
-    def loss(self, y_data): 
-        return torch.sum(acosh(1 + line_dist_sq(self.w, y_data))**2)
-    
-    def normalize(self): # we handle this in the line_dist_s
-        return
-
-class Hyperbolic_Emb(nn.Module):
-    def __init__(self, n, d, project=True, initialize=None, learn_scale=False, absolute_loss=False):
-        super(Hyperbolic_Emb, self).__init__()
-        self.n = n
-        self.d = d
-        self.pairs     = n*(n-1)/2. 
-        self.project   = project
-        if initialize is not None: logging.info(f"Initializing {np.any(np.isnan(initialize.numpy()))} {initialize.size()} {(n,d)}")
-        x      = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None  else torch.DoubleTensor(initialize[0:n,0:d])
-        self.w = Hyperbolic_Parameter(x)
-        self.scale       = nn.Parameter( torch.DoubleTensor([0.0]))
-        self.learn_scale = learn_scale
-        self.lo_scale    = -0.99
-        self.hi_scale    = 10.0
-        self.absolute_loss = absolute_loss
-        abs_str = "absolute" if self.absolute_loss else "relative"
-
-        self.exponential_rescale = True
-        exp_str = "exponential" if self.exponential_rescale else "Step Rescale"
-        logging.info(f"{torch.norm(self.w.data - x)} {x.size()} {abs_str} {exp_str}")
-        logging.info(self)
-
-    def step_rescale( self, values ):
-        y = cudaify( torch.ones( values.size() ).double()/(10*self.n) )
-        y[torch.lt( values.data, 5)] = 1.0
-        return Variable(y, requires_grad=False)
-        #return values**(-2)
-
-    def dist(self, idx):
-        wi = torch.index_select(self.w, 0, idx[:,0])
-        wj = torch.index_select(self.w, 0, idx[:,1])
-        return dist(wi,wj)*(1+self.scale)
-
-    def dist_row(self, i):
-        m = self.w.size(0)
-        return (1+self.scale)*dist(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w)
-
-    def loss(self, _x):
-        idx, values = _x
-        wi = torch.index_select(self.w, 0, idx[:,0])
-        wj = torch.index_select(self.w, 0, idx[:,1])
-        _scale = 1+torch.clamp(self.scale,self.lo_scale,self.hi_scale)
-
-        #term_rescale = torch.exp( 2*(1.-values) ) if self.exponential_rescale else self.step_rescale(values)
-        term_rescale  = 1.0
-        if self.absolute_loss:
-            _values = values*_scale if self.learn_scale else values 
-            return torch.sum( term_rescale*( dist(wi,wj) - _values))**2/self.pairs 
-        else:
-            _s = _scale if self.learn_scale else 1.0
-            return torch.sum( term_rescale*_s*(dist(wi,wj)/values - 1.0)**2/self.pairs )
-        
-    def normalize(self):
-        if self.project: 
-            self.w.proj()
-            self.scale.data = torch.clamp(self.scale.data,self.lo_scale, self.hi_scale)
-        
-
 
 # compute marix of non-squard distances
 def dist_matrix(_data):
@@ -181,36 +63,79 @@ def step(hm, opt, data):
     return loss
 
 
-def example():
-    learning_rate  = 1e-3
-    tol            = 1e-8
-    hl             = Hyperbolic_Lines(d)
-    opt_hl         = torch.optim.SGD(hl.parameters(), lr=learning_rate)
-    line_norm      = (1-torch.norm(_data_z,2,1)**2)**(-2)
-    line_data      = torch.diag(line_norm)@_data_z
-    for t in range(1001):
-        l2 = step(hl, opt_hl, line_data)
-        ll = l2.data[0]
-        if ll < tol: 
-            logging.info(f"End {t} {ll}")
-            break
-        if t % 100 == 0:
-            logging.info(f"{t:2} -> {ll:0.2f}")
+class GraphRowSubSampler(torch.utils.data.Dataset):
+    def __init__(self, G, scale, subsample, Z=None):
+        super(GraphRowSubSampler, self).__init__()
+        self.graph     = nx.to_scipy_sparse_matrix(G)
+        self.n         = G.order()
+        self.scale     = scale
+        self.subsample = subsample
+        self.val_cache = torch.DoubleTensor(self.n,subsample).zero_()
+        self.idx_cache = torch.LongTensor(self.n,subsample,2).zero_()
+        self.cache     = set()
+        self.verbose   = False
+        self.n_cached  = 0
+        self.Z         = Z
+        logging.info(self)
+        
+    def __getitem__(self, index):
+        if index not in self.cache:
+            if self.verbose: logging.info(f"Cache miss for {index}")
+            h = gh.djikstra_wrapper( (self.graph, [index]) )[0,:] if self.Z is None else self.Z[index,:]
+            # add in all the edges
+            cur = 0
+            self.idx_cache[index,:,0] = index
+            neighbors = scipy.sparse.find(self.graph[index,:])[1]
+            for e in neighbors:
+                self.idx_cache[index,cur,1] = int(e)
+                self.val_cache[index,cur] = self.scale
+                cur += 1
+                if cur >= self.subsample: break
+            
+            scratch   = np.array(range(self.n))
+            np.random.shuffle(scratch)
 
+            i = 0
+            while cur < self.subsample and i < self.n:
+                v = scratch[i]
+                if v != index and v not in neighbors:
+                    self.idx_cache[index,cur,1] = int(v)
+                    self.val_cache[index,cur]   = self.scale*h[v]
+                    cur += 1
+                i += 1
+            if self.verbose: logging.info(f"\t neighbors={neighbors} {self.idx_cache[index,:,1].numpy().T}")
+            self.cache.add(index)
+            self.n_cached += 1
+            if self.n_cached % (max(self.n//20,1)) == 0: logging.info(f"\t Cached {self.n_cached} of {self.n}")
+            
+        return (self.idx_cache[index,:], self.val_cache[index,:])
+    
+    def __len__(self): return self.n
 
+    def __repr__(self):
+        return f"Subsample: {self.n} points with scale {self.scale} subsample={self.subsample}"
+            
 
-# 
 class GraphRowSampler(torch.utils.data.Dataset):
-    def __init__(self, G, scale):
+    def __init__(self, G, scale, use_cache=True):
         self.graph = nx.to_scipy_sparse_matrix(G)
         self.n     = G.order()
         self.scale = scale
-        logging.info(f"{type(self.graph)}")
-        
+        self.cache = dict() if use_cache else None
+            
     def __getitem__(self, index):
-        h   = gh.djikstra_wrapper( (self.graph, [index]) )
+        h = None
+        if self.cache is None or index not in self.cache:
+            h = gh.djikstra_wrapper( (self.graph, [index]) )
+            if self.cache is not None:
+                self.cache[index] = h
+            #logging.info(f"info {index}")
+        else:
+            h = self.cache[index]
+            #logging.info(f"hit {index}")
+            
         idx = torch.LongTensor([ (index, j) for j in range(self.n) if j != index])
-        v   = torch.DoubleTensor( [ h[0,j] for j in range(self.n) if j != index] )
+        v   = torch.DoubleTensor(h).view(-1)[idx[:,1]]        
         return (idx, v)
     
     def __len__(self): return self.n
@@ -221,9 +146,10 @@ class GraphRowSampler(torch.utils.data.Dataset):
 #
 # DATA Diagnostics
 #
-def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250):
+def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_workers=16):
     m.train(False)
     if lazy_generation:
+        logging.info(f"\t Computing Major Stats lazily... ")
         avg, me, mc = 0.0, 0.0, 0.0
         good,bad    = 0,0
         _count      = 0 
@@ -233,14 +159,14 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250):
             v      = vs.cpu().numpy()
             for i in range(len(v)):
                 if dis.entry_is_good(v[i], v_rec[i]):
-                    (_avg,me,mc) = dis.distortion_entry(v[i], v_rec[i], me, mc)
+                    (_avg,me,mc) = dis.distortion_entry(v[i]*scale, v_rec[i], me, mc)
                     avg         += _avg
                     good        += 1
                 else:
                     bad         += 1
             _count += len(v)
             if n_rows_sampled*n < _count:
-                logging.info(f"\t\t Completed {n} {n_rows_sampled} {_count}") 
+                logging.info(f"\t\t Completed {n} {n_rows_sampled} {_count} good={good} bad={bad}") 
                 break
         avg_dist     = avg/good
         dist_max     = me
@@ -257,11 +183,12 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250):
             mm        += 1         
         mapscore = map_avg/mm
     else:
-        H    = Z/scale
+        #H    = Z/scale
+        H    = Z*scale
         Hrec = dist_matrix(m.w.data).cpu().numpy()
         logging.info("Compare matrices built")  
-        dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, 2)
-        mapscore = dis.map_score(H, Hrec, n, 2) 
+        dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, num_workers)
+        mapscore = dis.map_score(H, Hrec, n, num_workers) 
         
     logging.info(f"Distortion avg={avg_dist} wc={dist_max} nan_elements={nan_elements}")  
     logging.info(f"MAP = {mapscore}")   
@@ -281,15 +208,19 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250):
 @argh.arg("--batch-size", help="Batch size")
 @argh.arg("--num-workers", help="Number of workers for loading. Default is to use all cores")
 @argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
+@argh.arg("--subsample", type=int, help="Number of edges to subsample")
 @argh.arg("--log-name", help="Log to a file")
-@argh.arg("--use-sgd", help="Force using plan SGD")
+@argh.arg("--force-sgd", help="Force using plain SGD")
 @argh.arg("-w", "--warm-start", help="Warm start the model with MDS")
 @argh.arg("--learn-scale", help="Learn scale")
 @argh.arg("--sample", help="Sample the distance matrix")
 @argh.arg("--checkpoint-freq", help="Checkpoint Frequency (Expensive)")
+@argh.arg("-e", "--exponential-rescale", type=float, help="Exponential Rescale")
+@argh.arg("-x", "--extra-steps", type=int, help="Steps per batch")
 def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
-          use_yellowfin=False, use_sgd=True, print_freq=1, model_save_file=None, load_model_file=None, batch_size=16,
-          num_workers=None, lazy_generation=False, log_name=None, warm_start=False, learn_scale=False, checkpoint_freq=1000, sample=1.):
+          use_yellowfin=False, force_sgd=False, print_freq=1, model_save_file=None, load_model_file=None, batch_size=16,
+          num_workers=None, lazy_generation=False, log_name=None, warm_start=False, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None, 
+          exponential_rescale=None, extra_steps=1):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
@@ -310,24 +241,28 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
     logging.info(f"Loaded Graph {dataset} with {n} nodes scale={scale}")
 
     Z = None
+    
+    def collate(ls):
+        x, y = zip(*ls)
+        return torch.cat(x), torch.cat(y)
+    
     if lazy_generation:
-        def collate(ls):
-            x, y = zip(*ls)
-            return torch.cat(x), torch.cat(y)
-        z = DataLoader(GraphRowSampler(G, scale), batch_size, shuffle=True, collate_fn=collate)
-        logging.info("Built data Sampler")
-    else:
-        Z   = gh.build_distance(G, scale, num_workers=num_workers)   # load the whole matrix    
-        logging.info(f"Built distance matrix with {scale} factor")
-        idx  = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
-        
-        if sample < 1:
-            Z_sampled = gh.dist_sample_rebuild_pos_neg(Z, sample)
+        if subsample is not None:
+            z = DataLoader(GraphRowSubSampler(G, scale, subsample), batch_size, shuffle=True, collate_fn=collate)
         else:
-            Z_sampled = Z
+            z = DataLoader(GraphRowSampler(G, scale), batch_size, shuffle=True, collate_fn=collate)
+        logging.info("Built Data Sampler")
+    else:
+        Z   = gh.build_distance(G, scale, num_workers=int(num_workers) if num_workers is not None else 16)   # load the whole matrix    
+        logging.info(f"Built distance matrix with {scale} factor")
 
-        vals = torch.DoubleTensor([Z_sampled[i,j] for i in range(n) for j in range(i+1, n)])
-        z  = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True, pin_memory=torch.cuda.is_available())
+        if subsample is not None:
+            z = DataLoader(GraphRowSubSampler(G, scale, subsample,Z=Z), batch_size, shuffle=True, collate_fn=collate)
+        else:
+            idx       = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
+            Z_sampled = gh.dist_sample_rebuild_pos_neg(Z, sample) if sample < 1 else Z
+            vals      = torch.DoubleTensor([Z_sampled[i,j] for i in range(n) for j in range(i+1, n)])
+            z         = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True, pin_memory=torch.cuda.is_available())
         logging.info("Built data loader")
     
   
@@ -336,23 +271,40 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
         m = cudaify( torch.load(load_model_file) )
         logging.info(f"Loaded scale {m.scale.data[0]} {torch.sum(m.w.data)}")
     else:
+        logging.info(f"Creating a fresh model warm_start?={warm_start}")
         m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(mds_warmstart.get_model(int(dataset),rank)[1])) if warm_start else None
         logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
 
-        m = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale) )
+        m       = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale, exponential_rescale=exponential_rescale) )
         m.epoch = 0
     logging.info(f"Constucted model with rank={rank} and epochs={m.epoch} isnan={np.any(np.isnan(m.w.cpu().data.numpy()))}")
-    
-                
+
+    #
+    # Build the Optimizer
+    #
     from yellowfin import YFOptimizer
     opt = YFOptimizer(m.parameters()) if use_yellowfin else torch.optim.Adagrad(m.parameters()) # 
-    if use_sgd: opt = torch.optim.SGD(m.parameters(), lr=learning_rate)
-    
+    if force_sgd: opt = torch.optim.SGD(m.parameters(), lr=learning_rate)
+    logging.info(opt)
+
     for i in range(epochs):
         l = 0.0
-        for u in z:
-            l += step(m, opt, u).data[0]
-            
+        m.train(True)
+        opt.zero_grad()
+        for the_step in range(extra_steps):
+            # Accumulate the gradient
+            for u in z:                
+                _loss = m.loss(cu_var(u, requires_grad=False))
+                _loss.backward()
+                l += _loss.data[0]
+            Hyperbolic_Parameter.correct_metric(m.parameters()) # NB: THIS IS THE NEW CALL
+            opt.step()
+            # Projection
+            m.normalize()
+
+            #l += step(m, opt, u).data[0]
+
+        # Logging code
         if l < tol:
                 logging.info("Found a {l} solution. Done at iteration {i}!")
                 break
@@ -360,7 +312,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
             logging.info(f"{i} loss={l}")
         if i % checkpoint_freq == 0:
             logging.info(f"\n*** Major Checkpoint. Computing Stats and Saving")
-            major_stats(GM,scale,n,m, lazy_generation, Z, z)
+            major_stats(GM,1+m.scale.data[0],n,m, True, Z, z)
             if model_save_file is not None:
                 logging.info(f"Saving model into {model_save_file}-{m.epoch} {torch.sum(m.w.data)} ") 
                 torch.save(m, f"{model_save_file}.{m.epoch}")
@@ -373,7 +325,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
         logging.info(f"Saving model into {model_save_file}-final {torch.sum(m.w.data)} {m.scale.data[0]}") 
         torch.save(m, f"{model_save_file}.final")
 
-    major_stats(GM,scale, n,m, lazy_generation, Z,z)
+    major_stats(GM,1+m.scale.data[0], n, m, True, Z,z)
 
 if __name__ == '__main__':
     _parser = argh.ArghParser() 

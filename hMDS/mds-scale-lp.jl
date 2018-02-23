@@ -10,7 +10,7 @@ unshift!(PyVector(pyimport("sys")["path"]), "")
 @pyimport distortions as dis
 
 
-function power_method(A,d,tol;T=10000)
+function power_method(A,d,tol;T=1000)
     (n,n) = size(A)
     x_all = qr(randn(n,d))[1]
     _eig  = zeros(d)
@@ -45,7 +45,7 @@ function power_method(A,d,tol;T=10000)
     return (_eig, x_all)
 end
 
-function power_method_sign(A,r,tol;verbose=false, T=10000)
+function power_method_sign(A,r,tol;verbose=false, T=1000)
     _d, _U    = power_method(A'A,r, tol;T=T)
     X         = _U'A*_U 
     _d_signed = vec(diag(X))
@@ -221,7 +221,7 @@ end
 data_set = parse(Int32,(ARGS[1]))
 k        = parse(Int32, (ARGS[2]))
 scale    = parse(Float64, (ARGS[3]))
-tol      = 1e-9
+tol      = 1e-8
 
 
 println("Scaling = $(convert(Float64,scale))");

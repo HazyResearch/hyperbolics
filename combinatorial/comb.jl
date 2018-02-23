@@ -5,7 +5,7 @@ using ArgParse
 @pyimport scipy.sparse.csgraph as csg
 @pyimport numpy as np
 
-unshift!(PyVector(pyimport("sys")["path"]), "")
+unshift!(PyVector(pyimport("sys")["path"]), "..")
 @pyimport load_graph as lg
 @pyimport distortions as dis
 include("utilities.jl")
