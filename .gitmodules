@@ -1,0 +1,3 @@
+[submodule "pytorch_optimizers"]
+	path = pytorch_optimizers
+	url = git@github.com:mleszczy/pytorch_optimizers.git

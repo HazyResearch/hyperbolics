@@ -217,10 +217,12 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
 @argh.arg("--checkpoint-freq", help="Checkpoint Frequency (Expensive)")
 @argh.arg("-e", "--exponential-rescale", type=float, help="Exponential Rescale")
 @argh.arg("-x", "--extra-steps", type=int, help="Steps per batch")
+@argh.arg("--use-svrg", help="Use SVRG")
+@argh.arg("-T", help="SVRG T parameter")
 def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
           use_yellowfin=False, force_sgd=False, print_freq=1, model_save_file=None, load_model_file=None, batch_size=16,
           num_workers=None, lazy_generation=False, log_name=None, warm_start=False, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None, 
-          exponential_rescale=None, extra_steps=1):
+          exponential_rescale=None, extra_steps=1, use_svrg=False, T=10):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
@@ -285,24 +287,41 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
     from yellowfin import YFOptimizer
     opt = YFOptimizer(m.parameters()) if use_yellowfin else torch.optim.Adagrad(m.parameters()) # 
     if force_sgd: opt = torch.optim.SGD(m.parameters(), lr=learning_rate)
+    if use_svrg:
+        from svrg import SVRG
+        opt = SVRG(m.parameters(), lr=learning_rate, T=T, data_loader=z)
+   
+        
     logging.info(opt)
 
     for i in range(epochs):
         l = 0.0
         m.train(True)
         opt.zero_grad()
-        for the_step in range(extra_steps):
-            # Accumulate the gradient
-            for u in z:                
-                _loss = m.loss(cu_var(u, requires_grad=False))
-                _loss.backward()
-                l += _loss.data[0]
-            Hyperbolic_Parameter.correct_metric(m.parameters()) # NB: THIS IS THE NEW CALL
-            opt.step()
-            # Projection
-            m.normalize()
+        if use_svrg:
+            for data in z:
+                def closure(data=data, target=None):
+                    _data = data if target is None else (data,target)
+                    c = m.loss(cu_var(_data))  
+                    c.backward()
+                    return c.data[0]
+                l += opt.step(closure)
+                # Projection
+                m.normalize()
 
-            #l += step(m, opt, u).data[0]
+        else:
+            for the_step in range(extra_steps):
+                # Accumulate the gradient
+                for u in z:                
+                    _loss = m.loss(cu_var(u, requires_grad=False))
+                    _loss.backward()
+                    l += _loss.data[0]
+                Hyperbolic_Parameter.correct_metric(m.parameters()) # NB: THIS IS THE NEW CALL
+                opt.step()
+                # Projection
+                m.normalize()
+                
+                #l += step(m, opt, u).data[0]
 
         # Logging code
         if l < tol:
