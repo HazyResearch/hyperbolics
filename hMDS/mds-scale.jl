@@ -49,7 +49,7 @@ function power_method(A,d,tol;T=200)
             x /= nx
             cur_dist = abs(nx - _eig[j])
             if !isinf(cur_dist) &&  min(cur_dist, cur_dist/nx) < tol
-                println("\t Done with eigenvalue $(j) at iteration $(t) at abs_tol=$(Float64(abs(nx - _eig[j]))) rel_tol=$(Float64(abs(nx - _eig[j])/nx)) tol=$(Float64(tol))")
+                println("\t Done with eigenvalue $(j) val=$(Float64(nx)) at iteration $(t) at abs_tol=$(Float64(abs(nx - _eig[j]))) rel_tol=$(Float64(abs(nx - _eig[j])/nx)) tol=$(Float64(tol))")
 		toc()
                 break
             end
@@ -58,6 +58,7 @@ function power_method(A,d,tol;T=200)
             end
             _eig[j]    = nx
         end
+	println("\t $(j) val=$(Float64(_eig[j])) abs_tol=$(Float64(abs(nx - _eig[j]))) rel_tol=$(Float64(abs(nx - _eig[j])/nx)) tol=$(Float64(tol))")
         x_all[:,j] = x 
     end
     return (_eig, x_all)
@@ -71,7 +72,7 @@ function matrix_square(A)
     Threads.@threads for i=1:n
         for k=1:n
             for j=1:n
-                Z[i,j] += A[i,j]*A[j,k]
+                Z[i,k] += A[i,j]*A[k,j]
             end
         end
     end
@@ -173,24 +174,20 @@ end
 
 # hMDS exact:
 function h_mds(Z, k, n, tol)
-    println("First e call $(tol)")
+    println("First e call $(tol) for k=$(k) n=$(n)")
     tic()
-    eval, evec = power_method_sign(Z,1,tol)  
-    lambda = eval[1]
-    u = evec[:,1]
+    eval, evec   = power_method_sign(Z,2,tol)  
+    (lambda,idx) = findmax(eval)
+    u            = evec[:,idx]
     println("lambda = $(convert(Float64,lambda))")
-
     toc()
-    #EZ = eig(Z);
-    #lambda = EZ[1][n];
-    #u = EZ[2][:,n];    
     
     if (u[1] < 0)
-        u = -u;
-    end;
-
-    b     = big(1.) + sum(u)^2/(lambda*dot(u,u));
-    alpha = b-sqrt(b^2-1);
+        u = -u
+    end
+    assert(lambda >= 0)
+    b     = big(1.) + sum(abs.(u))^2/(lambda*dot(u,u));
+    alpha = b-sqrt(max(b^2-1,0));
     u_s   = u./(sum(u))*lambda*((1)-alpha);
     d     = (u_s+(1))./((1)+alpha);
     dinv  = (1)./d;
@@ -205,37 +202,25 @@ function h_mds(Z, k, n, tol)
             Z[i,j] *= dinv[i]*dinv[j]
         end
     end
-    Threads.@threads for i=1:n
-        for j=1:n
-            Z[i,j] -= (v[i] + v[j])
-        end
-    end
+    # Threads.@threads for i=1:n
+    #     for j=1:n
+    #         Z[i,j] -= (v[i] + v[j])
+    #     end
+    #end
+    center_inplace(Z)
     Z/=(-2.0)
        
     # power method:
     println("Second e call $(tol)")
     tic()
     lambdasM, usM = power_method_sign(Z,k,tol) 
-    posE = 1;
-    while (lambdasM[posE] > 0 && posE<k)
-        posE+=1;
-    end
-
-    Xrec = usM[:,1:posE-1] * diagm(lambdasM[1:posE-1] .^ 0.5);
-    Xrec = Xrec';
+    pos_idx = lambdasM .> 0.
+    println("\t $(Float64.(lambdasM[pos_idx]))")
+    Xrec = usM[:,pos_idx] * diagm(lambdasM[pos_idx] .^ 0.5);
+    Xrec = Xrec'
     toc()
     
-    # low precision:
-    #EM = eig(M);    
-    #lambdasM = EM[1][(n-k+1):n];
-    #usM = EM[2][:,(n-k+1):n];
-
-    # using SVD:
-    #sv = svdfact(M)
-    #A = diagm(sv[:S].^0.5)
-    #Xrec = (sv[:U][:,1:k]*A[1:k,1:k])'
-       
-    return Xrec, posE-1
+    return Xrec, sum(pos_idx)
 end
 
 data_set = parse(Int32,(ARGS[1]))
@@ -269,25 +254,25 @@ Xrec, found_dimension = h_mds(Z, k, n, tol)
 save(string("Xrec_dataset_",data_set,"r=",k,"prec=",prec,"tol=",tol,".jld"), "Xrec", Xrec);
 toc()
 
-if found_dimension > 1
-    println("Building recovered graph...")
+    println("Building recovered graph... $(found_dimension)")
     tic()
     Zrec = big.(zeros(n, n));
-    for i = 1:n
+    Threads.@threads for i = 1:n
         for j = 1:n
             Zrec[i,j] = norm(Xrec[:,i] - Xrec[:,j])^2 / ((1 - norm(Xrec[:,i])^2) * (1 - norm(Xrec[:,j])^2));
         end
     end
     toc()
 
+    tic()
     # the MDS distances:
     Zmds = zeros(n,n)
-    for i = 1:n
+    Threads.@threads for i = 1:n
         for j = 1:n
             Zmds[i,j] = norm(Xmds[:,i] - Xmds[:,j])
         end
     end
-
+    toc()
     
     println("Getting metrics")
     tic()
@@ -311,7 +296,3 @@ if found_dimension > 1
     println("Bad Dists = $(bad)")
     println("Dimension = $( dim_mds)") 
     
-    
-else
-    println("Dimension = 1!")
-end
