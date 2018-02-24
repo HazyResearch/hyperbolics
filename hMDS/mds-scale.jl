@@ -24,12 +24,12 @@ function big_gemv!(A,x_in,x_temp)
        x_in[i] = x_temp[i]
     end
 end
-function power_method(A,d,tol;T=200)
+function power_method(A,d,tol;T=1000)
     (n,n) = size(A)
     x_all = big.(qr(randn(n,d))[1])
     _eig  = zeros(BigFloat, d)
     x_temp = zeros(BigFloat,n)
-    
+    (nx,cur_dist) = (big(0.), big(0.))
     for j=1:d
       tic()	
       
@@ -50,16 +50,16 @@ function power_method(A,d,tol;T=200)
             cur_dist = abs(nx - _eig[j])
             if !isinf(cur_dist) &&  min(cur_dist, cur_dist/nx) < tol
                 println("\t Done with eigenvalue $(j) val=$(Float64(nx)) at iteration $(t) at abs_tol=$(Float64(abs(nx - _eig[j]))) rel_tol=$(Float64(abs(nx - _eig[j])/nx)) tol=$(Float64(tol))")
-		toc()
                 break
             end
             if t % 500 == 0
-                println("\t $(t) $(cur_dist)\n\t\t $(cur_dist/nx)")
+                println("\t $(t) $(Float64(cur_dist))\n\t\t $(Float64(cur_dist/nx))")
             end
             _eig[j]    = nx
         end
-	println("\t $(j) val=$(Float64(_eig[j])) abs_tol=$(Float64(abs(nx - _eig[j]))) rel_tol=$(Float64(abs(nx - _eig[j])/nx)) tol=$(Float64(tol))")
+	println("\t $(j) val=$(Float64(_eig[j])) tol=$(Float64(tol)) abs=$(Float64(cur_dist)) rel=$(Float64(cur_dist/nx))")
         x_all[:,j] = x 
+	toc()
     end
     return (_eig, x_all)
 end
@@ -80,7 +80,7 @@ function matrix_square(A)
     return Z
 end
 
-function power_method_sign(A,r,tol;verbose=false, T=200)
+function power_method_sign(A,r,tol;verbose=false, T=500)
     _d, _U    = power_method(matrix_square(A),r, tol;T=T)
     X         = _U'A*_U 
     _d_signed = vec(diag(X))
@@ -179,19 +179,19 @@ function h_mds(Z, k, n, tol)
     eval, evec   = power_method_sign(Z,2,tol)  
     (lambda,idx) = findmax(eval)
     u            = evec[:,idx]
-    println("lambda = $(convert(Float64,lambda))")
+    println("lambda = $(convert(Float64,lambda)) idx=$(idx)")
     toc()
     
     if (u[1] < 0)
         u = -u
     end
-    assert(lambda >= 0)
-    b     = big(1.) + sum(abs.(u))^2/(lambda*dot(u,u));
-    alpha = b-sqrt(max(b^2-1,0));
-    u_s   = u./(sum(u))*lambda*((1)-alpha);
-    d     = (u_s+(1))./((1)+alpha);
-    dinv  = (1)./d;
-
+    assert(lambda >= 0 && minimum(u) >= 0)
+    b     = big(1.) + sum(u)^2/(lambda*dot(u,u))
+    alpha = b-sqrt(max(b^2-big(1.),0))
+    u_s   = u./(sum(u))*lambda*((1)-alpha)
+    d     = (u_s+(1))./((1)+alpha)
+    dinv  = (1)./d
+    println("b=$(Float64(b)) alpha=$(Float64(alpha))")
     
     #v     = diagm(dinv)*(u_s.-alpha)./((1)+alpha);
     v     = dinv.*(u_s.-alpha)./((1)+alpha)
@@ -242,7 +242,6 @@ toc()
 n,_ = size(H)
 println("Graph Loaded with $(n) nodes tol=$(tol)")
 
-Xmds, dim_mds = mds(H, k, n)
 
 Z = (cosh.(big.(H.*scale))-1)./2
 
@@ -262,9 +261,11 @@ toc()
             Zrec[i,j] = norm(Xrec[:,i] - Xrec[:,j])^2 / ((1 - norm(Xrec[:,i])^2) * (1 - norm(Xrec[:,j])^2));
         end
     end
+    println("min=$(Float64(minimum(Zrec)))")
     toc()
 
-    tic()
+Xmds, dim_mds = mds(H, k, n)
+        tic()
     # the MDS distances:
     Zmds = zeros(n,n)
     Threads.@threads for i = 1:n
