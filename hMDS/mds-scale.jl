@@ -11,7 +11,6 @@ unshift!(PyVector(pyimport("sys")["path"]), "")
 
 setprecision(BigFloat, 1024)
 
-
 function big_gemv!(A,x_in,x_temp)
     (n,n) = size(A)
     Threads.@threads for i=1:n
@@ -24,15 +23,22 @@ function big_gemv!(A,x_in,x_temp)
        x_in[i] = x_temp[i]
     end
 end
+<<<<<<< Updated upstream
 function power_method(A,d,tol;T=1000)
     (n,n) = size(A)
     x_all = big.(qr(randn(n,d))[1])
     _eig  = zeros(BigFloat, d)
+=======
+
+function power_method(A,d,tol;T=200)
+    (n,n)  = size(A)
+    x_all  = big.(qr(randn(n,d))[1])
+    _eig   = zeros(BigFloat, d)
+>>>>>>> Stashed changes
     x_temp = zeros(BigFloat,n)
     (nx,cur_dist) = (big(0.), big(0.))
     for j=1:d
-      tic()	
-      
+        tic()	
         x = view(x_all,:,j)
         x /= norm(x)
         for t=1:T            
@@ -162,13 +168,15 @@ function mds(Z, k, n)
     lambdasM, usM = power_method_sign(Zc,k,tol)
     println("Power Method Complete")
     toc()
-    posE = 0
-    while (posE < k && lambdasM[posE+1] > 0)
-        posE+=1;
-    end
+    pos_idx = lambdasM .> 0.
+    
+    ## posE = 0
+    ## while (posE < k && lambdasM[posE+1] > 0)
+    ##     posE+=1;
+    ## end
 
-    Xrec = usM[:,1:posE-1] * diagm(lambdasM[1:posE-1] .^ 0.5);    
-    return Xrec', posE-1
+    Xrec = usM[:,pos_idx] * diagm(lambdasM[pos_idx] .^ 0.5);    
+    return Xrec', sum(pos_idx)
 end
 
 
@@ -244,56 +252,53 @@ println("Graph Loaded with $(n) nodes tol=$(tol)")
 
 
 Z = (cosh.(big.(H.*scale))-1)./2
-
 println("Doing HMDS...")
 tic()
 Xrec, found_dimension = h_mds(Z, k, n, tol)
-
 # save the recovered points:
 save(string("Xrec_dataset_",data_set,"r=",k,"prec=",prec,"tol=",tol,".jld"), "Xrec", Xrec);
 toc()
 
-    println("Building recovered graph... $(found_dimension)")
-    tic()
-    Zrec = big.(zeros(n, n));
-    Threads.@threads for i = 1:n
-        for j = 1:n
-            Zrec[i,j] = norm(Xrec[:,i] - Xrec[:,j])^2 / ((1 - norm(Xrec[:,i])^2) * (1 - norm(Xrec[:,j])^2));
-        end
+println("Building recovered graph... $(found_dimension)")
+tic()
+Zrec = big.(zeros(n, n));
+Threads.@threads for i = 1:n
+    for j = 1:n
+        Zrec[i,j] = norm(Xrec[:,i] - Xrec[:,j])^2 / ((1 - norm(Xrec[:,i])^2) * (1 - norm(Xrec[:,j])^2));
     end
     println("min=$(Float64(minimum(Zrec)))")
     toc()
 
 Xmds, dim_mds = mds(H, k, n)
-        tic()
-    # the MDS distances:
-    Zmds = zeros(n,n)
-    Threads.@threads for i = 1:n
-        for j = 1:n
-            Zmds[i,j] = norm(Xmds[:,i] - Xmds[:,j])
-        end
+tic()
+# the MDS distances:
+Zmds = zeros(n,n)
+Threads.@threads for i = 1:n
+    for j = 1:n
+        Zmds[i,j] = norm(Xmds[:,i] - Xmds[:,j])
     end
-    toc()
+end
+toc()
     
-    println("Getting metrics")
-    tic()
-    Hrec = acosh.(1+2*Zrec)
-    Hrec = convert(Array{Float64,2},Hrec)
-    Hrec /= convert(Float64,scale)
+println("Getting metrics")
+tic()
+Hrec = acosh.(1+2*Zrec)
+Hrec = convert(Array{Float64,2},Hrec)
+Hrec /= convert(Float64,scale)
  
-    println("----------------h-MDS Results-----------------")   
-    dist_max, dist, good = dis.distortion(H, Hrec, n, 2)
-    println("Distortion avg/max, bad = $(convert(Float64,dist)), $(convert(Float64,dist_max)), $(convert(Float64,good))")  
-    mapscore = dis.map_score(H, Hrec, n, 2) 
-    println("MAP = $(mapscore)")   
-    println("Dimension = $(found_dimension)")
-    toc() 
+println("----------------h-MDS Results-----------------")   
+dist_max, dist, good = dis.distortion(H, Hrec, n, 2)
+println("Distortion avg/max, bad = $(convert(Float64,dist)), $(convert(Float64,dist_max)), $(convert(Float64,good))")  
+mapscore = dis.map_score(H, Hrec, n, 2) 
+println("MAP = $(mapscore)")   
+println("Dimension = $(found_dimension)")
+toc() 
     
-    println("----------------MDS Results-----------------")
-    dist_max, dist, bad = dis.distortion(H, Zmds, n, 2)
-    println("MDS Distortion avg/max, bad = $(convert(Float64,dist)), $(convert(Float64,dist_max)), $(convert(Float64,bad))")  
-    mapscore = dis.map_score(H, Zmds, n, 2)
-    println("MAP = $(mapscore)")   
-    println("Bad Dists = $(bad)")
-    println("Dimension = $( dim_mds)") 
+ println("----------------MDS Results-----------------")
+ dist_max, dist, bad = dis.distortion(H, Zmds, n, 2)
+ println("MDS Distortion avg/max, bad = $(convert(Float64,dist)), $(convert(Float64,dist_max)), $(convert(Float64,bad))")  
+ mapscore = dis.map_score(H, Zmds, n, 2)
+ println("MAP = $(mapscore)")   
+ println("Bad Dists = $(bad)")
+ println("Dimension = $( dim_mds)") 
     
