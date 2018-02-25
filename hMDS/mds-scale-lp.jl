@@ -259,7 +259,7 @@ if found_dimension > 1
     println("Building recovered graph...")
     tic()
     Zrec = zeros(n, n)
-    for i = 1:n
+    Threads.@threads for i = 1:n
         for j = 1:n
             Zrec[i,j] = norm(Xrec[:,i] - Xrec[:,j])^2 / ((1 - norm(Xrec[:,i])^2) * (1 - norm(Xrec[:,j])^2));
         end
@@ -269,7 +269,7 @@ if found_dimension > 1
     # the MDS distances:
     tic()
     Zmds = zeros(n,n)
-    for i = 1:n 
+    Threads.@threads for i = 1:n 
         for j = 1:n
             Zmds[i,j] = norm(Xmds[:,i] - Xmds[:,j])
         end
