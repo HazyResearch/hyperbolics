@@ -23,18 +23,11 @@ function big_gemv!(A,x_in,x_temp)
        x_in[i] = x_temp[i]
     end
 end
-<<<<<<< Updated upstream
+
 function power_method(A,d,tol;T=1000)
     (n,n) = size(A)
     x_all = big.(qr(randn(n,d))[1])
     _eig  = zeros(BigFloat, d)
-=======
-
-function power_method(A,d,tol;T=200)
-    (n,n)  = size(A)
-    x_all  = big.(qr(randn(n,d))[1])
-    _eig   = zeros(BigFloat, d)
->>>>>>> Stashed changes
     x_temp = zeros(BigFloat,n)
     (nx,cur_dist) = (big(0.), big(0.))
     for j=1:d
@@ -261,25 +254,16 @@ toc()
 
 println("Building recovered graph... $(found_dimension)")
 tic()
-Zrec = big.(zeros(n, n));
+Zrec = big.(zeros(n, n))
+
 Threads.@threads for i = 1:n
-    for j = 1:n
+    for j = 1:n	 
         Zrec[i,j] = norm(Xrec[:,i] - Xrec[:,j])^2 / ((1 - norm(Xrec[:,i])^2) * (1 - norm(Xrec[:,j])^2));
     end
-    println("min=$(Float64(minimum(Zrec)))")
-    toc()
-
-Xmds, dim_mds = mds(H, k, n)
-tic()
-# the MDS distances:
-Zmds = zeros(n,n)
-Threads.@threads for i = 1:n
-    for j = 1:n
-        Zmds[i,j] = norm(Xmds[:,i] - Xmds[:,j])
-    end
-end
+end 
+println("min=$(Float64(minimum(Zrec)))")
 toc()
-    
+
 println("Getting metrics")
 tic()
 Hrec = acosh.(1+2*Zrec)
@@ -293,6 +277,21 @@ mapscore = dis.map_score(H, Hrec, n, 2)
 println("MAP = $(mapscore)")   
 println("Dimension = $(found_dimension)")
 toc() 
+
+#####################3
+## MDS
+#
+Xmds, dim_mds = mds(H, k, n)
+tic()
+# the MDS distances:
+Zmds = zeros(n,n)
+Threads.@threads for i = 1:n
+    for j = 1:n
+        Zmds[i,j] = norm(Xmds[:,i] - Xmds[:,j])
+    end
+end
+toc()
+    
     
  println("----------------MDS Results-----------------")
  dist_max, dist, bad = dis.distortion(H, Zmds, n, 2)
