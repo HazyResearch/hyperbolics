@@ -56,7 +56,7 @@ class SVRG(torch.optim.SGD):
         self.data_loader = data_loader
         self.state['t_iters'] = T
         self.T = T # Needed to trigger full gradient
-
+        logging.info(f"Data Loader has {len(self.data_loader)} with batch {self.data_loader.batch_size}")
     def __setstate__(self, state):
         #super(SVRG, self).__setstate__(state)
         super(self.__class__, self).__setstate__(state)
@@ -105,11 +105,13 @@ class SVRG(torch.optim.SGD):
             # Accumulate gradients
             for i, (data, target) in enumerate(self.data_loader):
                 closure(data, target)
-            
-            # Adjust summed gradients by num_iterations accumulated over 
+                
+            # Adjust summed gradients by num_iterations accumulated over
+            # assert(n_iterations == len(self.data_loader))
             for p in self._params:
                 if p.grad is not None:
                     p.grad.data /= len(self.data_loader)
+            
 
             # self._copy_grads_from_params(self._full_grad)
                 
@@ -155,7 +157,7 @@ class SVRG(torch.optim.SGD):
             # Adjust gradient in place
             if p.grad is not None:
                 # NB: This should be _this_ batch.
-                p.grad.data -= (d_p0 - fg*self.data_loader.batch_size) 
+                p.grad.data -= (d_p0 - fg) 
 
         # Call optimizer update step
         Hyperbolic_Parameter.correct_metric(self._params)
