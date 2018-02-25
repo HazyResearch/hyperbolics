@@ -5,7 +5,8 @@ import logging
 import numpy as np, math
 import random
 
-
+# TODO:
+# 1. Improve speed up of projection by making operations in place.
 class Hyperbolic_Parameter(nn.Parameter):
     def __new__(cls, data=None, requires_grad=True, project=True, check_graph=False):
         ret =  super(nn.Parameter, cls).__new__(cls, data, requires_grad=requires_grad)

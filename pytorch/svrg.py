@@ -8,7 +8,10 @@ import copy
 from torch.autograd import Variable
 from hyperbolic_parameter import Hyperbolic_Parameter
 
-        
+# TODO:
+#
+# 1. we assume the batchsize of the data loader and the batchsize of the data are the same!
+#
 #TODO(mleszczy): Be able to inherit from different optimizers 
 class SVRG(torch.optim.SGD):
     r"""Implements stochastic variance reduction gradient descent.
@@ -145,7 +148,7 @@ class SVRG(torch.optim.SGD):
         for p, d_p0, fg in zip(self._params, self._prev_grad, self._full_grad):
             # Adjust gradient in place
             if p.grad is not None:
-                p.grad.data -= (d_p0 - fg) 
+                p.grad.data -= (d_p0 - fg*self.data_loader.batch_size) 
 
         # Call optimizer update step
         Hyperbolic_Parameter.correct_metric(self._params)
