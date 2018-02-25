@@ -204,7 +204,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
 @argh.arg("--epochs", help="number of steps in optimization")
 @argh.arg("--print-freq", help="print loss this every this number of steps")
 @argh.arg("--model-save-file", help="Save model file")
-@argh.arg("--load-model-file", help="Load model file")
+@argh.arg("--model-load-file", help="Load model file")
 @argh.arg("--batch-size", help="Batch size")
 @argh.arg("--num-workers", help="Number of workers for loading. Default is to use all cores")
 @argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
@@ -219,8 +219,8 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
 @argh.arg("-x", "--extra-steps", type=int, help="Steps per batch")
 @argh.arg("--use-svrg", help="Use SVRG")
 @argh.arg("-T", help="SVRG T parameter")
-def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
-          use_yellowfin=False, force_sgd=False, print_freq=1, model_save_file=None, load_model_file=None, batch_size=16,
+def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
+          use_yellowfin=False, force_sgd=False, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
           num_workers=None, lazy_generation=False, log_name=None, warm_start=False, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None, 
           exponential_rescale=None, extra_steps=1, use_svrg=False, T=10):
     # Log configuration
@@ -268,10 +268,10 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
         logging.info("Built data loader")
     
   
-    if load_model_file is not None:
-        logging.info(f"Loading {load_model_file}...")
-        m = cudaify( torch.load(load_model_file) )
-        logging.info(f"Loaded scale {m.scale.data[0]} {torch.sum(m.w.data)}")
+    if model_load_file is not None:
+        logging.info(f"Loading {model_load_file}...")
+        m = cudaify( torch.load(model_load_file) )
+        logging.info(f"Loaded scale {m.scale.data[0]} {torch.sum(m.w.data)} {m.epoch}")
     else:
         logging.info(f"Creating a fresh model warm_start?={warm_start}")
         m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(mds_warmstart.get_model(int(dataset),rank)[1])) if warm_start else None
@@ -284,20 +284,24 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
     #
     # Build the Optimizer
     #
-    from yellowfin import YFOptimizer
-    opt = YFOptimizer(m.parameters()) if use_yellowfin else torch.optim.Adagrad(m.parameters()) # 
+    # TODO: Redo this in a sensible way!!
+    #
     if force_sgd: opt = torch.optim.SGD(m.parameters(), lr=learning_rate)
+    else:
+        from yellowfin import YFOptimizer
+        opt = YFOptimizer(m.parameters()) if use_yellowfin else torch.optim.Adagrad(m.parameters()) 
+    
     if use_svrg:
         from svrg import SVRG
-        opt = SVRG(m.parameters(), lr=learning_rate, T=T, data_loader=z)
+        base_opt = torch.optim.SGD if force_sgd else torch.optim.Adagrad
+        opt      = SVRG(m.parameters(), lr=learning_rate, T=T, data_loader=z, opt=base_opt)
    
         
     logging.info(opt)
 
-    for i in range(epochs):
+    for i in range(m.epoch, m.epoch+epochs):
         l = 0.0
         m.train(True)
-        opt.zero_grad()
         if use_svrg:
             for data in z:
                 def closure(data=data, target=None):
@@ -310,6 +314,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
                 m.normalize()
 
         else:
+            opt.zero_grad() # This is handled by the SVRG.
             for the_step in range(extra_steps):
                 # Accumulate the gradient
                 for u in z:                
@@ -333,16 +338,18 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
             logging.info(f"\n*** Major Checkpoint. Computing Stats and Saving")
             major_stats(GM,1+m.scale.data[0],n,m, True, Z, z)
             if model_save_file is not None:
-                logging.info(f"Saving model into {model_save_file}-{m.epoch} {torch.sum(m.w.data)} ") 
-                torch.save(m, f"{model_save_file}.{m.epoch}")
+                fname = f"{model_save_file}.{m.epoch}"
+                logging.info(f"Saving model into {fname} {torch.sum(m.w.data)} ") 
+                torch.save(m, fname)
             logging.info("*** End Major Checkpoint\n")
         m.epoch += 1
         
     logging.info(f"final loss={l}")
 
     if model_save_file is not None:
-        logging.info(f"Saving model into {model_save_file}-final {torch.sum(m.w.data)} {m.scale.data[0]}") 
-        torch.save(m, f"{model_save_file}.final")
+        fname = f"{model_save_file}.final"
+        logging.info(f"Saving model into {fname}-final {torch.sum(m.w.data)} {m.scale.data[0]}")
+        torch.save(m, fname)
 
     major_stats(GM,1+m.scale.data[0], n, m, True, Z,z)
 

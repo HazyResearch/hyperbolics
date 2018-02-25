@@ -4,11 +4,13 @@
 #
 from torch.optim.optimizer import Optimizer, required
 import torch
-import copy 
+import copy, logging 
 from torch.autograd import Variable
 from hyperbolic_parameter import Hyperbolic_Parameter
 
-#TODO(mleszczy): Be able to inherit from different optimizers 
+
+#TODO(mleszczy): Be able to inherit from different optimizers
+# NB: Note we choose the baseclass dynamically below.
 class SVRG(torch.optim.SGD):
     r"""Implements stochastic variance reduction gradient descent.
     Args:
@@ -22,9 +24,13 @@ class SVRG(torch.optim.SGD):
     .. note::
     """
 
-    def __init__(self, params, lr=required, T=required, data_loader=required, weight_decay=0):
+    def __init__(self, params, lr=required, T=required, data_loader=required, weight_decay=0.0,opt=torch.optim.SGD):
         defaults = dict(lr=lr, weight_decay=weight_decay)
-        super(SVRG, self).__init__(params, **defaults)
+        self.__class__ = type(self.__class__.__name__,
+                              (opt,object),
+                              dict(self.__class__.__dict__))
+        logging.info(f"Using base optimizer {opt} in SVRG")
+        super(self.__class__, self).__init__(params, **defaults)
 
         if len(self.param_groups) != 1:
             raise ValueError("SVRG doesn't support per-parameter options "
@@ -39,33 +45,29 @@ class SVRG(torch.optim.SGD):
         self._prev_w = [p.data.clone() for p in params] 
 
         # Gradients are lazily allocated and don't exist yet. However, gradients are 
-        # the same shape as the weights so we can still allocate buffers here 
+        # the same shape as the weights so we can still allocate buffers here
+        self._curr_grad = [p.data.clone() for p in params]
         self._prev_grad = [p.data.clone() for p in params]
-        self._full_grad = [p.data.clone() for p in params] 
-
+        self._full_grad = [p.data.clone() for p in params]
+        
         self.data_loader = data_loader
         self.state['t_iters'] = T
-        self.T = T
+        self.T = T # Needed to trigger full gradient
+        logging.info(f"Data Loader has {len(self.data_loader)} with batch {self.data_loader.batch_size}")
 
     def __setstate__(self, state):
-        super(SVRG, self).__setstate__(state)
-
-    # This is only changing the pointer to data and not copying data 
-    def _switch_weights_to_copy(self, copy_w):
-        for (w_new, p) in zip(copy_w, self._params):
-            p.data = w_new
-
-    # This is actually copying data (setting pointers to grad.data didn't work)
-    def _copy_grads_from_params(self, grad_buffer):
-        for (grad_data, p) in zip(grad_buffer, self._params):
-            if p.grad is not None:
-                grad_data.copy_(p.grad.data)
-
+        super(self.__class__, self).__setstate__(state)
+                
     def _zero_grad(self):
         for p in self._params:
             if p.grad is not None:
                 p.grad.detach()
                 p.grad.zero_()
+
+    def _set_weights_grad(self,ws,gs):
+        for idx, p in enumerate(self._params):
+            if ws is not None: p.data = ws[idx]
+            if gs is not None and p.grad is not None: p.data = gs[idx]
 
     def step(self, closure):
         """Performs a single optimization step.
@@ -75,54 +77,52 @@ class SVRG(torch.optim.SGD):
         """
         assert len(self.param_groups) == 1
 
-        # Calculate full gradient 
-        if self.state['t_iters'] == self.T:            
+        # Calculate full gradient
+        if self.state['t_iters'] == self.T:  
+            # Setup the full grad
             # Reset gradients before accumulating them 
+            self._set_weights_grad(None, self._full_grad)
             self._zero_grad()
-
+                    
             # Accumulate gradients
             for i, (data, target) in enumerate(self.data_loader):
                 closure(data, target)
-            
-            # Adjust summed gradients by num_iterations accumulated over 
+                
+            # Adjust summed gradients by num_iterations accumulated over
+            # assert(n_iterations == len(self.data_loader))
             for p in self._params:
                 if p.grad is not None:
                     p.grad.data /= len(self.data_loader)
 
-            self._copy_grads_from_params(self._full_grad)
-                
             # Copy w to prev_w
             for p, p0 in zip(self._curr_w, self._prev_w):
                 p0.copy_(p)
 
             # Reset t 
             self.state['t_iters'] = 0
-            
-        # Copy prev_w over to model parameters
-        self._switch_weights_to_copy(self._prev_w)
+        
+        # Setup the previous grad
+        self._set_weights_grad(self._prev_w, self._prev_grad)        
         self._zero_grad()
-        # Calculate prev_w gradient 
         closure()
-        self._copy_grads_from_params(self._prev_grad)
 
-         # Copy w over to model parameters
-        self._switch_weights_to_copy(self._curr_w)
+        # Calculate the current grad.
+        self._set_weights_grad(self._curr_w, self._curr_grad)
         self._zero_grad()
-        # Calculate w gradient 
         loss = closure()
-        # We don't need to copy out these gradients
 
+        # Adjust the current gradient using the previous gradient and the full gradient.
+        # We have normalized so that these are all comparable.
         for p, d_p0, fg in zip(self._params, self._prev_grad, self._full_grad):
             # Adjust gradient in place
             if p.grad is not None:
+                # NB: This should be _this_ batch.
                 p.grad.data -= (d_p0 - fg) 
 
         # Call optimizer update step
+        # TODO: Abstract this away.
         Hyperbolic_Parameter.correct_metric(self._params)
-        super(SVRG, self).step()
-       
-      
+        super(self.__class__, self).step()
+        
         self.state['t_iters'] += 1 
-
-        # TODO(mleszczy): What to return -- is this loss value useful? 
         return loss
