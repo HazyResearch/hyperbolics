@@ -23,7 +23,7 @@ class SVRG(torch.optim.SGD):
     .. note::
     """
 
-    def __init__(self, params, lr=required, T=required, data_loader=required, weight_decay=0):
+    def __init__(self, params, lr=required, T=required, data_loader=required, weight_decay=0.0):
         defaults = dict(lr=lr, weight_decay=weight_decay)
         super(SVRG, self).__init__(params, **defaults)
 
@@ -136,7 +136,7 @@ class SVRG(torch.optim.SGD):
         #     if p.grad is not None:
         #        p.grad.data = _g
 
-        self.set_weights_grad(self._curr_w, self._curr_grad)
+        self._set_weights_grad(self._curr_w, self._curr_grad)
         self._zero_grad()
         # Calculate w gradient 
         loss = closure()

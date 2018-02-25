@@ -36,19 +36,22 @@ class Hyperbolic_Parameter(nn.Parameter):
              print(np.any(np.isnan(self.grad.data.cpu().numpy())))
              print(np.any(np.isnan(w_norm.cpu().numpy())))
              raise ValueError("NaN During Hyperbolic")
- 
-    @staticmethod        
-    def _proj(x, eps=1e-10):
+
+    @staticmethod
+    def _correct(x, eps=1e-10):
         current_norms = torch.norm(x,2,x.dim() - 1)
         mask_idx      = current_norms < 1.0
         modified      = 1./((1+eps)*current_norms)
         modified[mask_idx] = 1.0
         new_size      = [1]*current_norms.dim() + [x.size(x.dim()-1)]
-        modified      = modified.unsqueeze(modified.dim()).repeat(*new_size) 
-        return x * modified
+        return modified.unsqueeze(modified.dim()).repeat(*new_size) 
+        
+    @staticmethod        
+    def _proj(x, eps=1e-10):
+        return x * Hyperbolic_Parameter._correct(x, eps=eps)
 
     def proj(self, eps=1e-10):
-        self.data = Hyperbolic_Parameter._proj(self.data, eps=eps)
+        self.data *= Hyperbolic_Parameter._correct(self.data, eps=eps)
         
     @staticmethod
     def correct_metric(ps):
