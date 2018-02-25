@@ -289,7 +289,8 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-2, tol=1e-8, epochs=100,
     if force_sgd: opt = torch.optim.SGD(m.parameters(), lr=learning_rate)
     if use_svrg:
         from svrg import SVRG
-        opt = SVRG(m.parameters(), lr=learning_rate, T=T, data_loader=z)
+        base_opt = torch.optim.SGD if force_sgd else torch.optim.Adagrad
+        opt      = SVRG(m.parameters(), lr=learning_rate, T=T, data_loader=z, opt=base_opt)
    
         
     logging.info(opt)

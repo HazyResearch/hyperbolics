@@ -4,7 +4,7 @@
 #
 from torch.optim.optimizer import Optimizer, required
 import torch
-import copy 
+import copy, logging 
 from torch.autograd import Variable
 from hyperbolic_parameter import Hyperbolic_Parameter
 
@@ -26,9 +26,14 @@ class SVRG(torch.optim.SGD):
     .. note::
     """
 
-    def __init__(self, params, lr=required, T=required, data_loader=required, weight_decay=0.0):
+    def __init__(self, params, lr=required, T=required, data_loader=required, weight_decay=0.0,opt=torch.optim.SGD):
         defaults = dict(lr=lr, weight_decay=weight_decay)
-        super(SVRG, self).__init__(params, **defaults)
+        #super(SVRG, self).__init__(params, **defaults)
+        self.__class__ = type(self.__class__.__name__,
+                              (opt,object),
+                              dict(self.__class__.__dict__))
+        logging.info(f"Using base optimizer {opt} in SVRG")
+        super(self.__class__, self).__init__(params, **defaults)
 
         if len(self.param_groups) != 1:
             raise ValueError("SVRG doesn't support per-parameter options "
@@ -50,10 +55,11 @@ class SVRG(torch.optim.SGD):
         
         self.data_loader = data_loader
         self.state['t_iters'] = T
-        self.T = T
+        self.T = T # Needed to trigger full gradient
 
     def __setstate__(self, state):
-        super(SVRG, self).__setstate__(state)
+        #super(SVRG, self).__setstate__(state)
+        super(self.__class__, self).__setstate__(state)
 
     # This is only changing the pointer to data and not copying data 
     def _switch_weights_to_copy(self, copy_w):
@@ -153,8 +159,9 @@ class SVRG(torch.optim.SGD):
 
         # Call optimizer update step
         Hyperbolic_Parameter.correct_metric(self._params)
-        super(SVRG, self).step()
-       
+        #super(SVRG, self).step()
+        super(self.__class__, self).step()
+
       
         self.state['t_iters'] += 1 
 
