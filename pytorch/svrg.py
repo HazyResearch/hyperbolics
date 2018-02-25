@@ -107,7 +107,7 @@ class SVRG(torch.optim.SGD):
             for p,_p in zip(self._params,self._curr_grad):
                 if p.grad is not None:
                     p.grad.data = _p
-                    
+                    assert(p.grad.data.data_ptr() == _p.data_ptr())
         # Copy prev_w over to model parameters
         #self._switch_weights_to_copy(self._prev_w)
         for p,_w,_g in zip(self._params,self._prev_w, self._prev_grad):
