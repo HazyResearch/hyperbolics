@@ -1,4 +1,5 @@
 import logging, argh
+import sys
 # Data prep.
 import utils.data_prep as data_prep
 import networkx as nx
@@ -235,6 +236,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
         fh.setFormatter( formatter )
         log.addHandler(fh)
 
+    logging.info(f"Commandline {sys.argv}")
     if model_save_file is None: logging.warn("No Model Save selected!")
     G  = data_prep.load_graph(int(dataset))
     GM = nx.to_scipy_sparse_matrix(G)
