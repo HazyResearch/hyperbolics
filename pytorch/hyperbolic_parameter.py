@@ -44,9 +44,10 @@ class Hyperbolic_Parameter(nn.Parameter):
         mask_idx      = current_norms < 1.0
         modified      = 1./((1+eps)*current_norms)
         modified[mask_idx] = 1.0
-        new_size      = [1]*current_norms.dim() + [x.size(x.dim()-1)]
-        return modified.unsqueeze(modified.dim()).repeat(*new_size) 
-        
+        #new_size      = [1]*current_norms.dim() + [x.size(x.dim()-1)]
+        #return modified.unsqueeze(modified.dim()).repeat(*new_size)
+        return modified.unsqueeze(modified.dim()).expand(x.size())
+    
     @staticmethod        
     def _proj(x, eps=1e-10):
         return x * Hyperbolic_Parameter._correct(x, eps=eps)

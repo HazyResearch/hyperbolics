@@ -148,6 +148,7 @@ class SVRG(torch.optim.SGD):
         for p, d_p0, fg in zip(self._params, self._prev_grad, self._full_grad):
             # Adjust gradient in place
             if p.grad is not None:
+                # NB: This should be _this_ batch.
                 p.grad.data -= (d_p0 - fg*self.data_loader.batch_size) 
 
         # Call optimizer update step
