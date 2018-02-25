@@ -8,10 +8,6 @@ import copy
 from torch.autograd import Variable
 from hyperbolic_parameter import Hyperbolic_Parameter
 
-def set_weights_grad(ps,ws,gs):
-    for idx, p in enumerate(ps):
-        if ws is not None: p.data = ws[idx]
-        if gs is not None and p.grad is not None: p.data = gs[idx]
         
 #TODO(mleszczy): Be able to inherit from different optimizers 
 class SVRG(torch.optim.SGD):
@@ -73,6 +69,11 @@ class SVRG(torch.optim.SGD):
                 p.grad.detach()
                 p.grad.zero_()
 
+    def _set_weights_grad(self,ws,gs):
+        for idx, p in enumerate(self._params):
+            if ws is not None: p.data = ws[idx]
+            if gs is not None and p.grad is not None: p.data = gs[idx]
+
     def step(self, closure):
         """Performs a single optimization step.
         Arguments:
@@ -87,7 +88,7 @@ class SVRG(torch.optim.SGD):
             # for p,_p in zip(self._params,self._full_grad):
             #     if p.grad is not None:
             #         p.grad.data = _p
-            set_weights_grad(self._params,None, self._full_grad)
+            self._set_weights_grad(None, self._full_grad)
             
             # Reset gradients before accumulating them 
             self._zero_grad()
@@ -114,14 +115,14 @@ class SVRG(torch.optim.SGD):
             #     if p.grad is not None:
             #         p.grad.data = _p
             #        assert(p.grad.data.data_ptr() == _p.data_ptr())
-            set_weights_grad(self._params, None, self._curr_grad)
+            self._set_weights_grad(None, self._curr_grad)
         # Copy prev_w over to model parameters
         #self._switch_weights_to_copy(self._prev_w)
         # for p,_w,_g in zip(self._params,self._prev_w, self._prev_grad):
         #     p.data = _w
         #     if p.grad is not None:
         #         p.grad.data = _g
-        set_weights_grad(self._params,self._prev_w, self._prev_grad)        
+        self._set_weights_grad(self._prev_w, self._prev_grad)        
         self._zero_grad()
         
         # Calculate prev_w gradient 
@@ -135,7 +136,7 @@ class SVRG(torch.optim.SGD):
         #     if p.grad is not None:
         #        p.grad.data = _g
 
-        set_weights_grad(self._params,self._curr_w, self._curr_grad)
+        self.set_weights_grad(self._curr_w, self._curr_grad)
         self._zero_grad()
         # Calculate w gradient 
         loss = closure()
