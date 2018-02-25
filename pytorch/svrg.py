@@ -39,10 +39,11 @@ class SVRG(torch.optim.SGD):
         self._prev_w = [p.data.clone() for p in params] 
 
         # Gradients are lazily allocated and don't exist yet. However, gradients are 
-        # the same shape as the weights so we can still allocate buffers here 
+        # the same shape as the weights so we can still allocate buffers here
+        self._curr_grad = [p.data.clone() for p in params]
         self._prev_grad = [p.data.clone() for p in params]
-        self._full_grad = [p.data.clone() for p in params] 
-
+        self._full_grad = [p.data.clone() for p in params]
+        
         self.data_loader = data_loader
         self.state['t_iters'] = T
         self.T = T
@@ -57,10 +58,10 @@ class SVRG(torch.optim.SGD):
 
     # This is actually copying data (setting pointers to grad.data didn't work)
     def _copy_grads_from_params(self, grad_buffer):
-        for (grad_data, p) in zip(grad_buffer, self._params):
+        for idx, (grad_data, p) in enumerate(zip(grad_buffer, self._params)):
             if p.grad is not None:
                 grad_data.copy_(p.grad.data)
-
+                
     def _zero_grad(self):
         for p in self._params:
             if p.grad is not None:
@@ -76,10 +77,15 @@ class SVRG(torch.optim.SGD):
         assert len(self.param_groups) == 1
 
         # Calculate full gradient 
-        if self.state['t_iters'] == self.T:            
+        if self.state['t_iters'] == self.T:  
+            # Setup the full grad
+            for p,_p in zip(self._params,self._full_grad):
+                if p.grad is not None:
+                    p.grad.data = _p
+                              
             # Reset gradients before accumulating them 
             self._zero_grad()
-
+                    
             # Accumulate gradients
             for i, (data, target) in enumerate(self.data_loader):
                 closure(data, target)
@@ -89,7 +95,7 @@ class SVRG(torch.optim.SGD):
                 if p.grad is not None:
                     p.grad.data /= len(self.data_loader)
 
-            self._copy_grads_from_params(self._full_grad)
+            # self._copy_grads_from_params(self._full_grad)
                 
             # Copy w to prev_w
             for p, p0 in zip(self._curr_w, self._prev_w):
@@ -97,16 +103,30 @@ class SVRG(torch.optim.SGD):
 
             # Reset t 
             self.state['t_iters'] = 0
-            
+            # Restore the pointers
+            for p,_p in zip(self._params,self._curr_grad):
+                if p.grad is not None:
+                    p.grad.data = _p
+                    
         # Copy prev_w over to model parameters
-        self._switch_weights_to_copy(self._prev_w)
+        #self._switch_weights_to_copy(self._prev_w)
+        for p,_w,_g in zip(self._params,self._prev_w, self._prev_grad):
+            p.data = _w
+            if p.grad is not None:
+                p.grad.data = _g
+                
         self._zero_grad()
         # Calculate prev_w gradient 
         closure()
-        self._copy_grads_from_params(self._prev_grad)
+        #self._copy_grads_from_params(self._prev_grad)
 
-         # Copy w over to model parameters
-        self._switch_weights_to_copy(self._curr_w)
+        # Copy w over to model parameters
+        #self._switch_weights_to_copy(self._curr_w)
+        for p,_w,_g in zip(self._params,self._curr_w, self._curr_grad):
+            p.data = _w
+            if p.grad is not None:
+                p.grad.data = _g
+        
         self._zero_grad()
         # Calculate w gradient 
         loss = closure()
