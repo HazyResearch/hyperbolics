@@ -48,10 +48,12 @@ class SVRG(torch.optim.SGD):
         # the same shape as the weights so we can still allocate buffers here
         self._curr_grad = [p.data.clone() for p in params]
         self._prev_grad = [p.data.clone() for p in params]
-        self._full_grad = [p.data.clone() for p in params]
+        self._full_grad = None
         
         self.data_loader = data_loader
         self.state['t_iters'] = T
+
+        self._first_call = True
         self.T = T # Needed to trigger full gradient
         logging.info(f"Data Loader has {len(self.data_loader)} with batch {self.data_loader.batch_size}")
 
@@ -78,8 +80,7 @@ class SVRG(torch.optim.SGD):
         assert len(self.param_groups) == 1
 
         # Calculate full gradient
-        if self.state['t_iters'] == self.T:  
-            # Setup the full grad
+        if self.state['t_iters'] == self.T or self._first_call:      
             # Reset gradients before accumulating them 
             self._set_weights_grad(None, self._full_grad)
             self._zero_grad()
@@ -94,6 +95,13 @@ class SVRG(torch.optim.SGD):
                 if p.grad is not None:
                     p.grad.data /= len(self.data_loader)
 
+            # As the gradient is lazily allocated, on the first call,
+            # we make a copy.
+            if self._first_call:
+                assert(self._full_grad is None)
+                self._full_grad = [p.grad.data.clone() if p.grad is not None else None for p in self._params]
+                self._first_call = False
+                
             # Copy w to prev_w
             for p, p0 in zip(self._curr_w, self._prev_w):
                 p0.copy_(p)
