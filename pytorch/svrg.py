@@ -67,7 +67,7 @@ class SVRG(torch.optim.SGD):
     def _set_weights_grad(self,ws,gs):
         for idx, p in enumerate(self._params):
             if ws is not None: p.data = ws[idx]
-            if gs is not None and p.grad is not None: p.data = gs[idx]
+            if gs is not None and p.grad is not None: p.grad.data = gs[idx]
 
     def step(self, closure):
         """Performs a single optimization step.
