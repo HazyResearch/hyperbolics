@@ -33,7 +33,10 @@ function add_children(p,x,edge_lengths; verbose=false)
     DBG     = (p,x,p0,x0)    
     c       = length(edge_lengths);
     q       = norm(p0)
-    p_angle = acos(min(p0[1]/q, big(1.)))
+    p_angle = acos(p0[1]/q)
+    if p0[2] < 0
+        p_angle = 2*big(pi)-p_angle
+    end
     alpha   = 2*big(pi)/(big(c+1.))
           
     if verbose println("p,x,p0,x0 = $(convert(Array{Float64,1}, DBG))") end    
