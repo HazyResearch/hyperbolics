@@ -1,6 +1,7 @@
 using PyCall
 using JLD
 using ArgParse
+using Pandas
 @pyimport networkx as nx
 @pyimport scipy.sparse.csgraph as csg
 @pyimport numpy as np
@@ -8,10 +9,11 @@ using ArgParse
 unshift!(PyVector(pyimport("sys")["path"]), "")
 @pyimport load_graph as lg
 @pyimport distortions as dis
+@pyimport graph_util as gu
 include("utilities.jl")
+include("rdim.jl")
 
-# Slight overkill, but should work for eps=0.1
-setprecision(BigFloat, 16384)
+setprecision(BigFloat, 256)
 
 # Parse command line arguments
 function parse_commandline()
@@ -25,6 +27,9 @@ function parse_commandline()
             required = true
             arg_type = Float64
             default = 0.1
+        "--dim", "-r"
+            help = "Dimension r"
+            arg_type = Int32       
         "--get-stats", "-s"
             help = "Get statistics"
             action = :store_true            
@@ -32,7 +37,10 @@ function parse_commandline()
             help = "Save embedding to file"
         "--verbose", "-v"
             help = "Prints out row-by-row stats"
-            action = :store_true                    
+            action = :store_true    
+        "--scale", "-t"
+            arg_type = Float64
+            help = "Use a particular scaling factor"
     end
     return parse_args(s)
 end
@@ -52,8 +60,8 @@ end
 G        = lg.load_graph(parsed_args["dataset"])
 weighted = false;
 eps      = parsed_args["eps"] 
-
 println("\nGraph information")
+
 # Number of vertices:
 n = G[:order]();
 println("Number of vertices = $(n)");
@@ -66,13 +74,12 @@ edges_weights = []
 # We'll use the BFS tree here - if G is already a tree
 #  this won't change anything, but if it's not we'll get a tree
 #  Also lets us use G.successors, parent, etc. function
-G_BFS   = nx.bfs_tree(G,0)
+root, d_max   = gu.max_degree(G)
+G_BFS   = gu.get_BFS_tree(G, root)
 
 # A few statistics
 n_bfs   = G_BFS[:order]();
 degrees = G_BFS[:degree]();
-cd      = collect(degrees);
-d_max   = maximum([cd[i][2] for i in 1:n])
 println("Max degree = $(d_max)")
 
 # Adjacency matrices for original graph and for BFS
@@ -82,10 +89,17 @@ adj_mat_bfs         = nx.to_scipy_sparse_matrix(G_BFS, 0:n_bfs-1)
 # Perform the embedding
 println("\nPerforming the embedding")
 tic()
-if weighted
-    (T, tau) = hyp_embedding(G_BFS, eps, weighted, edges_weights, G_S)
+
+if parsed_args["scale"] != nothing
+    tau = big(parsed_args["scale"])
 else
-    (T, tau) = hyp_embedding(G_BFS, eps, weighted, edges_weights, G_BFS)
+    tau = get_emb_par(G_BFS, 1, eps, weighted, edges_weights)
+end
+
+if parsed_args["dim"] != nothing
+    T = hyp_embedding_dim(G_BFS, root, eps, weighted, parsed_args["dim"], edges_weights, tau)
+else
+    T = hyp_embedding(G_BFS, root, eps, weighted, edges_weights, tau)
 end
 toc()
 
@@ -94,7 +108,9 @@ println("Scaling factor tau = $(convert(Float64,tau))")
 
 # Save the embedding:
 if parsed_args["embedding-save"] != nothing
-    save(string(parsed_args["embedding-save"],".jld"), "T", T);
+    JLD.save(string(parsed_args["embedding-save"],".jld"), "T", T);
+    df = DataFrame(convert(Array{Float64,2},T))
+    to_csv(df, parsed_args["embedding-save"])
 end
 
 if parsed_args["get-stats"]
@@ -105,16 +121,16 @@ if parsed_args["get-stats"]
     d_avg = 0;
 
     # In case we want to sample the rows of the matrix:
-    samples = min(1000,n)
-    sample_nodes = randperm(n)[1:samples]
-
+    samples = min(1000,n_bfs)
+    sample_nodes = randperm(n_bfs)[1:samples]
+    
     for i=1:samples
         # the real distances in the graph
         true_dist_row = vec(csg.dijkstra(adj_mat_original, indices=[sample_nodes[i]-1], unweighted=true, directed=false))
-
+        
         # the hyperbolic distances for the points we've embedded
         hyp_dist_row = convert(Array{Float64},vec(dist_matrix_row(T, sample_nodes[i])/tau))
-
+        
         # this is this row MAP
         curr_map  = dis.map_row(true_dist_row, hyp_dist_row[1:n], n, sample_nodes[i]-1)
         maps += curr_map
@@ -141,5 +157,3 @@ if parsed_args["get-stats"]
     println("Final MAP = $(maps/samples)")
     println("Final d_avg = $(d_avg/n), d_wc = $(wc)")
 end
-
-

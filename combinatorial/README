@@ -1,23 +1,29 @@
 Julia script to perform the combinatorial embedding.
 
-usage: comb.jl -d DATASET -e EPS [-s] [-m EMBEDDING-SAVE] [-v] [-h]
+usage: comb.jl -d DATASET -e EPS [-r DIM] [-s] [-m EMBEDDING-SAVE]
+               [-v] [-t SCALE] [-h]
 
   -d, --dataset         Dataset to embed
   -e, --eps EPS         Epsilon distortion 
+  -r, --dim DIM         Dimension r 
   -s, --get-stats       Get statistics
   -m, --embedding-save  Save embedding to file
   -v, --verbose         Prints out row-by-row stats
+  -t, --scale SCALE     Use a particular scaling factor 
+      (otherwise, auto-generate from epsilon) 
   -h, --help            Show this help message and exit
 
-Example on small attached tree:
-julia comb.jl -d smalltree.edges -e 0.1 --embedding-save embsave.test -s 
+Example on small attached tree. Epsilon = 1.0, custom scaling factor 2.0,
+    output saved in savefile:
+
+julia comb.jl -d smalltree.edges -e 1.0 -m savefile -r 5 -t 2.0 -s
 
 Output:
 
 Combinatorial Embedding. Info:
 Data set = smalltree.edges
-Epsilon  = 0.1
-Save embedding to embsave.test
+Epsilon  = 1.0
+Save embedding to savefile
 
 Graph information
 Number of vertices = 40
@@ -25,11 +31,10 @@ Number of edges = 39
 Max degree = 4
 
 Performing the embedding
-Looking at edges for scaling factor
-elapsed time: 2.873435797 seconds
-Scaling factor tau = 23.76915358287457
+elapsed time: 3.903803365 seconds
+Scaling factor tau = 2.0
 
 Computing quality statistics
 Final MAP = 1.0
-Final d_avg = 0.01293854728190571, d_wc = 1.022360266228399
+Final d_avg = 0.16102877765767262, d_wc = 1.693746170388225
 
