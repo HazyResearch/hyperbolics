@@ -1,4 +1,4 @@
-# rdim.jl
+    # rdim.jl
 # various utilities for higher-dimensional combinatorial embeddings
 
 # rotate the set of points so that the first vector 
@@ -69,43 +69,65 @@ end
 #  see: http://www02.smt.ufrj.br/~eduardo/papers/ri15.pdf
 #  the idea is to try to tile the surface of the sphere with hypercubes
 #  works well for larger numbers of points
-function place_children(dim, c, use_sp, sp)
+# what we'll actually do is to build it once with a large number of points
+#  and then sample for this set of points
+function place_children(dim, c, use_sp, sp, sample_from, sb)
     # this notation comes from the paper
     N = dim
     K = c
+    
+    if sample_from
+        _, K_large = size(sb)
+        points = zeros(BigFloat, N, K)
+
+        for i=0:K-2
+            points[:,1+i] = sb[:, Int(floor(K_large/(K-1)))*i+1];  
+        end
+        points[:,K] = sb[:,K_large]
         
-    # surface area of a hypersphere, since we tile it with K hypercubes
-    if N%2 == 1
-        AN = N*2^N*pi^((N-1)/2)*factorial((N-1)/2)/factorial(N)
-    else
-        AN = N*pi^(N/2)/(factorial(N/2))
-    end
+        min_d_ds = 2
+        for i=1:K
+            for j=i+1:K
+                dist = norm(points[:,i]-points[:,j]);   
+                if dist < min_d_ds
+                    min_d_ds = dist; 
+                end
+            end
+        end
+    else        
+        # surface area of a hypersphere, since we tile it with K hypercubes
+        if N%2 == 1
+            AN = N*2^N*pi^((N-1)/2)*factorial((N-1)/2)/factorial(N)
+        else
+            AN = N*pi^(N/2)/(factorial(N/2))
+        end
 
-    # approximate edge length for N-1 dimensional hypercube
-    delta = big((AN/K)^(1/(N-1)))
+        # approximate edge length for N-1 dimensional hypercube
+        delta = big((AN/K)^(1/(N-1)))
 
-    # k isn't exact, so we have to iteratively change delta until we get 
-    #  the k we actually want
-    true_k = 0
-    while true_k < K
-        points, true_k = place_on_sphere(delta, N, K, false, false, 0)
-        delta = big(delta*(true_k/K)^(1/(N-1)))
-    end
- 
-    # use_sp means that one of the points is already given, so we need 
-    #  to rotate the sphere to get them to coincide
-    if use_sp
-        points, true_k = place_on_sphere(delta, N, K, true, true, sp)
-    else
-        points, true_k = place_on_sphere(delta, N, K, true, false, 0);
+        # k isn't exact, so we have to iteratively change delta until we get 
+        #  the k we actually want
+        true_k = 0
+        while true_k < K
+            points, true_k = place_on_sphere(delta, N, K, false)
+            delta = big(delta*(true_k/K)^(1/(N-1)))
+        end
+
+        points, true_k = place_on_sphere(delta, N, K, true)
     end
     
-    return points, true_k
+    # use_sp means that one of the points is already given, so we need 
+    #  to rotate the sphere to get them to coincide
+    if use_sp == true
+        points = rotate_points(points, sp, N, K)
+    end
+    
+    return points
 end
 
 # iterative procedure to get a set of points nearly uniformly on 
 #  the unit hypersphere. if use_sp flag is set, rotate to one of the points
-function place_on_sphere(delta, N, K, actually_place, use_sp, sp)
+function place_on_sphere(delta, N, K, actually_place)
     points = zeros(BigFloat, N, K)
     points_idx = 1
     idx = 1
@@ -152,11 +174,7 @@ function place_on_sphere(delta, N, K, actually_place, use_sp, sp)
             end        
         end
     end
-
-    if use_sp == true
-        points = rotate_points(points, sp, N, K)
-    end
-
+    
     true_k = points_idx-1
     return [points, true_k]
 end
@@ -164,7 +182,7 @@ end
 
 # place children. just performs the inversion and then uses the uniform
 #  unit sphere function to actually get the locations
-function add_children_dim(p, x, dim, edge_lengths; verbose=false)
+function add_children_dim(p, x, dim, edge_lengths, SB; verbose=false)
     (p0,x0) = (reflect_at_zero(x,p), reflect_at_zero(x,x))
     c       = length(edge_lengths)
     q       = norm(p0)
@@ -175,8 +193,15 @@ function add_children_dim(p, x, dim, edge_lengths; verbose=false)
     if verbose println("x0 = $(convert(Array{Float64,1}, x0))") end    
 
     assert(norm(p0) <= 1.0)
-    points0,_ = place_children(dim, c+1, true, p0./norm(p0))
-    points0   = points0'
+
+    # a single child is a special case, place opposite the parent:
+    if c == 1
+        points0 = zeros(BigFloat, 2, dim);
+        points0[2,:] = big(-1)*p0./norm(p0);
+    else
+        points0 = place_children(dim, c+1, true, p0./norm(p0), true, SB)
+        points0 = points0'
+    end
     
     points0[1,:] = p;
     for i=2:c+1
@@ -205,9 +230,13 @@ function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, edges_weights, tau)
             k = k+1;
         end
     end
+    
+    # we'll generate a single set of n-sphere points:
+    SB_points = 1000
+    SB        = place_children(dim, SB_points, false, 0, false, 0) 
 
     # place the children of the root:
-    R,_ = place_children(dim, d, false, 0)
+    R = place_children(dim, d, false, 0, true, SB)
     R = R'
     for i=1:d
         R[i,:] *= edge_lengths[i]
@@ -240,7 +269,7 @@ function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, edges_weights, tau)
         end
         
         if num_children > 0
-            R = add_children_dim(T[parent[1]+1,:], T[h+1,:], dim, edge_lengths)
+            R = add_children_dim(T[parent[1]+1,:], T[h+1,:], dim, edge_lengths, SB)
          
             for i=1:num_children
                 T[children[i]+1,:] = R[i,:];
