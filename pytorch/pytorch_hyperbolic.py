@@ -5,9 +5,10 @@ import utils.data_prep as data_prep
 import networkx as nx
 import scipy
 import scipy.sparse.csgraph as csg
-import distortions as dis
+import utils.distortions as dis
 import graph_helpers as gh
 import mds_warmstart
+import pandas
 from hyperbolic_parameter import Hyperbolic_Parameter
 from hyperbolic_models import Hyperbolic_Emb, dist
 
@@ -276,12 +277,23 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
         logging.info(f"Loaded scale {m.scale.data[0]} {torch.sum(m.w.data)} {m.epoch}")
     else:
         logging.info(f"Creating a fresh model warm_start?={warm_start}")
-        m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(mds_warmstart.get_model(int(dataset),rank)[1])) if warm_start else None
+        # m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(mds_warmstart.get_model(int(dataset),rank)[1])) if warm_start else None
+
+        # load from DataFrame; assume that the julia code has been called prior and saved in "savefile"
+        if warm_start:
+            # print(type(mds_warmstart.get_model(int(dataset),rank)[1]))
+            m_init = pandas.read_csv("combinatorial/savefile", index_col=0).as_matrix()
+            m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(m_init))
+        else:
+            m_init = None
+        # print(m_init)
+        print(type(m_init))
+        print(type(G))
         logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
 
         m       = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale, exponential_rescale=exponential_rescale) )
         m.epoch = 0
-    logging.info(f"Constucted model with rank={rank} and epochs={m.epoch} isnan={np.any(np.isnan(m.w.cpu().data.numpy()))}")
+    logging.info(f"Constructed model with rank={rank} and epochs={m.epoch} isnan={np.any(np.isnan(m.w.cpu().data.numpy()))}")
 
     #
     # Build the Optimizer

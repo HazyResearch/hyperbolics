@@ -1,7 +1,7 @@
-import data_prep as dp
+import utils.data_prep as dp
 import pytorch.graph_helpers as gh
 import numpy as np
-import distortions as dis
+import utils.distortions as dis
 import torch, logging
 from math import sqrt
 
