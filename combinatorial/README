@@ -1,30 +1,37 @@
 Julia script to perform the combinatorial embedding.
 
 usage: comb.jl -d DATASET -e EPS [-r DIM] [-s] [-m EMBEDDING-SAVE]
-               [-v] [-t SCALE] [-h]
+               [-v] [-t SCALE] [-c] [-z STATS-SAMPLE] [-p PRECISION]
+               [-h]
 
   -d, --dataset         Dataset to embed
   -e, --eps EPS         Epsilon distortion 
   -r, --dim DIM         Dimension r 
+  -p, --precision PRECISION
+                        Internal precision in bits
   -s, --get-stats       Get statistics
   -m, --embedding-save  Save embedding to file
   -v, --verbose         Prints out row-by-row stats
   -t, --scale SCALE     Use a particular scaling factor 
       (otherwise, auto-generate from epsilon) 
-  -c, --use-codes       Use coding-theoretic child placement      
+  -c, --use-codes       Use coding-theoretic child placement   
+  -z, --stats-sample STATS-SAMPLE
+                        Number of rows to sample when computing
+                        statistics   
   -h, --help            Show this help message and exit
 
 Example on small attached tree. Epsilon = 1.0, custom scaling factor 2.0,
     output saved in savefile:
 
-julia comb.jl -d phylotree.edges -e 1.0 -s -r 100 -t 2.0 -c -m savefile
+julia comb.jl -d ../combinatorial/phylotree.edges -e 1.0 -p 256 -s -r 100 -t 2.0 -c -z 100 -m savefile
 
 Output:
 
 Combinatorial Embedding. Info:
-Data set = phylotree.edges
+Data set = ../combinatorial/phylotree.edges
 Dimensions = 100
 Epsilon  = 1.0
+Precision = 256
 Save embedding to savefile
 
 Graph information
@@ -34,11 +41,13 @@ Max degree = 16
 
 Performing the embedding
 Using coding theoretic child placement
-elapsed time: 14.466286401 seconds
+Placing children of node 100
+Placing children of node 200
+Placing children of node 300
+elapsed time: 13.989601903 seconds
 Scaling factor tau = 2.0
 
 Computing quality statistics
+Using 100 sample rows for statistics
 Final MAP = 1.0
-Final d_avg = 0.23153507339792054, d_wc = 1.4062834673737108
-
-
+Final d_avg = 0.23174154829754887, d_wc = 1.4062284394628504

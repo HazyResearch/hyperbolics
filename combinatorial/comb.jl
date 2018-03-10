@@ -14,8 +14,6 @@ unshift!(PyVector(pyimport("sys")["path"]), "..")
 include("utilities.jl")
 include("rdim.jl")
 
-setprecision(BigFloat, 256)
-
 # Parse command line arguments
 function parse_commandline()
     s = ArgParseSettings()
@@ -44,7 +42,14 @@ function parse_commandline()
             help = "Use a particular scaling factor"
         "--use-codes", "-c"
             help = "Use coding-theoretic child placement"
-            action = :store_true                    
+            action = :store_true     
+        "--stats-sample", "-z"
+            help = "Number of rows to sample when computing statistics"
+            arg_type = Int32
+        "--precision", "-p"
+            help = "Internal precision in bits"
+            arg_type = Int64
+            default = 256
     end
     return parse_args(s)
 end
@@ -57,6 +62,10 @@ if parsed_args["dim"] != nothing
     println("Dimensions = $(parsed_args["dim"])")
 end
 println("Epsilon  = $(parsed_args["eps"])")
+
+prec = parsed_args["precision"]
+setprecision(BigFloat, prec)
+println("Precision = $(prec)")
 
 if parsed_args["embedding-save"] == nothing
     println("No file specified to save embedding!")
@@ -137,7 +146,12 @@ if parsed_args["get-stats"]
     d_avg = 0;
 
     # In case we want to sample the rows of the matrix:
-    samples = min(1000,n_bfs)
+    if parsed_args["stats-sample"] != nothing
+        samples = min(parsed_args["stats-sample"], n_bfs)
+        println("Using $samples sample rows for statistics")
+    else
+        samples = n_bfs
+    end
     sample_nodes = randperm(n_bfs)[1:samples]
 
     _maps   = zeros(samples)
@@ -167,7 +181,7 @@ if parsed_args["get-stats"]
         ## if mc*me > wc
         ##     wc = mc*me
         # end
-        _wcs  = mc*me
+        _wcs[i]  = mc*me
         
         #d_avg += avg;
         _d_avgs[i] = avg
@@ -182,5 +196,5 @@ if parsed_args["get-stats"]
     
     # Final stats:
     println("Final MAP = $(maps/samples)")
-    println("Final d_avg = $(d_avg/n), d_wc = $(wc)")
+    println("Final d_avg = $(d_avg/samples), d_wc = $(wc)")
 end
