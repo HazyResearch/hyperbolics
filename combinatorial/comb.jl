@@ -112,7 +112,8 @@ else
 end
 
 if parsed_args["dim"] != nothing && parsed_args["dim"] != 2
-    T = hyp_embedding_dim(G_BFS, root, eps, weighted, parsed_args["dim"], edges_weights, tau, d_max, use_codes)
+    dim = parsed_args["dim"]
+    T = hyp_embedding_dim(G_BFS, root, eps, weighted, dim, edges_weights, tau, d_max, use_codes)
 else
     T = hyp_embedding(G_BFS, root, eps, weighted, edges_weights, tau)
 end
