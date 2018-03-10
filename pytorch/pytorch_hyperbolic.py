@@ -279,18 +279,9 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
     else:
         logging.info(f"Creating a fresh model warm_start?={warm_start}")
         # m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(mds_warmstart.get_model(int(dataset),rank)[1])) if warm_start else None
-
         # load from DataFrame; assume that the julia code has been called prior and saved in "savefile"
-        if warm_start is not None:
-            # print(type(mds_warmstart.get_model(int(dataset),rank)[1]))
-            m_init = pandas.read_csv(warm_start, index_col=0).as_matrix()
-            # m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(m_init))
-            m_init = torch.DoubleTensor(m_init)
-        else:
-            m_init = None
-        # print(m_init)
+        m_init = torch.DoubleTensor(pandas.read_csv(warm_start, index_col=0).as_matrix()) if warm_start is not None else None
         logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
-
         m       = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale, exponential_rescale=exponential_rescale) )
         m.normalize()
         m.epoch = 0

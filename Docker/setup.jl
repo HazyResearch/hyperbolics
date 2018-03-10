@@ -1,3 +1,4 @@
+Pkg.init()
 Pkg.add("Pandas")
 Pkg.add("JLD")
 Pkg.add("ArgParse")
