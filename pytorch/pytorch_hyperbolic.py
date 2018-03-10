@@ -1,7 +1,8 @@
 import logging, argh
 import sys
 # Data prep.
-import utils.data_prep as data_prep
+#import utils.data_prep as data_prep
+import utils.load_graph as load_graph
 import networkx as nx
 import scipy
 import scipy.sparse.csgraph as csg
@@ -223,7 +224,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
 @argh.arg("-T", help="SVRG T parameter")
 def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
           use_yellowfin=False, force_sgd=False, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
-          num_workers=None, lazy_generation=False, log_name=None, warm_start=False, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None, 
+          num_workers=None, lazy_generation=False, log_name=None, warm_start=None, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None, 
           exponential_rescale=None, extra_steps=1, use_svrg=False, T=10):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
@@ -239,7 +240,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
 
     logging.info(f"Commandline {sys.argv}")
     if model_save_file is None: logging.warn("No Model Save selected!")
-    G  = data_prep.load_graph(int(dataset))
+    G  = load_graph.load_graph(dataset)
     GM = nx.to_scipy_sparse_matrix(G)
 
     n = G.order()
@@ -280,9 +281,9 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
         # m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(mds_warmstart.get_model(int(dataset),rank)[1])) if warm_start else None
 
         # load from DataFrame; assume that the julia code has been called prior and saved in "savefile"
-        if warm_start:
+        if warm_start is not None:
             # print(type(mds_warmstart.get_model(int(dataset),rank)[1]))
-            m_init = pandas.read_csv("combinatorial/savefile", index_col=0).as_matrix()
+            m_init = pandas.read_csv(warm_start, index_col=0).as_matrix()
             # m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(m_init))
             m_init = torch.DoubleTensor(m_init)
         else:
