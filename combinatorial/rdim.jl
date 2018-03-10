@@ -65,6 +65,39 @@ function coord_from_angle(ang, N)
     return point
 end
 
+# algorithm to place a set of points on the n-dimensional unit sphere based on coding theory
+#  The idea is that we 
+
+function place_children_codes(dim, c, use_sp, sp, Gen_matrices)
+    r = Int(ceil(log2(c)))
+    n = 2^r-1
+    
+    G = Gen_matrices[r]
+    
+    # generate the codewords using our matrix
+    C = zeros(c,dim)
+    for i=0:c-1
+        # codeword generated from matrix G:
+        cw = (digits(i,2,r)'*G).%(2)
+        
+        for j=1:Int(floor(dim/n))
+            # repeat it as many times as we can
+            C[i+1,(j-1)*n+1:j*n] = cw';  
+        end
+    end    
+    
+    # inscribe the unit hypercube vertices into unit hypersphere
+    points = (1/sqrt(dim)*(-1).^C)'
+        
+    # rotate to match the parent, if we need to
+    if use_sp == true
+        points = rotate_points(points, sp, dim, c)
+    end
+    
+    return points
+end
+
+
 # algorithm to place a set of points uniformly on the n-dimensional unit sphere
 #  see: http://www02.smt.ufrj.br/~eduardo/papers/ri15.pdf
 #  the idea is to try to tile the surface of the sphere with hypercubes
@@ -182,7 +215,7 @@ end
 
 # place children. just performs the inversion and then uses the uniform
 #  unit sphere function to actually get the locations
-function add_children_dim(p, x, dim, edge_lengths, SB; verbose=false)
+function add_children_dim(p, x, dim, edge_lengths, use_codes, SB, Gen_matrices; verbose=false)
     (p0,x0) = (reflect_at_zero(x,p), reflect_at_zero(x,x))
     c       = length(edge_lengths)
     q       = norm(p0)
@@ -199,7 +232,11 @@ function add_children_dim(p, x, dim, edge_lengths, SB; verbose=false)
         points0 = zeros(BigFloat, 2, dim);
         points0[2,:] = big(-1)*p0./norm(p0);
     else
-        points0 = place_children(dim, c+1, true, p0./norm(p0), true, SB)
+        if use_codes
+            points0 = place_children_codes(dim, c+1, true, p0./norm(p0), Gen_matrices)
+        else
+            points0 = place_children(dim, c+1, true, p0./norm(p0), true, SB)
+        end
         points0 = points0'
     end
     
@@ -212,7 +249,7 @@ function add_children_dim(p, x, dim, edge_lengths, SB; verbose=false)
 end
 
 # higher dimensional combinatorial hyperbolic embedding
-function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, edges_weights, tau)    
+function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, edges_weights, tau, d_max, use_codes)    
 	n             = G_BFS[:order]()
     T             = zeros(BigFloat, n, dim)
     
@@ -231,12 +268,32 @@ function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, edges_weights, tau)
         end
     end
     
-    # we'll generate a single set of n-sphere points:
-    SB_points = 1000
-    SB        = place_children(dim, SB_points, false, 0, false, 0) 
+    if use_codes
+        # new way: generate a bunch of generator matrices we'll use for our codes 
+        v = Int(ceil(log2(d_max)))
+        Gen_matrices = Array{Array{Float64, 2}}(v) 
+        for i=2:v
+            n = 2^i-1
+            H = zeros(i,n)
+            for j=1:2^i-1
+                h_col = digits(j,2,i)  
+                H[:,j] = h_col
+            end
+            Gen_matrices[i] = H
+        end
+    else
+        SB_points = 1000
+        SB        = place_children(dim, SB_points, false, 0, false, 0) 
+    end
 
+    
     # place the children of the root:
-    R = place_children(dim, d, false, 0, true, SB)
+    if use_codes
+        R = place_children_codes(dim, d, false, 0, Gen_matrices)
+    else
+        R = place_children(dim, d, false, 0, true, SB)
+    end
+    
     R = R'
     for i=1:d
         R[i,:] *= edge_lengths[i]
@@ -269,8 +326,12 @@ function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, edges_weights, tau)
         end
         
         if num_children > 0
-            R = add_children_dim(T[parent[1]+1,:], T[h+1,:], dim, edge_lengths, SB)
-         
+            if use_codes
+                R = add_children_dim(T[parent[1]+1,:], T[h+1,:], dim, edge_lengths, true, 0, Gen_matrices)
+            else
+                R = add_children_dim(T[parent[1]+1,:], T[h+1,:], dim, edge_lengths, false, SB, 0)
+            end
+            
             for i=1:num_children
                 T[children[i]+1,:] = R[i,:];
             end        

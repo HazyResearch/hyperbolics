@@ -41,6 +41,9 @@ function parse_commandline()
         "--scale", "-t"
             arg_type = Float64
             help = "Use a particular scaling factor"
+        "--use-codes", "-c"
+            help = "Use coding-theoretic child placement"
+            action = :store_true                    
     end
     return parse_args(s)
 end
@@ -49,6 +52,9 @@ parsed_args = parse_commandline()
 
 println("Combinatorial Embedding. Info:")
 println("Data set = $(parsed_args["dataset"])")
+if parsed_args["dim"] != nothing 
+    println("Dimensions = $(parsed_args["dim"])")
+end
 println("Epsilon  = $(parsed_args["eps"])")
 
 if parsed_args["embedding-save"] == nothing
@@ -96,8 +102,16 @@ else
     tau = get_emb_par(G_BFS, 1, eps, weighted, edges_weights)
 end
 
-if parsed_args["dim"] != nothing
-    T = hyp_embedding_dim(G_BFS, root, eps, weighted, parsed_args["dim"], edges_weights, tau)
+use_codes = false
+if parsed_args["use-codes"]
+    println("Using coding theoretic child placement")
+    use_codes = true
+else
+    println("Using uniform sphere child placement")
+end
+
+if parsed_args["dim"] != nothing && parsed_args["dim"] != 2
+    T = hyp_embedding_dim(G_BFS, root, eps, weighted, parsed_args["dim"], edges_weights, tau, d_max, use_codes)
 else
     T = hyp_embedding(G_BFS, root, eps, weighted, edges_weights, tau)
 end

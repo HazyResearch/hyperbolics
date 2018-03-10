@@ -11,30 +11,34 @@ usage: comb.jl -d DATASET -e EPS [-r DIM] [-s] [-m EMBEDDING-SAVE]
   -v, --verbose         Prints out row-by-row stats
   -t, --scale SCALE     Use a particular scaling factor 
       (otherwise, auto-generate from epsilon) 
+  -c, --use-codes       Use coding-theoretic child placement      
   -h, --help            Show this help message and exit
 
 Example on small attached tree. Epsilon = 1.0, custom scaling factor 2.0,
     output saved in savefile:
 
-julia comb.jl -d smalltree.edges -e 1.0 -m savefile -r 5 -t 2.0 -s
+julia comb.jl -d phylotree.edges -e 1.0 -s -r 100 -t 2.0 -c -m savefile
 
 Output:
 
 Combinatorial Embedding. Info:
-Data set = smalltree.edges
+Data set = phylotree.edges
+Dimensions = 100
 Epsilon  = 1.0
 Save embedding to savefile
 
 Graph information
-Number of vertices = 40
-Number of edges = 39
-Max degree = 4
+Number of vertices = 344
+Number of edges = 343
+Max degree = 16
 
 Performing the embedding
-elapsed time: 3.903803365 seconds
+Using coding theoretic child placement
+elapsed time: 14.466286401 seconds
 Scaling factor tau = 2.0
 
 Computing quality statistics
 Final MAP = 1.0
-Final d_avg = 0.16102877765767262, d_wc = 1.693746170388225
+Final d_avg = 0.23153507339792054, d_wc = 1.4062834673737108
+
 
