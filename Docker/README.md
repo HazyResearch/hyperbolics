@@ -11,7 +11,7 @@ Install Docker
     * You may want this post (https://askubuntu.com/questions/13065/how-do-i-fix-the-gpg-error-no-pubkey/15272#15272)
     * https://stackoverflow.com/questions/13708180/python-dev-installation-error-importerror-no-module-named-apt-pkg/44612200#44612200
 
-  * Add the user to the docker group `sudo usermod -aG docker $USERID`
+  * Add the user to the docker group `sudo usermod -aG docker `whoami``
     * To use without rebooting, add yourself to the group `newgrp docker` as user
     
   * For GPU, Install Nvidia docker for GPU support https://github.com/NVIDIA/nvidia-docker

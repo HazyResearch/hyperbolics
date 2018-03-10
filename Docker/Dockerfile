@@ -26,16 +26,18 @@ ENV PATH /opt/conda/bin:$PATH
 # This must be done before pip so that requirements.txt is available
 WORKDIR /opt/pytorch
 COPY . .
-
 RUN conda install pytorch torchvision -c pytorch
 
+#
+# Now install the julia dependencies.
+#
+WORKDIR /
 RUN pip install pandas matplotlib utils argh biopython
 RUN conda install networkx joblib
 RUN apt-get update && apt-get install -y curl
 RUN mkdir /julia
 RUN curl -L https://julialang-s3.julialang.org/bin/linux/x64/0.6/julia-0.6.2-linux-x86_64.tar.gz | tar -C /julia --strip-components=1  -xzf -
 ENV PATH "/julia/bin:$PATH"
-COPY setup.jl /root
-RUN julia /root/setup.jl
+COPY setup.jl /julia/setup.jl
+RUN julia /julia/setup.jl
 CMD julia
-
