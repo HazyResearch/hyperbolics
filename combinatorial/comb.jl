@@ -139,8 +139,12 @@ if parsed_args["get-stats"]
     # In case we want to sample the rows of the matrix:
     samples = min(1000,n_bfs)
     sample_nodes = randperm(n_bfs)[1:samples]
+
+    _maps   = zeros(samples)
+    _d_avgs = zeros(samples)
+    _wcs    = zeros(samples)
     
-    for i=1:samples
+    Threads.@threads for i=1:samples
         # the real distances in the graph
         true_dist_row = vec(csg.dijkstra(adj_mat_original, indices=[sample_nodes[i]-1], unweighted=true, directed=false))
         
@@ -149,26 +153,33 @@ if parsed_args["get-stats"]
         
         # this is this row MAP
         curr_map  = dis.map_row(true_dist_row, hyp_dist_row[1:n], n, sample_nodes[i]-1)
-        maps += curr_map
-
+        #maps += curr_map
+        _maps[i]  = curr_map
+        
         # print out current and running average MAP
         if parsed_args["verbose"]
             println("Row $(sample_nodes[i]), current MAP = $(curr_map)")        
-            println("Row $(sample_nodes[i]), running MAP = $(maps/i)") 
+            #println("Row $(sample_nodes[i]), running MAP = $(maps/i)") 
         end
 
         # these are distortions: worst cases (contraction, expansion) and average
         mc, me, avg, bad = dis.distortion_row(true_dist_row, hyp_dist_row[1:n] ,n,sample_nodes[i]-1)
-        if mc*me > wc
-            wc = mc*me
-        end
-        d_avg += avg;
+        ## if mc*me > wc
+        ##     wc = mc*me
+        # end
+        _wcs  = mc*me
         
-        if parsed_args["verbose"]
-            println("Row $(sample_nodes[i]), current d_avg = $(d_avg/i), current d_wc = $(wc)")
-        end
+        #d_avg += avg;
+        _d_avgs[i] = avg
+        #if parsed_args["verbose"]
+        #    println("Row $(sample_nodes[i]), current d_avg = $(d_avg/i), current d_wc = $(wc)")
+        #end
     end
-
+    # Clean up
+    maps  = sum(_maps)
+    d_avg = sum(_d_avgs)
+    wc    = maximum(_wcs)
+    
     # Final stats:
     println("Final MAP = $(maps/samples)")
     println("Final d_avg = $(d_avg/n), d_wc = $(wc)")
