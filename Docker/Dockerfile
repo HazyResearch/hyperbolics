@@ -29,7 +29,7 @@ COPY . .
 
 RUN conda install pytorch torchvision -c pytorch
 
-RUN pip install pandas matplotlib
+RUN pip install pandas matplotlib utils argh scikit-bio
 RUN conda install networkx joblib
 RUN apt-get update && apt-get install -y curl
 RUN mkdir /julia
