@@ -47,4 +47,13 @@ def load_graph(opt):
     n = Gc.order()
     #print(n)	
     C = nx.to_scipy_sparse_matrix(Gc)
+
+    G_comp_unsort = max(nx.connected_component_subgraphs(Gc), key=len)
+
+    # the connected_component function changes the edge orders, so fix:
+    G_comp_sorted = nx.Graph()
+    G_comp_sorted.add_edges_from(sorted(G_comp_unsort.edges()))
+    G_comp = nx.convert_node_labels_to_integers(G_comp_sorted)
+    
+    return G_comp
     return Gc

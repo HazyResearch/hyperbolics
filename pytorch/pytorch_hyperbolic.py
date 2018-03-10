@@ -283,7 +283,8 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
         if warm_start:
             # print(type(mds_warmstart.get_model(int(dataset),rank)[1]))
             m_init = pandas.read_csv("combinatorial/savefile", index_col=0).as_matrix()
-            m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(m_init))
+            # m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(m_init))
+            m_init = torch.DoubleTensor(m_init)
         else:
             m_init = None
         # print(m_init)
