@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
          vim \
          ca-certificates \
          libjpeg-dev \
+	 emacs \
          libpng-dev &&\
      rm -rf /var/lib/apt/lists/*
 
