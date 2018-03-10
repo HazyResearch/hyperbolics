@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
          ca-certificates \
          libjpeg-dev \
 	 emacs \
+	 hdf5-tools \
          libpng-dev &&\
      rm -rf /var/lib/apt/lists/*
 
@@ -29,6 +30,7 @@ COPY . .
 RUN conda install pytorch torchvision -c pytorch
 
 RUN pip install pandas matplotlib
+RUN conda install networkx joblib
 RUN apt-get update && apt-get install -y curl
 RUN mkdir /julia
 RUN curl -L https://julialang-s3.julialang.org/bin/linux/x64/0.6/julia-0.6.2-linux-x86_64.tar.gz | tar -C /julia --strip-components=1  -xzf -
