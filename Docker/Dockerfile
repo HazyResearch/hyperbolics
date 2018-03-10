@@ -1,13 +1,3 @@
-FROM python:3.6
-RUN pip install pandas matplotlib
-RUN apt-get update && apt-get install -y curl
-RUN mkdir /julia
-RUN curl -L https://julialang-s3.julialang.org/bin/linux/x64/0.6/julia-0.6.2-linux-x86_64.tar.gz | tar -C /julia --strip-components=1  -xzf -
-ENV PATH "/julia/bin:$PATH"
-COPY setup.jl /root
-RUN julia /root/setup.jl
-CMD julia
-
 # PyTorch Install
 FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
 
@@ -36,3 +26,13 @@ WORKDIR /opt/pytorch
 COPY . .
 
 RUN conda install pytorch torchvision -c pytorch
+
+RUN pip install pandas matplotlib
+RUN apt-get update && apt-get install -y curl
+RUN mkdir /julia
+RUN curl -L https://julialang-s3.julialang.org/bin/linux/x64/0.6/julia-0.6.2-linux-x86_64.tar.gz | tar -C /julia --strip-components=1  -xzf -
+ENV PATH "/julia/bin:$PATH"
+COPY setup.jl /root
+RUN julia /root/setup.jl
+CMD julia
+
