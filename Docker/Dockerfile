@@ -40,4 +40,3 @@ RUN curl -L https://julialang-s3.julialang.org/bin/linux/x64/0.6/julia-0.6.2-lin
 ENV PATH "/julia/bin:$PATH"
 COPY setup.jl /julia/setup.jl
 RUN julia /julia/setup.jl
-CMD julia
