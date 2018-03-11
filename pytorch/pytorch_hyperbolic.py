@@ -171,7 +171,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
             if n_rows_sampled*n < _count:
                 logging.info(f"\t\t Completed {n} {n_rows_sampled} {_count} good={good} bad={bad}") 
                 break
-        avg_dist     = avg/good
+        avg_dist     = avg/good if good > 0 else 0
         dist_max     = me
         nan_elements = bad
         map_avg      = 0.0
@@ -204,6 +204,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
 @argh.arg("-l", "--learning-rate", help="Learning rate")
 @argh.arg("-t", "--tol", help="Tolerances for projection")
 @argh.arg("-y", "--use-yellowfin", help="Turn off yellowfin")
+@argh.arg("--use-adagrad", help="Use adagrad")
 @argh.arg("--epochs", help="number of steps in optimization")
 @argh.arg("--print-freq", help="print loss this every this number of steps")
 @argh.arg("--model-save-file", help="Save model file")
@@ -213,7 +214,6 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
 @argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
 @argh.arg("--subsample", type=int, help="Number of edges to subsample")
 @argh.arg("--log-name", help="Log to a file")
-@argh.arg("--force-sgd", help="Force using plain SGD")
 @argh.arg("-w", "--warm-start", help="Warm start the model with MDS")
 @argh.arg("--learn-scale", help="Learn scale")
 @argh.arg("--sample", help="Sample the distance matrix")
@@ -223,7 +223,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
 @argh.arg("--use-svrg", help="Use SVRG")
 @argh.arg("-T", help="SVRG T parameter")
 def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
-          use_yellowfin=False, force_sgd=False, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
+          use_yellowfin=False, use_adagrad=False, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
           num_workers=None, lazy_generation=False, log_name=None, warm_start=None, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None, 
           exponential_rescale=None, extra_steps=1, use_svrg=False, T=10):
     # Log configuration
@@ -292,14 +292,17 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
     #
     # TODO: Redo this in a sensible way!!
     #
-    if force_sgd: opt = torch.optim.SGD(m.parameters(), lr=learning_rate)
-    else:
+    opt = torch.optim.SGD(m.parameters(), lr=learning_rate)
+    if use_yellowfin:
         from yellowfin import YFOptimizer
-        opt = YFOptimizer(m.parameters()) if use_yellowfin else torch.optim.Adagrad(m.parameters()) 
-    
+        opt = YFOptimizer(m.parameters())
+        
+    if use_adagrad:
+        opt = torch.optim.Adagrad(m.parameters())
+        
     if use_svrg:
         from svrg import SVRG
-        base_opt = torch.optim.SGD if force_sgd else torch.optim.Adagrad
+        base_opt = torch.optim.Adagrad if use_adagrad else torch.optim.SGD  
         opt      = SVRG(m.parameters(), lr=learning_rate, T=T, data_loader=z, opt=base_opt)
    
         
