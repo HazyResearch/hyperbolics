@@ -74,7 +74,7 @@ else
 end
 
 G        = lg.load_graph(parsed_args["dataset"])
-weighted = false;
+weighted = gu.is_weighted(G)
 eps      = parsed_args["eps"] 
 println("\nGraph information")
 
@@ -109,7 +109,7 @@ tic()
 if parsed_args["scale"] != nothing
     tau = big(parsed_args["scale"])
 else
-    tau = get_emb_par(G_BFS, 1, eps, weighted, edges_weights)
+    tau = get_emb_par(G_BFS, 1, eps, weighted)
 end
 
 use_codes = false
@@ -122,9 +122,9 @@ end
 
 if parsed_args["dim"] != nothing && parsed_args["dim"] != 2
     dim = parsed_args["dim"]
-    T = hyp_embedding_dim(G_BFS, root, eps, weighted, dim, edges_weights, tau, d_max, use_codes)
+    T = hyp_embedding_dim(G_BFS, root, eps, weighted, dim, tau, d_max, use_codes)
 else
-    T = hyp_embedding(G_BFS, root, eps, weighted, edges_weights, tau)
+    T = hyp_embedding(G_BFS, root, eps, weighted, tau)
 end
 toc()
 
@@ -160,7 +160,7 @@ if parsed_args["get-stats"]
     
     Threads.@threads for i=1:samples
         # the real distances in the graph
-        true_dist_row = vec(csg.dijkstra(adj_mat_original, indices=[sample_nodes[i]-1], unweighted=true, directed=false))
+        true_dist_row = vec(csg.dijkstra(adj_mat_original, indices=[sample_nodes[i]-1], unweighted=(!weighted), directed=false))
         
         # the hyperbolic distances for the points we've embedded
         hyp_dist_row = convert(Array{Float64},vec(dist_matrix_row(T, sample_nodes[i])/tau))
@@ -193,6 +193,10 @@ if parsed_args["get-stats"]
     maps  = sum(_maps)
     d_avg = sum(_d_avgs)
     wc    = maximum(_wcs)
+    
+    if weighted
+        println("Note: MAP is not well defined for weighted graphs")    
+    end
     
     # Final stats:
     println("Final MAP = $(maps/samples)")
