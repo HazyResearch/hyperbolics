@@ -1,1 +1,1 @@
-nvidia-docker run -v "$PWD:/root" -it hyperbolics/gpu /bin/bash
+nvidia-docker run -v "$PWD:/root/hyperbolics" -it hyperbolics/gpu /bin/bash
