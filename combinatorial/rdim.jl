@@ -65,9 +65,21 @@ function coord_from_angle(ang, N)
     return point
 end
 
-# algorithm to place a set of points on the n-dimensional unit sphere based on coding theory
-#  The idea is that we 
 
+# algorithm to place a set of points on the n-dimensional unit sphere based on coding theory
+#  The idea is that we will place points to be vertices of a hypercube inscribed
+#  into the unit sphere, ie, with coordinates (a_1/sqrt(n),...,a_n/sqrt(n))
+#  where n is the dimension and a_1,...,a_n \in \{-1,1}.
+#  
+#  It's easy to show that if d = Hamming_distance(a,b), then the Euclidean distance
+#  between the two vectors is 2sqrt(d/n). We maximize d by using a code.
+#  In this case, our code is the simplex code, with length 2^z-1, and dimension z
+#  In this code, the Hamming distance between any pair of vectors is 2^{z-1}.
+#  Dimension z means that we have 2^z codewords, so we can place up to 2^z children.
+#  one additional challenge is that our dimensions might be too large, e.g., 
+#  dim > 2^z-1 for some number of children. Then we generate a codeword and repeat it
+#  Note also that the generator matrix for the simplex code is the parity check matrix
+#  of the Hamming code, which we precompute for all the z's of interest 
 function place_children_codes(dim, c, use_sp, sp, Gen_matrices)
     r = Int(ceil(log2(c)))
     n = 2^r-1
@@ -75,14 +87,14 @@ function place_children_codes(dim, c, use_sp, sp, Gen_matrices)
     G = Gen_matrices[r]
     
     # generate the codewords using our matrix
-    C = zeros(c,dim)
+    C = zeros(BigFloat, c, dim)
     for i=0:c-1
         # codeword generated from matrix G:
         cw = (digits(i,2,r)'*G).%(2)
         
         for j=1:Int(floor(dim/n))
             # repeat it as many times as we can
-            C[i+1,(j-1)*n+1:j*n] = cw';  
+            C[i+1,(j-1)*n+1:j*n] = big.(cw');  
         end
     end    
     
@@ -306,9 +318,15 @@ function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, edges_weights, tau, 
     # queue containing the nodes whose children we're placing
     q = [];
     append!(q, root_children)
-
+    node_idx = 0
+    
     while length(q) > 0    
         h            = q[1];
+        node_idx     += 1
+        if node_idx%100 == 0
+            println("Placing children of node $(node_idx)")
+        end
+        
         children     = collect(G_BFS[:successors](h));          
         parent       = collect(G_BFS[:predecessors](h));
         num_children = length(children);
