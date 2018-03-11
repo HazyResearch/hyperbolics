@@ -261,7 +261,7 @@ function add_children_dim(p, x, dim, edge_lengths, use_codes, SB, Gen_matrices; 
 end
 
 # higher dimensional combinatorial hyperbolic embedding
-function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, tau, d_max, use_codes)    
+function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, edges_weights, tau, d_max, use_codes)    
 	n             = G_BFS[:order]()
     T             = zeros(BigFloat, n, dim)
     
@@ -275,7 +275,6 @@ function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, tau, d_max, use_code
         k = 1;
         for child in root_children
             weight = G[root+1][child+1]["weight"]
-            println("weight = $weight")
             edge_lengths[k] = hyp_to_euc_dist(weight*tau);
             k = k+1;
         end
@@ -339,7 +338,6 @@ function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, tau, d_max, use_code
             k = 1;
             for child in children
                 weight = G[h+1][child+1]["weight"];
-                println("weight = $weight")
                 edge_lengths[k] = hyp_to_euc_dist(big(weight)*tau);
                 k = k+1;
             end
