@@ -245,6 +245,7 @@ function hyp_embedding_parallel(G_BFS, root, eps, weighted, edges_weights, tau)
                     k = k+1;
                 end
             end
+        end
         
         if num_children > 0
             R = add_children(T[parent[1]+1,:], T[h+1,:], edge_lengths)
