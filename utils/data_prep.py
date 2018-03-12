@@ -4,8 +4,8 @@ import scipy as sp
 import numpy as np
 
 from Bio import Phylo
-# import nltk.corpus as nc
-# import word_net_prep as wnp
+import nltk.corpus as nc
+import word_net_prep as wnp
 
 def load_graph(opt):
     if opt == 1:
@@ -44,9 +44,9 @@ def load_graph(opt):
         assert(False)
     # take the largest component
     Gc = max(nx.connected_component_subgraphs(G), key=len)
-    n = Gc.order()
+    # n = Gc.order()
     #print(n)	
-    C = nx.to_scipy_sparse_matrix(Gc)
+    # C = nx.to_scipy_sparse_matrix(Gc)
 
     G_comp_unsort = max(nx.connected_component_subgraphs(Gc), key=len)
 
@@ -56,4 +56,4 @@ def load_graph(opt):
     G_comp = nx.convert_node_labels_to_integers(G_comp_sorted)
     
     return G_comp
-    return Gc
+    # return Gc
