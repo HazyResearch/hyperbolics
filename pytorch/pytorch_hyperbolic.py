@@ -172,7 +172,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
                 logging.info(f"\t\t Completed {n} {n_rows_sampled} {_count} good={good} bad={bad}") 
                 break
         avg_dist     = avg/good if good > 0 else 0
-        dist_max     = me
+        dist_max     = me*mc
         nan_elements = bad
         map_avg      = 0.0
         
@@ -319,6 +319,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
                     c.backward()
                     return c.data[0]
                 l += opt.step(closure)
+
                 # Projection
                 m.normalize()
 

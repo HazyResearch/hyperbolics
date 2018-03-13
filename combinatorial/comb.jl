@@ -28,7 +28,7 @@ function parse_commandline()
             default = 0.1
         "--dim", "-r"
             help = "Dimension r"
-            arg_type = Int32       
+            arg_type = Int32
         "--get-stats", "-s"
             help = "Get statistics"
             action = :store_true            
@@ -50,6 +50,9 @@ function parse_commandline()
             help = "Internal precision in bits"
             arg_type = Int64
             default = 256
+        "--auto-tau-float", "-a"
+            help = "Internal precision in bits"
+            action = :store_true
     end
     return parse_args(s)
 end
@@ -85,7 +88,6 @@ println("Number of vertices = $(n)");
 # Number of edges
 num_edges = G[:number_of_edges]();
 println("Number of edges = $(num_edges)");
-edges_weights = []
 
 # We'll use the BFS tree here - if G is already a tree
 #  this won't change anything, but if it's not we'll get a tree
@@ -108,6 +110,11 @@ tic()
 
 if parsed_args["scale"] != nothing
     tau = big(parsed_args["scale"])
+elseif parsed_args["auto-tau-float"] != nothing
+    path_length  = nx.dag_longest_path_length(G_BFS)
+    r = Float64(1-(1/2)^53)
+    m = log((1+r)/(1-r))
+    tau = big(m/(path_length))
 else
     tau = get_emb_par(G_BFS, 1, eps, weighted)
 end
