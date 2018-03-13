@@ -114,7 +114,7 @@ elseif parsed_args["auto-tau-float"] != nothing
     path_length  = nx.dag_longest_path_length(G_BFS)
     r = big(1-eps(BigFloat)/2)
     m = log((1+r)/(1-r))
-    tau = big(m/(path_length))
+    tau = big(m/(1.3*path_length))
 else
     tau = get_emb_par(G_BFS, 1, epsilon, weighted)
 end
