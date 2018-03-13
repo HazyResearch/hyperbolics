@@ -9,10 +9,12 @@ function dist(u,v)
     return acosh(1+z/(uu*vv))
 end
 
-# Reflection
+# Reflection (circle inversion of x through orthogonal circle centered at a)
 function isometric_transform(a, x)
-    r   = sqrt(norm(a)^2 - big(1.))  
-    return (r/norm(x - a))^2*(x-a) + a
+    # r   = sqrt(norm(a)^2 - big(1.))
+    # return (r/norm(x - a))^2*(x-a) + a
+    r2 = norm(a)^2 - big(1.)
+    return r2/norm(x - a)^2 * (x-a) + a
 end
 
 # Inversion taking mu to origin
@@ -24,6 +26,7 @@ end
 # Express a hyperbolic distance in the unit disk
 function hyp_to_euc_dist(x)
     return sqrt.((cosh.(x)-big(1))./(cosh.(x)+big(1)))
+    # return (exp.(x)-big(1))./(exp.(x)+big(1))
 end
 
 # Place children

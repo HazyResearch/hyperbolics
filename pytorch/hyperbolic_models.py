@@ -49,7 +49,7 @@ def acosh(x):
 def dist(u,v):
     z  = 2*torch.norm(u-v,2,1)**2
     uu = 1. + torch.div(z,((1-torch.norm(u,2,1)**2)*(1-torch.norm(v,2,1)**2)))
-    return acosh(uu)
+    return acosh(torch.clamp(uu, min=1+1e-15))
 
 def h_proj(x, eps=1e-9):
     current_norms = torch.norm(x,2,x.dim() - 1)
