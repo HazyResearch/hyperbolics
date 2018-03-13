@@ -143,7 +143,7 @@ if parsed_args["embedding-save"] != nothing
     JLD.save(string(parsed_args["embedding-save"],".jld"), "T", T);
     df = DataFrame(convert(Array{Float64,2},T))
     # save tau also:
-    df["tau"] = tau
+    df["tau"] = convert(Float64, tau)
     to_csv(df, parsed_args["embedding-save"])
 end
 

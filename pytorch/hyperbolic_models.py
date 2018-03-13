@@ -49,7 +49,7 @@ def acosh(x):
 def dist(u,v):
     z  = 2*torch.norm(u-v,2,1)**2
     uu = 1. + torch.div(z,((1-torch.norm(u,2,1)**2)*(1-torch.norm(v,2,1)**2)))
-    machine_eps = np.finfo(uu.data.numpy().dtype).eps
+    # machine_eps = np.finfo(uu.data.numpy().dtype).eps  # problem with cuda tensor
     # return acosh(torch.clamp(uu, min=1+machine_eps))
     return acosh(uu)
 
