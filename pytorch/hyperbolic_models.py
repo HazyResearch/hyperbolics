@@ -49,7 +49,9 @@ def acosh(x):
 def dist(u,v):
     z  = 2*torch.norm(u-v,2,1)**2
     uu = 1. + torch.div(z,((1-torch.norm(u,2,1)**2)*(1-torch.norm(v,2,1)**2)))
-    return acosh(torch.clamp(uu, min=1+1e-15))
+    machine_eps = np.finfo(uu.data.numpy().dtype).eps
+    # return acosh(torch.clamp(uu, min=1+machine_eps))
+    return acosh(uu)
 
 def h_proj(x, eps=1e-9):
     current_norms = torch.norm(x,2,x.dim() - 1)
@@ -101,29 +103,39 @@ class Hyperbolic_Emb(nn.Module):
     def dist(self, idx):
         wi = torch.index_select(self.w, 0, idx[:,0])
         wj = torch.index_select(self.w, 0, idx[:,1])
-        return dist(wi,wj)*(1+self.scale)
+        d = dist(wi,wj)
+        return d / (1+self.scale) # rescale to the size of the true distances matrix
+        # return dist(wi,wj)*(1+self.scale)
 
     def dist_row(self, i):
         m = self.w.size(0)
-        return (1+self.scale)*dist(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w)
+        return dist(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w) / (1+self.scale)
+        # return (1+self.scale)*dist(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w)
 
     def loss(self, _x):
         idx, values = _x
         wi = torch.index_select(self.w, 0, idx[:,0])
         wj = torch.index_select(self.w, 0, idx[:,1])
         _scale = 1+torch.clamp(self.scale,self.lo_scale,self.hi_scale)
+        _s = _scale if self.learn_scale else 1.0
+        # print("loss: scale ", self.scale.data)
 
         #term_rescale = torch.exp( 2*(1.-values) ) if self.exponential_rescale else self.step_rescale(values)
         term_rescale  = torch.exp( self.exponential_rescale*(1.-values) ) if self.exponential_rescale is not None else 1.0 
         if self.absolute_loss:
-            _values = values*_scale if self.learn_scale else values 
-            return torch.sum( term_rescale*( dist(wi,wj) - _values))**2/self.pairs 
+            # _values = values*_scale if self.learn_scale else values
+            _values = values * _s
+            return torch.sum( term_rescale*( dist(wi,wj)/_s - values)**2) /self.pairs
+            # TODO: the below doesn't look right, why is the square outside the sum? also, divide by tau^2 at end
+            return torch.sum( term_rescale*( dist(wi,wj) - _values))**2/self.pairs
         else:
-            _s = _scale if self.learn_scale else 1.0
-            return torch.sum( term_rescale*_s*(dist(wi,wj)/values - 1.0)**2/self.pairs )
-        
+            _values = values * _s
+            # return torch.sum( term_rescale*_s*(dist(wi,wj)/values - 1.0)**2/self.pairs )
+            return torch.sum( term_rescale*(dist(wi,wj)/_values - 1)**2 ) / self.pairs
+
     def normalize(self):
-        if self.project: 
+        if self.project:
             self.w.proj()
+            # print("normalize: scale ", self.scale.data)
             self.scale.data = torch.clamp(self.scale.data,self.lo_scale, self.hi_scale)
 

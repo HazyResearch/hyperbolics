@@ -156,7 +156,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
         logging.info(f"\t Computing Major Stats lazily... ")
         avg, me, mc = 0.0, 0.0, 0.0
         good,bad    = 0,0
-        _count      = 0 
+        _count      = 0
         for u in z:
             index,vs = u
             v_rec  = m.dist(cu_var(index)).data.cpu().numpy()
@@ -170,7 +170,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
                     bad         += 1
             _count += len(v)
             if n_rows_sampled*n < _count:
-                logging.info(f"\t\t Completed {n} {n_rows_sampled} {_count} good={good} bad={bad}") 
+                logging.info(f"\t\t Completed {n} {n_rows_sampled} {_count} good={good} bad={bad}")
                 break
         avg_dist     = avg/good if good > 0 else 0
         dist_max     = me*mc
@@ -194,7 +194,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
         dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, num_workers)
         mapscore = dis.map_score(H, Hrec, n, num_workers) 
         
-    logging.info(f"Distortion avg={avg_dist} wc={dist_max} nan_elements={nan_elements}")  
+    logging.info(f"Distortion avg={avg_dist} wc={dist_max} me={me} mc={mc} nan_elements={nan_elements}")  
     logging.info(f"MAP = {mapscore}")   
     logging.info(f"data_scale={scale} scale={m.scale.data[0]}")
         
@@ -314,6 +314,11 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
         
     logging.info(opt)
 
+    # Log stats from import: when warmstarting, check that it matches Julia's stats
+    logging.info(f"*** Initial Checkpoint. Computing Stats")
+    major_stats(GM,1+m.scale.data[0],n,m, True, Z, z)
+    logging.info("*** End Initial Checkpoint\n")
+
     for i in range(m.epoch, m.epoch+epochs):
         l = 0.0
         m.train(True)
@@ -338,7 +343,9 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
                     _loss.backward()
                     l += _loss.data[0]
                 Hyperbolic_Parameter.correct_metric(m.parameters()) # NB: THIS IS THE NEW CALL
+                print("Scale before step: ", m.scale.data)
                 opt.step()
+                print("Scale after step: ", m.scale.data)
                 # Projection
                 m.normalize()
                 
