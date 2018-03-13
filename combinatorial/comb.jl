@@ -7,7 +7,8 @@ using Pandas
 @pyimport numpy as np
 
 unshift!(PyVector(pyimport("sys")["path"]), "")
-unshift!(PyVector(pyimport("sys")["path"]), "..")
+# unshift!(PyVector(pyimport("sys")["path"]), "..")
+unshift!(PyVector(pyimport("sys")["path"]), "combinatorial")
 @pyimport utils.load_graph as lg
 @pyimport distortions as dis
 @pyimport graph_util as gu
