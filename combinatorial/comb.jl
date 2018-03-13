@@ -78,7 +78,7 @@ end
 
 G        = lg.load_graph(parsed_args["dataset"])
 weighted = gu.is_weighted(G)
-eps      = parsed_args["eps"] 
+epsilon      = parsed_args["eps"] 
 println("\nGraph information")
 
 # Number of vertices:
@@ -112,12 +112,15 @@ if parsed_args["scale"] != nothing
     tau = big(parsed_args["scale"])
 elseif parsed_args["auto-tau-float"] != nothing
     path_length  = nx.dag_longest_path_length(G_BFS)
-    r = Float64(1-(1/2)^53)
+    r = big(1-eps(BigFloat)/2)
     m = log((1+r)/(1-r))
     tau = big(m/(path_length))
 else
-    tau = get_emb_par(G_BFS, 1, eps, weighted)
+    tau = get_emb_par(G_BFS, 1, epsilon, weighted)
 end
+
+# Print out the scaling factor we got
+println("Scaling factor tau = $(convert(Float64,tau))")
 
 use_codes = false
 if parsed_args["use-codes"]
@@ -129,14 +132,11 @@ end
 
 if parsed_args["dim"] != nothing && parsed_args["dim"] != 2
     dim = parsed_args["dim"]
-    T = hyp_embedding_dim(G_BFS, root, eps, weighted, dim, tau, d_max, use_codes)
+    T = hyp_embedding_dim(G_BFS, root, epsilon, weighted, dim, tau, d_max, use_codes)
 else
-    T = hyp_embedding(G_BFS, root, eps, weighted, tau)
+    T = hyp_embedding(G_BFS, root, epsilon, weighted, tau)
 end
 toc()
-
-# Print out the scaling factor we got
-println("Scaling factor tau = $(convert(Float64,tau))")
 
 # Save the embedding:
 if parsed_args["embedding-save"] != nothing
@@ -176,27 +176,18 @@ if parsed_args["get-stats"]
         
         # this is this row MAP
         curr_map  = dis.map_row(true_dist_row, hyp_dist_row[1:n], n, sample_nodes[i]-1)
-        #maps += curr_map
         _maps[i]  = curr_map
         
         # print out current and running average MAP
         if parsed_args["verbose"]
             println("Row $(sample_nodes[i]), current MAP = $(curr_map)")        
-            #println("Row $(sample_nodes[i]), running MAP = $(maps/i)") 
         end
 
         # these are distortions: worst cases (contraction, expansion) and average
         mc, me, avg, bad = dis.distortion_row(true_dist_row, hyp_dist_row[1:n] ,n,sample_nodes[i]-1)
-        ## if mc*me > wc
-        ##     wc = mc*me
-        # end
         _wcs[i]  = mc*me
         
-        #d_avg += avg;
         _d_avgs[i] = avg
-        #if parsed_args["verbose"]
-        #    println("Row $(sample_nodes[i]), current d_avg = $(d_avg/i), current d_wc = $(wc)")
-        #end
     end
     # Clean up
     maps  = sum(_maps)

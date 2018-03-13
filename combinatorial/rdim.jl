@@ -99,7 +99,7 @@ function place_children_codes(dim, c, use_sp, sp, Gen_matrices)
     end    
     
     # inscribe the unit hypercube vertices into unit hypersphere
-    points = (1/sqrt(dim)*(-1).^C)'
+    points = (big(1)/sqrt(dim)*(-1).^C)'
         
     # rotate to match the parent, if we need to
     if use_sp == true
@@ -275,7 +275,6 @@ function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, tau, d_max, use_code
         k = 1;
         for child in root_children
             weight = G[root+1][child+1]["weight"]
-            println("weight = $weight")
             edge_lengths[k] = hyp_to_euc_dist(weight*tau);
             k = k+1;
         end
@@ -339,7 +338,6 @@ function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, tau, d_max, use_code
             k = 1;
             for child in children
                 weight = G[h+1][child+1]["weight"];
-                println("weight = $weight")
                 edge_lengths[k] = hyp_to_euc_dist(big(weight)*tau);
                 k = k+1;
             end
