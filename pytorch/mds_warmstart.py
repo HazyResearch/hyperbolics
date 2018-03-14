@@ -22,21 +22,23 @@ def compute_d(u,l,n):
     d_min = np.min(d)
     if d_min < 1:
         print("\t\t\t Warning: Noisy d_min correction used.")
-        d/=d_min
+        #d/=d_min
     dv  = d - 1
-    return (d,dv)
+    dinv = 1./d
+    t     = dinv*np.divide(v-alpha,(1)+alpha)
+    return (d,dv,t)
 
 def data_rec(points, scale=1.0):
     (n,d) = points.shape
     Z     = np.zeros( (n,n) )
     for i in range(n):
-        #di = 1-np.linalg.norm(points[i,:])**2
+        di = 1-np.linalg.norm(points[i,:])**2
         for j in range(n):
-            #dj = 1-np.linalg.norm(points[j,:])**2
-            Z[i,j] = np.linalg.norm(points[i,:] - points[j,:])**2#/(di*dj)
+            dj = 1-np.linalg.norm(points[j,:])**2
+            Z[i,j] = np.linalg.norm(points[i,:] - points[j,:])**2/(di*dj)
     return (Z,np.arccosh(1+2.*Z)/scale)
 
-def center_numpy_inplace(tZ,inv_d):
+def center_numpy_inplace(tZ,inv_d,v):
     n = tZ.shape[0]
     for i in range(n):
         for j in range(n):
@@ -46,11 +48,15 @@ def center_numpy_inplace(tZ,inv_d):
         for j in range(n):
             tZ[i,j] *= inv_d[j]
 
-    mu = np.mean(tZ,1)
-    for i in range(n): tZ[:,i] -= mu
+    for i in range(n):
+        for j in range(n):
+            tZ[i,j] -= (v[i]+v[j])
 
-    mu = np.mean(tZ,0)
-    for i in range(n): tZ[i,:] -= mu
+    #mu = np.mean(tZ,1)
+    #for i in range(n): tZ[:,i] -= mu
+
+    #mu = np.mean(tZ,0)
+    #for i in range(n): tZ[i,:] -= mu
 
 def power_method(_A,r,T=5000,tol=1e-14):
     (n,n) = _A.shape
@@ -70,7 +76,7 @@ def power_method(_A,r,T=5000,tol=1e-14):
 
     return (_eig.cpu().numpy(), x.cpu().numpy())
 
-def get_eig(A,r, use_power=True):
+def get_eig(A,r, use_power=False):
     return power_method(A,r) if use_power else np.linalg.eig(A)
 
 def get_model(dataset, max_k, scale = 1.0):
@@ -88,21 +94,23 @@ def get_model(dataset, max_k, scale = 1.0):
     u    = U[:,idx]
     u    = u if u[0] > 0 else -u
 
-    (d1,dv) = compute_d(u,l0,n)
+    (d1,dv,v) = compute_d(u,l0,n)
     inv_d = 1./d1
     #Q  = (np.eye(n)-np.ones( (n,n)) /n)*np.diag(inv_d)
     #G  = -Q@Z@Q.T/2
-    G   = -Z/2 # This does make a copy.
-    center_numpy_inplace(G, inv_d)
+    G   = Z # This does make a copy.
+    center_numpy_inplace(G, inv_d, v)
+    G /= -2.0
 
     # Recover our points
     (emb_d, points_d) = get_eig(G,max_k)
     good_idx = emb_d > 0
     our_points = np.real(points_d[:,good_idx]@np.diag(np.sqrt(emb_d[good_idx])))
-
+    
     # Just for evaluation
-    (Z,Hrec) = data_rec(our_points)
-    print(f"Map Score {dis.map_score(H/scale, Hrec, n, 2)}")
+    (Z,Hrec) = data_rec(our_points, scale)
+    # this will get done in the preliminary stats pass:
+    #print(f"Map Score {dis.map_score(H/scale, Hrec, n, 2)}")
     return (H,our_points)
 
 def get_normalized_hyperbolic(model):
