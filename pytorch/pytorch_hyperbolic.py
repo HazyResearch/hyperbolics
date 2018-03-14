@@ -245,6 +245,10 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
     G  = load_graph.load_graph(dataset)
     GM = nx.to_scipy_sparse_matrix(G)
 
+    # grab scale if warm starting:
+    if warm_start:
+        scale = pandas.read_csv(warm_start, index_col=0).as_matrix()[0, -1]
+
     n = G.order()
     logging.info(f"Loaded Graph {dataset} with {n} nodes scale={scale}")
 
@@ -283,7 +287,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
 
         m_init = None
         if warm_start:
-            # load from DataFrame; assume that the julia code has been called prior and saved in "savefile"
+            # load from DataFrame; assume that the julia combinatorial embedding has been saved
             ws_data = pandas.read_csv(warm_start, index_col=0).as_matrix()
             scale = ws_data[0, ws_data.shape[1]-1]
             m_init = torch.DoubleTensor(ws_data[:,range(ws_data.shape[1]-1)])
