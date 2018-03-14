@@ -52,7 +52,7 @@ function parse_commandline()
             arg_type = Int64
             default = 256
         "--auto-tau-float", "-a"
-            help = "Internal precision in bits"
+            help = "Calculate scale assuming 64-bit final embedding"
             action = :store_true
     end
     return parse_args(s)
@@ -70,6 +70,7 @@ println("Epsilon  = $(parsed_args["eps"])")
 prec = parsed_args["precision"]
 setprecision(BigFloat, prec)
 println("Precision = $(prec)")
+
 
 if parsed_args["embedding-save"] == nothing
     println("No file specified to save embedding!")
@@ -113,8 +114,8 @@ if parsed_args["scale"] != nothing
     tau = big(parsed_args["scale"])
 elseif parsed_args["auto-tau-float"] != nothing
     path_length  = nx.dag_longest_path_length(G_BFS)
-    r = big(1-eps(BigFloat)/2)
-    m = log((1+r)/(1-r))
+    r = big(1-eps(Float64)/2)
+    m = big(log((1+r)/(1-r)))
     tau = big(m/(1.3*path_length))
 else
     tau = get_emb_par(G_BFS, 1, epsilon, weighted)
