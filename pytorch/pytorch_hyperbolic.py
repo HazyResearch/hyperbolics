@@ -293,7 +293,8 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
             scale = ws_data[0, ws_data.shape[1]-1]
             m_init = torch.DoubleTensor(ws_data[:,range(ws_data.shape[1]-1)])
         elif use_hmds:
-            m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(mds_warmstart.get_model(dataset,rank,scale)[1]))
+            # m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(mds_warmstart.get_model(dataset,rank,scale)[1]))
+            m_init = torch.DoubleTensor(mds_warmstart.get_model(dataset,rank,scale)[1])
 
         logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
         m       = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale, exponential_rescale=exponential_rescale) )
