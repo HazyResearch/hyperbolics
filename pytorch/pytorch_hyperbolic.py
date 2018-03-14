@@ -346,9 +346,9 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
                     _loss.backward()
                     l += _loss.data[0]
                 Hyperbolic_Parameter.correct_metric(m.parameters()) # NB: THIS IS THE NEW CALL
-                print("Scale before step: ", m.scale.data)
+                # print("Scale before step: ", m.scale.data)
                 opt.step()
-                print("Scale after step: ", m.scale.data)
+                # print("Scale after step: ", m.scale.data)
                 # Projection
                 m.normalize()
                 
