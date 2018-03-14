@@ -177,6 +177,7 @@ if parsed_args["get-stats"]
         hyp_dist_row = convert(Array{Float64},vec(dist_matrix_row(T, sample_nodes[i])/tau))
         
         # this is this row MAP
+        # TODO: should this be n_bfs instead of n? n might include points that weren't embedded?
         curr_map  = dis.map_row(true_dist_row, hyp_dist_row[1:n], n, sample_nodes[i]-1)
         _maps[i]  = curr_map
         

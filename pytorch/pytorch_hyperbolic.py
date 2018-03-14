@@ -192,7 +192,12 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
         Hrec = dist_matrix(m.w.data).cpu().numpy()
         logging.info("Compare matrices built")  
         dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, num_workers)
-        mapscore = dis.map_score(H, Hrec, n, num_workers) 
+        # TODO (A): make this function return max_expand and max_contract properly
+        # this is helpful for figuring out learn-scale, for example
+        me = 0.0
+        mc = 0.0
+        # TODO: this needs to be fixed
+        mapscore = dis.map_score(scipy.sparse.csr_matrix.todense(G), Hrec, n, num_workers) 
         
     logging.info(f"Distortion avg={avg_dist} wc={dist_max} me={me} mc={mc} nan_elements={nan_elements}")  
     logging.info(f"MAP = {mapscore}")   
