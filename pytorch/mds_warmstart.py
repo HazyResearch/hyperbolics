@@ -2,6 +2,7 @@ import utils.data_prep as dp
 import pytorch.graph_helpers as gh
 import numpy as np
 import utils.distortions as dis
+import utils.load_graph as load_graph
 import torch, logging
 from math import sqrt
 
@@ -73,7 +74,9 @@ def get_eig(A,r, use_power=True):
     return power_method(A,r) if use_power else np.linalg.eig(A)
 
 def get_model(dataset, max_k, scale = 1.0):
-    G = dp.load_graph(dataset)
+    #G = dp.load_graph(dataset)
+    G  = load_graph.load_graph(dataset)
+
     H = gh.build_distance(G,1.0)
     (n,n) = H.shape
     Z = (np.cosh(scale*H) -1)/2
