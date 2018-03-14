@@ -7,38 +7,38 @@ import logging
 
 #
 # Our models
-# 
+#
 class Hyperbolic_Mean(nn.Module):
     def __init__(self, d):
         super(Hyperbolic_Mean, self).__init__()
-        self.w = Hyperbolic_Parameter( (torch.rand(d) * 1e-3).double() ) 
-            
-    def loss(self, y_data): 
+        self.w = Hyperbolic_Parameter( (torch.rand(d) * 1e-3).double() )
+
+    def loss(self, y_data):
         return torch.sum(dist(self.w.repeat(y_data.size(0),1),y_data)**2)
- 
+
     def normalize(self):
         self.w.proj()
 
 class Hyperbolic_Lines(nn.Module):
     def __init__(self, d):
         super(Hyperbolic_Lines, self).__init__()
-        self.w = Hyperbolic_Parameter(h_proj(torch.rand(d) * 1e-3).double()) 
-            
+        self.w = Hyperbolic_Parameter(h_proj(torch.rand(d) * 1e-3).double())
+
     # $$\min_{v} \sum_{j=1}^{n} \mathrm{acosh}\left(1 + d^2_E(L(v), w_j)\right)^2$$
     # learn the lines in a zero centered way.
-    def loss(self, y_data): 
+    def loss(self, y_data):
         return torch.sum(acosh(1 + line_dist_sq(self.w, y_data))**2)
-    
+
     def normalize(self): # we handle this in the line_dist_s
         return
 
 ### Embedding Models
 # We implement both in pytorch using a custom SGD optimizer. This is used to correct for the hyperbolic variables.
-# 
+#
 # Here are the basic distance and projection functions. The distance in Poincaré space is:
-# 
+#
 # $$ d(u,v) = \mathrm{arcosh}\left(1 + 2\frac{\|u-v\|^2}{(1-\|u\|^2)(1-\|v\|^2)}\right)$$
-# 
+#
 # We implement a simple projection on the disk as well.
 
 
@@ -59,12 +59,12 @@ def h_proj(x, eps=1e-9):
     modified      = 1./((1+eps)*current_norms)
     modified[mask_idx] = 1.0
     new_size      = [1]*current_norms.dim() + [x.size(x.dim()-1)]
-    modified      = modified.unsqueeze(modified.dim()).repeat(*new_size) 
+    modified      = modified.unsqueeze(modified.dim()).repeat(*new_size)
     return x * modified
 
 def dot(x,y): return torch.sum(x * y, 1)
 
-# Compute the  
+# Compute the
 # $$\min_{v} \sum_{j=1}^{n} \mathrm{acosh}\left(1 + d^2_E(L(v), w_j)\right)^2$$
 def line_dist_sq(_x,y):
     norm_x = torch.norm(_x)**(-2)
@@ -121,7 +121,7 @@ class Hyperbolic_Emb(nn.Module):
         # print("loss: scale ", self.scale.data)
 
         #term_rescale = torch.exp( 2*(1.-values) ) if self.exponential_rescale else self.step_rescale(values)
-        term_rescale  = torch.exp( self.exponential_rescale*(1.-values) ) if self.exponential_rescale is not None else 1.0 
+        term_rescale  = torch.exp( self.exponential_rescale*(1.-values) ) if self.exponential_rescale is not None else 1.0
         if self.absolute_loss:
             # _values = values*_scale if self.learn_scale else values
             _values = values * _s
@@ -138,4 +138,3 @@ class Hyperbolic_Emb(nn.Module):
             self.w.proj()
             # print("normalize: scale ", self.scale.data)
             self.scale.data = torch.clamp(self.scale.data,self.lo_scale, self.hi_scale)
-

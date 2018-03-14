@@ -15,15 +15,15 @@ from hyperbolic_parameter import Hyperbolic_Parameter
 from hyperbolic_models import Hyperbolic_Emb, dist
 
 # This describes a hyperbolic optimizer in Pytorch. It requires two modifications:
-# 
+#
 # * When declaring a parameter, one uses a class called "Hyperbolic
 # * Parameter". It assumes that the _last_ dimension is in the
 # * disk. E.g., a tensor of size n x m x d means that you have n x m
 # * elements of H_D. d >= 2.
-# 
+#
 #   * It inherits from parameter, so you can do anything you want with it (set its value, pass it around).
-# 
-# * So that you can use any optimizer and get the correction, after the `backward` call but before the `step`, you need to call a function called `hyperbolic_fix`. It will walk the tree, look for the hyperbolic parameters and correct them. 
+#
+# * So that you can use any optimizer and get the correction, after the `backward` call but before the `step`, you need to call a function called `hyperbolic_fix`. It will walk the tree, look for the hyperbolic parameters and correct them.
 #  * The step function below can be used pretty generically.
 
 
@@ -52,7 +52,7 @@ def cu_var(x, requires_grad=None, volatile=False):
     if isinstance(x, tuple): return tuple([cu_var(u, requires_grad=requires_grad, volatile=volatile) for u in list(x)])
     rg = not volatile if requires_grad is None else requires_grad
     vx = Variable(x, requires_grad=rg, volatile=volatile)
-    return vx.cuda() if torch.cuda.is_available() else vx  
+    return vx.cuda() if torch.cuda.is_available() else vx
 def cudaify(x):            return x.cuda() if torch.cuda.is_available() else x
 
 def step(hm, opt, data):
@@ -81,7 +81,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
         self.n_cached  = 0
         self.Z         = Z
         logging.info(self)
-        
+
     def __getitem__(self, index):
         if index not in self.cache:
             if self.verbose: logging.info(f"Cache miss for {index}")
@@ -95,7 +95,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
                 self.val_cache[index,cur] = self.scale
                 cur += 1
                 if cur >= self.subsample: break
-            
+
             scratch   = np.array(range(self.n))
             np.random.shuffle(scratch)
 
@@ -111,14 +111,14 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
             self.cache.add(index)
             self.n_cached += 1
             if self.n_cached % (max(self.n//20,1)) == 0: logging.info(f"\t Cached {self.n_cached} of {self.n}")
-            
+
         return (self.idx_cache[index,:], self.val_cache[index,:])
-    
+
     def __len__(self): return self.n
 
     def __repr__(self):
         return f"Subsample: {self.n} points with scale {self.scale} subsample={self.subsample}"
-            
+
 
 class GraphRowSampler(torch.utils.data.Dataset):
     def __init__(self, G, scale, use_cache=True):
@@ -126,7 +126,7 @@ class GraphRowSampler(torch.utils.data.Dataset):
         self.n     = G.order()
         self.scale = scale
         self.cache = dict() if use_cache else None
-            
+
     def __getitem__(self, index):
         h = None
         if self.cache is None or index not in self.cache:
@@ -137,16 +137,16 @@ class GraphRowSampler(torch.utils.data.Dataset):
         else:
             h = self.cache[index]
             #logging.info(f"hit {index}")
-            
+
         idx = torch.LongTensor([ (index, j) for j in range(self.n) if j != index])
-        v   = torch.DoubleTensor(h).view(-1)[idx[:,1]]        
+        v   = torch.DoubleTensor(h).view(-1)[idx[:,1]]
         return (idx, v)
-    
+
     def __len__(self): return self.n
 
     def __repr__(self):
         return f"DATA: {self.n} points with scale {self.scale}"
-    
+
 #
 # DATA Diagnostics
 #
@@ -176,7 +176,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
         dist_max     = me*mc
         nan_elements = bad
         map_avg      = 0.0
-        
+
         # sample for rows
         shuffled     = list(range(n))
         #np.random.shuffle(shuffled)
@@ -184,26 +184,26 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
         for i in shuffled[0:n_rows_sampled]:
             h_rec      = m.dist_row(i).cpu().data.numpy()
             map_avg   += dis.map_via_edges(G,i, h_rec)
-            mm        += 1         
+            mm        += 1
         mapscore = map_avg/mm
     else:
         #H    = Z/scale
         H    = Z*scale
         Hrec = dist_matrix(m.w.data).cpu().numpy()
-        logging.info("Compare matrices built")  
+        logging.info("Compare matrices built")
         dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, num_workers)
         # TODO (A): make this function return max_expand and max_contract properly
         # this is helpful for figuring out learn-scale, for example
         me = 0.0
         mc = 0.0
         # TODO: this needs to be fixed
-        mapscore = dis.map_score(scipy.sparse.csr_matrix.todense(G), Hrec, n, num_workers) 
-        
-    logging.info(f"Distortion avg={avg_dist} wc={dist_max} me={me} mc={mc} nan_elements={nan_elements}")  
-    logging.info(f"MAP = {mapscore}")   
+        mapscore = dis.map_score(scipy.sparse.csr_matrix.todense(G), Hrec, n, num_workers)
+
+    logging.info(f"Distortion avg={avg_dist} wc={dist_max} me={me} mc={mc} nan_elements={nan_elements}")
+    logging.info(f"MAP = {mapscore}")
     logging.info(f"data_scale={scale} scale={m.scale.data[0]}")
-        
-                                
+
+
 @argh.arg("dataset", help="dataset number")
 @argh.arg("-r", "--rank", help="Rank to use")
 @argh.arg("-s", "--scale", help="Scale factor")
@@ -231,7 +231,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
 @argh.arg("--use-hmds", help="Use MDS warmstart")
 def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
           use_yellowfin=False, use_adagrad=False, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
-          num_workers=None, lazy_generation=False, log_name=None, warm_start=None, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None, 
+          num_workers=None, lazy_generation=False, log_name=None, warm_start=None, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None,
           exponential_rescale=None, extra_steps=1, use_svrg=False, T=10, use_hmds=False):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
@@ -258,11 +258,11 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
     logging.info(f"Loaded Graph {dataset} with {n} nodes scale={scale}")
 
     Z = None
-    
+
     def collate(ls):
         x, y = zip(*ls)
         return torch.cat(x), torch.cat(y)
-    
+
     if lazy_generation:
         if subsample is not None:
             z = DataLoader(GraphRowSubSampler(G, scale, subsample), batch_size, shuffle=True, collate_fn=collate)
@@ -270,7 +270,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
             z = DataLoader(GraphRowSampler(G, scale), batch_size, shuffle=True, collate_fn=collate)
         logging.info("Built Data Sampler")
     else:
-        Z   = gh.build_distance(G, scale, num_workers=int(num_workers) if num_workers is not None else 16)   # load the whole matrix    
+        Z   = gh.build_distance(G, scale, num_workers=int(num_workers) if num_workers is not None else 16)   # load the whole matrix
         logging.info(f"Built distance matrix with {scale} factor")
 
         if subsample is not None:
@@ -281,8 +281,8 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
             vals      = torch.DoubleTensor([Z_sampled[i,j] for i in range(n) for j in range(i+1, n)])
             z         = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True, pin_memory=torch.cuda.is_available())
         logging.info("Built data loader")
-    
-  
+
+
     if model_load_file is not None:
         logging.info(f"Loading {model_load_file}...")
         m = cudaify( torch.load(model_load_file) )
@@ -298,7 +298,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
             m_init = torch.DoubleTensor(ws_data[:,range(ws_data.shape[1]-1)])
         elif use_hmds:
             m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(mds_warmstart.get_model(dataset,rank)[1]))
-        
+
         logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
         m       = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale, exponential_rescale=exponential_rescale) )
         m.normalize()
@@ -314,16 +314,16 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
     if use_yellowfin:
         from yellowfin import YFOptimizer
         opt = YFOptimizer(m.parameters())
-        
+
     if use_adagrad:
         opt = torch.optim.Adagrad(m.parameters())
-        
+
     if use_svrg:
         from svrg import SVRG
-        base_opt = torch.optim.Adagrad if use_adagrad else torch.optim.SGD  
+        base_opt = torch.optim.Adagrad if use_adagrad else torch.optim.SGD
         opt      = SVRG(m.parameters(), lr=learning_rate, T=T, data_loader=z, opt=base_opt)
-   
-        
+
+
     logging.info(opt)
 
     # Log stats from import: when warmstarting, check that it matches Julia's stats
@@ -338,7 +338,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
             for data in z:
                 def closure(data=data, target=None):
                     _data = data if target is None else (data,target)
-                    c = m.loss(cu_var(_data))  
+                    c = m.loss(cu_var(_data))
                     c.backward()
                     return c.data[0]
                 l += opt.step(closure)
@@ -350,7 +350,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
             opt.zero_grad() # This is handled by the SVRG.
             for the_step in range(extra_steps):
                 # Accumulate the gradient
-                for u in z:                
+                for u in z:
                     _loss = m.loss(cu_var(u, requires_grad=False))
                     _loss.backward()
                     l += _loss.data[0]
@@ -360,7 +360,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
                 # print("Scale after step: ", m.scale.data)
                 # Projection
                 m.normalize()
-                
+
                 #l += step(m, opt, u).data[0]
 
         # Logging code
@@ -374,11 +374,11 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
             major_stats(GM,1+m.scale.data[0],n,m, True, Z, z)
             if model_save_file is not None:
                 fname = f"{model_save_file}.{m.epoch}"
-                logging.info(f"Saving model into {fname} {torch.sum(m.w.data)} ") 
+                logging.info(f"Saving model into {fname} {torch.sum(m.w.data)} ")
                 torch.save(m, fname)
             logging.info("*** End Major Checkpoint\n")
         m.epoch += 1
-        
+
     logging.info(f"final loss={l}")
 
     if model_save_file is not None:
@@ -389,6 +389,6 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
     major_stats(GM,1+m.scale.data[0], n, m, True, Z,z)
 
 if __name__ == '__main__':
-    _parser = argh.ArghParser() 
+    _parser = argh.ArghParser()
     _parser.add_commands([learn])
     _parser.dispatch()

@@ -21,7 +21,7 @@ function parse_commandline()
     @add_arg_table s begin
         "--dataset", "-d"
             help = "Dataset to embed"
-            required = true        
+            required = true
         "--eps", "-e"
             help = "Epsilon distortion"
             required = true
@@ -32,18 +32,18 @@ function parse_commandline()
             arg_type = Int32
         "--get-stats", "-s"
             help = "Get statistics"
-            action = :store_true            
+            action = :store_true
         "--embedding-save", "-m"
             help = "Save embedding to file"
         "--verbose", "-v"
             help = "Prints out row-by-row stats"
-            action = :store_true    
+            action = :store_true
         "--scale", "-t"
             arg_type = Float64
             help = "Use a particular scaling factor"
         "--use-codes", "-c"
             help = "Use coding-theoretic child placement"
-            action = :store_true     
+            action = :store_true
         "--stats-sample", "-z"
             help = "Number of rows to sample when computing statistics"
             arg_type = Int32
@@ -62,7 +62,7 @@ parsed_args = parse_commandline()
 
 println("Combinatorial Embedding. Info:")
 println("Data set = $(parsed_args["dataset"])")
-if parsed_args["dim"] != nothing 
+if parsed_args["dim"] != nothing
     println("Dimensions = $(parsed_args["dim"])")
 end
 println("Epsilon  = $(parsed_args["eps"])")
@@ -80,7 +80,7 @@ end
 
 G        = lg.load_graph(parsed_args["dataset"])
 weighted = gu.is_weighted(G)
-epsilon      = parsed_args["eps"] 
+epsilon      = parsed_args["eps"]
 println("\nGraph information")
 
 # Number of vertices:
@@ -168,39 +168,39 @@ if parsed_args["get-stats"]
     _maps   = zeros(samples)
     _d_avgs = zeros(samples)
     _wcs    = zeros(samples)
-    
+
     Threads.@threads for i=1:samples
         # the real distances in the graph
         true_dist_row = vec(csg.dijkstra(adj_mat_original, indices=[sample_nodes[i]-1], unweighted=(!weighted), directed=false))
-        
+
         # the hyperbolic distances for the points we've embedded
         hyp_dist_row = convert(Array{Float64},vec(dist_matrix_row(T, sample_nodes[i])/tau))
-        
+
         # this is this row MAP
         # TODO: should this be n_bfs instead of n? n might include points that weren't embedded?
         curr_map  = dis.map_row(true_dist_row, hyp_dist_row[1:n], n, sample_nodes[i]-1)
         _maps[i]  = curr_map
-        
+
         # print out current and running average MAP
         if parsed_args["verbose"]
-            println("Row $(sample_nodes[i]), current MAP = $(curr_map)")        
+            println("Row $(sample_nodes[i]), current MAP = $(curr_map)")
         end
 
         # these are distortions: worst cases (contraction, expansion) and average
         mc, me, avg, bad = dis.distortion_row(true_dist_row, hyp_dist_row[1:n] ,n,sample_nodes[i]-1)
         _wcs[i]  = mc*me
-        
+
         _d_avgs[i] = avg
     end
     # Clean up
     maps  = sum(_maps)
     d_avg = sum(_d_avgs)
     wc    = maximum(_wcs)
-    
+
     if weighted
-        println("Note: MAP is not well defined for weighted graphs")    
+        println("Note: MAP is not well defined for weighted graphs")
     end
-    
+
     # Final stats:
     println("Final MAP = $(maps/samples)")
     println("Final d_avg = $(d_avg/samples), d_wc = $(wc)")

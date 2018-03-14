@@ -39,11 +39,11 @@ function add_children(p,x,edge_lengths; verbose=false)
         p_angle = 2*big(pi)-p_angle
     end
     alpha   = 2*big(pi)/(big(c+1.))
-          
-    if verbose println("p = $(convert(Array{Float64,1}, p))") end    
-    if verbose println("x = $(convert(Array{Float64,1}, x))") end    
-    if verbose println("p0 = $(convert(Array{Float64,1}, p0))") end    
-    if verbose println("x0 = $(convert(Array{Float64,1}, x0))") end    
+
+    if verbose println("p = $(convert(Array{Float64,1}, p))") end
+    if verbose println("x = $(convert(Array{Float64,1}, x))") end
+    if verbose println("p0 = $(convert(Array{Float64,1}, p0))") end
+    if verbose println("x0 = $(convert(Array{Float64,1}, x0))") end
     assert(norm(p0) <= 1.0)
 
     points0 = zeros(BigFloat, c+1, 2)
@@ -53,7 +53,7 @@ function add_children(p,x,edge_lengths; verbose=false)
         points0[k+1,2] = edge_lengths[k]*sin( angle )
     end
     for k=0:c
-        points0[k+1,:] = reflect_at_zero(x,points0[k+1,:]) 
+        points0[k+1,:] = reflect_at_zero(x,points0[k+1,:])
     end
     return points0[2:end,:]
 end
@@ -66,24 +66,24 @@ function get_emb_par(G, k, eps, weighted)
 	d_max   = maximum([cd[i][2] for i in 1:n])
 
     (nu, tau) = (0, 0)
-    	
+
     beta    = big(pi)/(big(1.2)*d_max)
     v       = -2*k*log(tan(beta/2))
     m       = length(G[:edges])
     idx     = 1
-    
+
     if weighted
         # minimum weight edge:
         w = Inf
         for edge in G[:edges](data=true)
             ew = edge[3]["weight"]
-            w  = ew < w ? ew : w  
+            w  = ew < w ? ew : w
         end
         if w == Inf
             w = 1
         end
     else
-        w = 1      
+        w = 1
     end
 
     _, d_max     = gu.max_degree(G)
@@ -95,7 +95,7 @@ function get_emb_par(G, k, eps, weighted)
     return tau
 end
 
-# Compute distances from i to all others 
+# Compute distances from i to all others
 function dist_matrix_row(T,i)
    (n,_) = size(T)
    D = zeros(BigFloat,1,n)
@@ -106,20 +106,20 @@ function dist_matrix_row(T,i)
 end
 
 # Perform a combinatorial embedding into hyperbolic disk
-# Construction based on Sarkar, "Low Distortion Delaunay 
+# Construction based on Sarkar, "Low Distortion Delaunay
 # Embedding of Trees in Hyperbolic Plane"
-#  G_BFS should be a directed, rooted tree, in order to 
+#  G_BFS should be a directed, rooted tree, in order to
 #  use the networkx functions
-function hyp_embedding(G_BFS, root, eps, weighted, tau)    
+function hyp_embedding(G_BFS, root, eps, weighted, tau)
     n             = G_BFS[:order]()
     T             = zeros(BigFloat,n,2)
-    
+
     root_children = collect(G_BFS[:successors](root));
     d             = length(root_children);
 
     edge_lengths  = hyp_to_euc_dist(tau*ones(d,1));
 
-    # if the tree is weighted, need to set the edge lengths: 
+    # if the tree is weighted, need to set the edge lengths:
     if weighted
         k = 1;
         for child in root_children
@@ -133,14 +133,14 @@ function hyp_embedding(G_BFS, root, eps, weighted, tau)
     for i=1:d
          T[1+root_children[i],:] = edge_lengths[i]*[cos(2*(i-1)*big(pi)/BigFloat(d)),sin(2*(i-1)*big(pi)/BigFloat(d))]
     end
-    
+
     # queue containing the nodes whose children we're placing
     q = [];
     append!(q, root_children)
 
-    while length(q) > 0    
+    while length(q) > 0
         h            = q[1];
-        children     = collect(G_BFS[:successors](h));          
+        children     = collect(G_BFS[:successors](h));
         parent       = collect(G_BFS[:predecessors](h));
         num_children = length(children);
         edge_lengths = hyp_to_euc_dist(tau*ones(num_children,1));
@@ -155,15 +155,15 @@ function hyp_embedding(G_BFS, root, eps, weighted, tau)
                 k = k+1;
             end
         end
-        
+
         if num_children > 0
             R = add_children(T[parent[1]+1,:], T[h+1,:], edge_lengths)
             for i=1:num_children
                 T[children[i]+1,:] = R[i,:];
-            end        
-        end    
-        
-        deleteat!(q, 1)    
+            end
+        end
+
+        deleteat!(q, 1)
     end
 
     return T
@@ -171,16 +171,16 @@ end
 
 
 # Parallel version
-function hyp_embedding_parallel(G_BFS, root, eps, weighted, edges_weights, tau)    
+function hyp_embedding_parallel(G_BFS, root, eps, weighted, edges_weights, tau)
 	n             = G_BFS[:order]()
     T             = zeros(BigFloat,n,2)
-    
+
     root_children = collect(G_BFS[:successors](root));
     d             = length(root_children);
 
     edge_lengths  = hyp_to_euc_dist(tau*ones(d,1));
 
-    # if the tree is weighted, need to set the edge lengths: 
+    # if the tree is weighted, need to set the edge lengths:
     if weighted
         k = 1;
         for child in root_children
@@ -198,7 +198,7 @@ function hyp_embedding_parallel(G_BFS, root, eps, weighted, edges_weights, tau)
          #println("Placed child $(root_children[i])")
          #println(convert(Array{Float64,1},T[root_children[i]+1,:]))
     end
-    
+
     # queue containing the nodes whose children we're placing
     q = [];
     append!(q, root_children)
@@ -235,7 +235,7 @@ function hyp_embedding_parallel(G_BFS, root, eps, weighted, edges_weights, tau)
             lock(q_lock) do
                 append!(q, children)
             end
-            
+
             parent       = collect(G_BFS[:predecessors](h));
             num_children = length(children);
             edge_lengths = hyp_to_euc_dist(tau*ones(num_children,1));
@@ -249,18 +249,17 @@ function hyp_embedding_parallel(G_BFS, root, eps, weighted, edges_weights, tau)
                 end
             end
         end
-        
+
         if num_children > 0
             R = add_children(T[parent[1]+1,:], T[h+1,:], edge_lengths)
             for i=1:num_children
                 #println("Placed child $(children[i])")
                 T[children[i]+1,:] = R[i,:];
                 #println(convert(Array{Float64,1},T[children[i]+1,:]))
-            end        
-        end    
-        
+            end
+        end
+
     end
 
     return T
 end
-

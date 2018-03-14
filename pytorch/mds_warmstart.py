@@ -15,7 +15,7 @@ def compute_d(u,l,n):
         assert(False)
 
     b       =max(1. + (sum(u)/sqrt(l)*np.linalg.norm(u))**2,1.)
-    
+
     alpha = b - np.sqrt(b**2-1.)
     v   = u*(l*(1.-alpha))/sum(u)
     d   = (v+1.)/(1.+alpha)
@@ -23,7 +23,7 @@ def compute_d(u,l,n):
     if d_min < 1:
         print("\t\t\t Warning: Noisy d_min correction used.")
         d/=d_min
-    dv  = d - 1 
+    dv  = d - 1
     return (d,dv)
 
 def data_rec(points, scale=1.0):
@@ -67,7 +67,7 @@ def power_method(_A,r,T=5000,tol=1e-14):
                 print(f"\teig {i} iteration {j} --> {_eig[i]}")
                 break
             _eig[i] = nx
-           
+
     return (_eig.cpu().numpy(), x.cpu().numpy())
 
 def get_eig(A,r, use_power=True):
@@ -94,7 +94,7 @@ def get_model(dataset, max_k, scale = 1.0):
     #G  = -Q@Z@Q.T/2
     G   = -Z/2 # This does make a copy.
     center_numpy_inplace(G, inv_d)
-    
+
     # Recover our points
     (emb_d, points_d) = get_eig(G,max_k)
     good_idx = emb_d > 0
