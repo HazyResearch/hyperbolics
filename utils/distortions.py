@@ -28,10 +28,12 @@ def distortion(H1, H2, n, jobs):
     H1, H2 = np.array(H1), np.array(H2)
     dists = Parallel(n_jobs=jobs)(delayed(distortion_row)(H1[i,:],H2[i,:],n,i) for i in range(n))
     dists = np.vstack(dists)
-    wc = max(dists[:,0])*max(dists[:,1])
+    mc = max(dists[:,0])
+    me = max(dists[:,1])
+    # wc = max(dists[:,0])*max(dists[:,1])
     avg = sum(dists[:,2])/n
     bad = sum(dists[:,3])
-    return (wc, avg, bad)
+    return (mc, me, avg, bad)
 
 def map_via_edges(G, i, h_rec):
     neighbors   = set(map(int, G.getrow(i).indices))

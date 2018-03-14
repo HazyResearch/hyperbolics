@@ -173,7 +173,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
                 logging.info(f"\t\t Completed {n} {n_rows_sampled} {_count} good={good} bad={bad}")
                 break
         avg_dist     = avg/good if good > 0 else 0
-        dist_max     = me*mc
+        dist_wc      = me*mc
         nan_elements = bad
         map_avg      = 0.0
 
@@ -191,15 +191,11 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
         H    = Z*scale
         Hrec = dist_matrix(m.w.data).cpu().numpy()
         logging.info("Compare matrices built")
-        dist_max, avg_dist, nan_elements = dis.distortion(H, Hrec, n, num_workers)
-        # TODO (A): make this function return max_expand and max_contract properly
-        # this is helpful for figuring out learn-scale, for example
-        me = 0.0
-        mc = 0.0
-        # TODO: this needs to be fixed
-        mapscore = dis.map_score(scipy.sparse.csr_matrix.todense(G), Hrec, n, num_workers)
+        mc, me, avg_dist, nan_elements = dis.distortion(H, Hrec, n, num_workers)
+        dist_wc = me*mc
+        mapscore = dis.map_score(scipy.sparse.csr_matrix.todense(G).A, Hrec, n, num_workers)
 
-    logging.info(f"Distortion avg={avg_dist} wc={dist_max} me={me} mc={mc} nan_elements={nan_elements}")
+    logging.info(f"Distortion avg={avg_dist} wc={dist_wc} me={me} mc={mc} nan_elements={nan_elements}")
     logging.info(f"MAP = {mapscore}")
     logging.info(f"data_scale={scale} scale={m.scale.data[0]}")
 
@@ -328,7 +324,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
 
     # Log stats from import: when warmstarting, check that it matches Julia's stats
     logging.info(f"*** Initial Checkpoint. Computing Stats")
-    major_stats(GM,1+m.scale.data[0],n,m, True, Z, z)
+    major_stats(GM,1+m.scale.data[0],n,m, lazy_generation, Z, z)
     logging.info("*** End Initial Checkpoint\n")
 
     for i in range(m.epoch, m.epoch+epochs):
@@ -386,7 +382,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
         logging.info(f"Saving model into {fname}-final {torch.sum(m.w.data)} {m.scale.data[0]}")
         torch.save(m, fname)
 
-    major_stats(GM,1+m.scale.data[0], n, m, True, Z,z)
+    major_stats(GM,1+m.scale.data[0], n, m, lazy_generation, Z,z)
 
 if __name__ == '__main__':
     _parser = argh.ArghParser()
