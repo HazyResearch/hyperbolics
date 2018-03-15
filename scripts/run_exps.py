@@ -3,7 +3,10 @@ import os
 import subprocess
 import itertools
 
-datasets = ["smalltree", "phylo_tree"]
+# datasets = ["bio-diseasome", "bio-yeast"]
+# datasets = ["grqc"]
+datasets = ["wordnet"]
+# ranks = [50]
 ranks = [2,5,10,50,100,200]
 def run_comb2(run_name):
     params = []
@@ -48,6 +51,8 @@ def run_comb(run_name, precision=256):
     with open(f"{run_name}/comb.p{precision}.cmds", "w") as cmd_log:
         cmd_log.writelines('\n'.join(params))
     with open(f"{run_name}/comb.p{precision}.log", "w") as log:
+        full_cmd = " ".join(['parallel', ':::', *[f'"{cmd} {p}"' for p in params]])
+        print(full_cmd)
         subprocess.run(" ".join(['parallel', ':::', *[f'"{cmd} {p}"' for p in params]]),
                 shell=True, stdout=log)
 
