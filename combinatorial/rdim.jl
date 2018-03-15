@@ -91,10 +91,15 @@ function place_children_codes(dim, c, use_sp, sp, Gen_matrices)
     for i=0:c-1
         # codeword generated from matrix G:
         cw = (digits(i,2,r)'*G).%(2)
-        
-        for j=1:Int(floor(dim/n))
+
+        rep = Int(floor(dim/n))
+        for j=1:rep
             # repeat it as many times as we can
             C[i+1,(j-1)*n+1:j*n] = big.(cw');  
+        end
+        rm = dim-rep*n
+        if rm > 0
+            C[i+1,rep*n+1:dim] = big.(cw[1:rm]')
         end
     end    
     
@@ -280,9 +285,10 @@ function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, tau, d_max, use_code
         end
     end
     
+    v = Int(ceil(log2(d_max)))
+
     if use_codes
         # new way: generate a bunch of generator matrices we'll use for our codes 
-        v = Int(ceil(log2(d_max)))
         Gen_matrices = Array{Array{Float64, 2}}(v) 
         for i=2:v
             n = 2^i-1
@@ -346,7 +352,7 @@ function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, tau, d_max, use_code
         end
         
         if num_children > 0
-            if use_codes && num_children <= dim
+            if use_codes && num_children+1 <= dim
                 R = add_children_dim(T[parent[1]+1,:], T[h+1,:], dim, edge_lengths, true, 0, Gen_matrices)
             else
                 R = add_children_dim(T[parent[1]+1,:], T[h+1,:], dim, edge_lengths, false, SB, 0)
