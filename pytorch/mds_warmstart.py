@@ -77,7 +77,11 @@ def power_method(_A,r,T=5000,tol=1e-14):
     return (_eig.cpu().numpy(), x.cpu().numpy())
 
 def get_eig(A,r, use_power=False):
-    return power_method(A,r) if use_power else np.linalg.eig(A)
+    if use_power:
+        return power_method(A,r)
+    else:
+        e, ev = np.linalg.eigh(A)
+        return e[-r:], ev[:,-r:]
 
 def get_model(dataset, max_k, scale = 1.0):
     #G = dp.load_graph(dataset)
@@ -104,11 +108,16 @@ def get_model(dataset, max_k, scale = 1.0):
 
     # Recover our points
     (emb_d, points_d) = get_eig(G,max_k)
-    good_idx = emb_d > 0
-    our_points = np.real(points_d[:,good_idx]@np.diag(np.sqrt(emb_d[good_idx])))
-    
+    # good_idx = emb_d > 0
+    # our_points = np.real(points_d[:,good_idx]@np.diag(np.sqrt(emb_d[good_idx])))
+    bad_idx = emb_d <= 0
+    emb_d[bad_idx] = 0
+    our_points = points_d@np.diag(np.sqrt(emb_d))
+
     # Just for evaluation
     (Z,Hrec) = data_rec(our_points, scale)
+    # np.set_printoptions(threshold=np.nan)
+    # print(f"Distortion Score {dis.distortion(H, Hrec, n, 2)}")
     # this will get done in the preliminary stats pass:
     #print(f"Map Score {dis.map_score(H/scale, Hrec, n, 2)}")
     return (H,our_points)
