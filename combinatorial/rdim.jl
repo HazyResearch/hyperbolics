@@ -293,14 +293,16 @@ function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, tau, d_max, use_code
             end
             Gen_matrices[i] = H
         end
-    else
+    end
+    
+    if  !use_codes || d_max > dim
         SB_points = 1000
         SB        = place_children(dim, SB_points, false, 0, false, 0) 
     end
 
     
     # place the children of the root:
-    if use_codes
+    if use_codes && d <= dim
         R = place_children_codes(dim, d, false, 0, Gen_matrices)
     else
         R = place_children(dim, d, false, 0, true, SB)
@@ -344,7 +346,7 @@ function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, tau, d_max, use_code
         end
         
         if num_children > 0
-            if use_codes
+            if use_codes && num_children <= dim
                 R = add_children_dim(T[parent[1]+1,:], T[h+1,:], dim, edge_lengths, true, 0, Gen_matrices)
             else
                 R = add_children_dim(T[parent[1]+1,:], T[h+1,:], dim, edge_lengths, false, SB, 0)
