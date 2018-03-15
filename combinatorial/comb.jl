@@ -60,6 +60,7 @@ end
 
 parsed_args = parse_commandline()
 
+println("\n\n=============================")
 println("Combinatorial Embedding. Info:")
 println("Data set = $(parsed_args["dataset"])")
 if parsed_args["dim"] != nothing
@@ -112,9 +113,9 @@ tic()
 
 if parsed_args["scale"] != nothing
     tau = big(parsed_args["scale"])
-elseif parsed_args["auto-tau-float"] != nothing
+elseif parsed_args["auto-tau-float"]
     path_length  = nx.dag_longest_path_length(G_BFS)
-    r = big(1-eps(Float64)/2)
+    r = big(1-eps(BigFloat)/2)
     m = big(log((1+r)/(1-r)))
     tau = big(m/(1.3*path_length))
 else
