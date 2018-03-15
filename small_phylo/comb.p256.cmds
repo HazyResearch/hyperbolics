@@ -1,0 +1,12 @@
+-d data/edges/smalltree.edges -m data/comb/smalltree.r2.p256.emb -p 256 -e 1.0 -r 2 -a -s
+-d data/edges/smalltree.edges -m data/comb/smalltree.r5.p256.emb -p 256 -e 1.0 -r 5 -a -s
+-d data/edges/smalltree.edges -m data/comb/smalltree.r10.p256.emb -p 256 -e 1.0 -r 10 -a -s
+-d data/edges/smalltree.edges -m data/comb/smalltree.r50.p256.emb -p 256 -e 1.0 -r 50 -a -s -c
+-d data/edges/smalltree.edges -m data/comb/smalltree.r100.p256.emb -p 256 -e 1.0 -r 100 -a -s -c
+-d data/edges/smalltree.edges -m data/comb/smalltree.r200.p256.emb -p 256 -e 1.0 -r 200 -a -s -c
+-d data/edges/phylo_tree.edges -m data/comb/phylo_tree.r2.p256.emb -p 256 -e 1.0 -r 2 -a -s
+-d data/edges/phylo_tree.edges -m data/comb/phylo_tree.r5.p256.emb -p 256 -e 1.0 -r 5 -a -s
+-d data/edges/phylo_tree.edges -m data/comb/phylo_tree.r10.p256.emb -p 256 -e 1.0 -r 10 -a -s
+-d data/edges/phylo_tree.edges -m data/comb/phylo_tree.r50.p256.emb -p 256 -e 1.0 -r 50 -a -s -c
+-d data/edges/phylo_tree.edges -m data/comb/phylo_tree.r100.p256.emb -p 256 -e 1.0 -r 100 -a -s -c
+-d data/edges/phylo_tree.edges -m data/comb/phylo_tree.r200.p256.emb -p 256 -e 1.0 -r 200 -a -s -c
