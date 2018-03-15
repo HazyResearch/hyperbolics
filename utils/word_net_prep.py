@@ -4,6 +4,7 @@ from scipy.sparse.csgraph import minimum_spanning_tree
 from scipy.sparse.csgraph import floyd_warshall, connected_components
 from collections import defaultdict
 import numpy as np
+import networkx as nx
 
 def make_edge_set(): return ([],([],[]))
 def add_edge(e, i,j):
@@ -41,10 +42,14 @@ def load_big_component():
     for idx, x in enumerate(comp_0):
         for y in x.hypernyms():
             y_idx = _d[y]
-            
+
             add_edge(e_f, idx  , y_idx)
             add_edge(e_f, y_idx,   idx)
-        
+
     X2  = csr_matrix(e_f, shape=(n_f,n_f))
     return (n_f, X2)
 
+if __name__ == '__main__':
+    n, G = load_big_component()
+    edges = nx.from_scipy_sparse_matrix(G)
+    nx.write_edgelist(edges, f"data/edges/wordnet.edges", data=False)
