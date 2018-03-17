@@ -51,6 +51,11 @@ class SVRG(torch.optim.SGD):
         self._full_grad = None
         
         self.data_loader = data_loader
+
+        if T == 0:
+            T = len(self.data_loader)*3
+        logging.info(f"SVRG epoch: {T} batches")
+            
         self.state['t_iters'] = T
 
         self._first_call = True

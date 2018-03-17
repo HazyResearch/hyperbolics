@@ -5,10 +5,11 @@ import itertools
 
 # datasets = ["bio-diseasome", "bio-yeast"]
 # datasets = ["grqc"]
-datasets = ["wordnet"]
+# default_datasets = ["wordnet"]
 # ranks = [50]
 ranks = [2,5,10,50,100,200]
-def run_comb2(run_name):
+def run_comb2(run_name, datasets):
+    os.makedirs(f"{run_name}/comb_dim2", exist_ok=True)
     params = []
     rank = 2
     epss = [1.0, 0.1]
@@ -17,7 +18,8 @@ def run_comb2(run_name):
         # julia comb.jl -d ../data/edges/phylo_tree.edges -e 1.0 -p 256 -s -r 200 -c -m phylo_tree.save -a
         param = [
             '-d', f"data/edges/{dataset}.edges",
-            '-m', f"data/comb/{dataset}.r{rank}.p{precision}.e{eps}.emb",
+            # '-m', f"data/comb/{dataset}.r{rank}.p{precision}.e{eps}.emb",
+            '-m', f"{run_name}/comb_embeddings/{dataset}.r{rank}.p{precision}.e{eps}.emb",
             '-p', str(precision),
             '-e', str(eps),
             '-r', str(rank),
@@ -32,13 +34,16 @@ def run_comb2(run_name):
                 shell=True, stdout=log)
 
 
-def run_comb(run_name, precision=256):
+def run_comb(run_name, datasets, precision=256):
+    os.makedirs(f"{run_name}/comb_embeddings", exist_ok=True)
+
     params = []
     for dataset, rank in itertools.product(datasets, ranks):
         # julia comb.jl -d ../data/edges/phylo_tree.edges -e 1.0 -p 256 -s -r 200 -c -m phylo_tree.save -a
         param = [
                 '-d', f"data/edges/{dataset}.edges",
-                '-m', f"data/comb/{dataset}.r{rank}.p{precision}.emb",
+                # '-m', f"data/comb/{dataset}.r{rank}.p{precision}.emb",
+                '-m', f"{run_name}/comb_embeddings/{dataset}.r{rank}.p{precision}.emb",
                 '-p', str(precision),
                 '-e', '1.0',
                 '-r', str(rank),
@@ -57,13 +62,13 @@ def run_comb(run_name, precision=256):
                 shell=True, stdout=log)
 
 
-def run_pytorch(run_name, epochs, batch_size, warm_start=False):
+def run_pytorch(run_name, datasets, epochs, batch_size, warm_start=False):
     precision = None
     if warm_start:
         # run combinatorial code first in double precision
         # TODO: only run this if files don't already exist
         precision = 53
-        run_comb(run_name, precision=precision)
+        run_comb(run_name, datasets, precision=precision)
 
     params = []
     # with open(f"{run_name}/pytorch.params", "w") as param_file:
@@ -78,7 +83,9 @@ def run_pytorch(run_name, epochs, batch_size, warm_start=False):
                 '--epochs', str(epochs),
                 '-r', str(rank),
                 '--checkpoint-freq', '100',
-                '--learning-rate', '5']
+                '--use-svrg',
+                '-T 0',
+                '--learning-rate', '10']
         if warm_start:
             param += ['--warm-start', f"data/comb/{dataset}.r{rank}.p{precision}.emb"]
         params.append(" ".join(param))
@@ -97,19 +104,20 @@ def run_pytorch(run_name, epochs, batch_size, warm_start=False):
 
 
 @argh.arg("run_name", help="Directory to store the run")
+@argh.arg('-d', "--datasets", nargs='+', type=str, help = "Datasets")
 @argh.arg("--epochs", help="Number of epochs to run")
 @argh.arg("--batch-size", help="Batch Size")
-def run(run_name, epochs=5000, batch_size=1024):
+def run(run_name, datasets=[], epochs=5000, batch_size=1024):
     os.makedirs(run_name, exist_ok=True)
 
     # combinatorial only
-    run_comb(run_name)
+    run_comb(run_name, datasets)
     # 2d combinatorial
-    run_comb2(run_name)
+    run_comb2(run_name, datasets)
     # pytorch by itself
-    run_pytorch(run_name, epochs=epochs, batch_size=batch_size, warm_start=False)
+    run_pytorch(run_name, datasets, epochs=epochs, batch_size=batch_size, warm_start=False)
     # pytorch with warmstart
-    run_pytorch(run_name, epochs=epochs, batch_size=batch_size, warm_start=True)
+    run_pytorch(run_name, datasets, epochs=epochs, batch_size=batch_size, warm_start=True)
 
 
 # with open(f"{run_name}/{exp_name}", "w") as output_file:
