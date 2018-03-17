@@ -2,15 +2,6 @@ using PyCall
 using JLD
 using ArgParse
 using Pandas
-# import JLD
-# import ArgParse
-# import Pandas
-# import PyCall
-# @everywhere using PyCall
-# @everywhere using JLD
-# @everywhere using ArgParse
-# @everywhere using Pandas
-@pyimport math as pymath
 @pyimport networkx as nx
 @pyimport scipy.sparse.csgraph as csg
 @pyimport numpy as np
@@ -21,10 +12,8 @@ unshift!(PyVector(pyimport("sys")["path"]), "combinatorial")
 @pyimport utils.load_graph as lg
 @pyimport distortions as dis
 @pyimport graph_util as gu
-# push!(LOAD_PATH, "combinatorial")
 include("utilities.jl")
 include("rdim.jl")
-
 
 # Parse command line arguments
 function parse_commandline()
@@ -65,9 +54,6 @@ function parse_commandline()
         "--auto-tau-float", "-a"
             help = "Calculate scale assuming 64-bit final embedding"
             action = :store_true
-        "--procs", "-y"
-            help = "number of processors to use"
-            arg_type = Int32
     end
     return parse_args(s)
 end
@@ -164,9 +150,7 @@ if parsed_args["embedding-save"] != nothing
     to_csv(df, parsed_args["embedding-save"])
 end
 
-
-# if parsed_args["get-stats"]
-    tic()
+if parsed_args["get-stats"]
     println("\nComputing quality statistics")
     # The rest is statistics: MAP, distortion
     maps = 0;
@@ -186,108 +170,33 @@ end
     _d_avgs = zeros(samples)
     _wcs    = zeros(samples)
 
-
-    wrap_map_row = dis.map_row
-    wrap_distortion_row = dis.distortion_row
-    function wrap_csg_dijkstra(y,z,w)
-        return csg.dijkstra(adj_mat_original,indices=y,unweighted=z,directed=w)
-    end
-
-    addprocs(1)
-    println("nprocs $(nprocs())")
-@everywhere function py_map_row(x,y,z,w)
-    return wrap_map_row(x,y,z,w)
-end
-@everywhere function py_distortion_row(x,y,z,w)
-    return wrap_distortion_row(x,y,z,w)
-end
-# @everywhere function py_csg_dijkstra(y,z,w)
-#     return wrap_csg_dijkstra(y,z,w)
-# end
-@eval @everywhere py_csg_dijkstra = $wrap_csg_dijkstra
-
-@everywhere function dist(u,v)
-    z  = 2*norm(u-v)^2
-    uu = 1 - norm(u)^2
-    vv = 1 - norm(v)^2
-    return acosh(1+z/(uu*vv))
-end
-@everywhere function dist_matrix_row(T,i)
-   (n,_) = size(T)
-   D = zeros(BigFloat,1,n)
-   for j in 1:n
-       D[1,j] = dist(T[i,:], T[j,:])
-   end
-   return D
-end
-
-    # things that every worker should see
-    # http://julia-programming-language.2336112.n4.nabble.com/copy-a-local-variable-to-all-parallel-workers-td28722.html
-    # let
-    #     _n_bfs = n_bfs
-    #     _sample_nodes = sample_nodes
-    #     _tau = tau
-    #     _weighted = weighted
-    #     _adj_mat_original = adj_mat_original
-    #     @everywhere n_bfs = $_n_bfs
-    #     @everywhere sample_nodes = $_sample_nodes
-    #     @everywhere tau = $_tau
-    #     @everywhere weighted = $_weighted
-    #     @everywhere adj_mat_original = $_adj_mat_original
-    # end
-@eval @everywhere n_bfs = $(n_bfs)
-@eval @everywhere sample_nodes = $(sample_nodes)
-@eval @everywhere tau = $(tau)
-@eval @everywhere weighted = $(weighted)
-println("fat")
-# @eval @everywhere _adj_mat_original = $(adj_mat_original)
-
-
-println("fat")
-
-    # Threads.@threads for i=1:samples
-
-    # compute stats for row i
-    @everywhere function compute_row_stats(i)
+    Threads.@threads for i=1:samples
         # the real distances in the graph
-        # true_dist_row = vec(csg.dijkstra(adj_mat_original, indices=[sample_nodes[i]-1], unweighted=(!weighted), directed=false))
-        # true_dist_row = vec(py_csg_dijkstra(_adj_mat_original, [sample_nodes[i]-1], true, false))
-        true_dist_row = vec(py_csg_dijkstra([sample_nodes[i]-1], true, false))
+        true_dist_row = vec(csg.dijkstra(adj_mat_original, indices=[sample_nodes[i]-1], unweighted=(!weighted), directed=false))
 
         # the hyperbolic distances for the points we've embedded
         hyp_dist_row = convert(Array{Float64},vec(dist_matrix_row(T, sample_nodes[i])/tau))
 
         # this is this row MAP
         # TODO: should this be n_bfs instead of n? n might include points that weren't embedded?
-        # curr_map  = dis.map_row(true_dist_row, hyp_dist_row[1:n], n_bfs, sample_nodes[i]-1)
-        curr_map  = py_map_row(true_dist_row, hyp_dist_row[1:n_bfs], n_bfs, sample_nodes[i]-1)
-        # _maps[i]  = curr_map
+        curr_map  = dis.map_row(true_dist_row, hyp_dist_row[1:n], n, sample_nodes[i]-1)
+        _maps[i]  = curr_map
 
         # print out current and running average MAP
-        # if parsed_args["verbose"]
-        #     println("Row $(sample_nodes[i]), current MAP = $(curr_map)")
-        # end
+        if parsed_args["verbose"]
+            println("Row $(sample_nodes[i]), current MAP = $(curr_map)")
+        end
 
         # these are distortions: worst cases (contraction, expansion) and average
-        # mc, me, avg, bad = dis.distortion_row(true_dist_row, hyp_dist_row[1:n] ,n,sample_nodes[i]-1)
-        mc, me, avg, bad = py_distortion_row(true_dist_row, hyp_dist_row[1:n_bfs] ,n_bfs,sample_nodes[i]-1)
-        # _wcs[i]  = mc*me
+        mc, me, avg, bad = dis.distortion_row(true_dist_row, hyp_dist_row[1:n] ,n,sample_nodes[i]-1)
+        _wcs[i]  = mc*me
 
-        # _d_avgs[i] = avg
-        return (curr_map, avg, mc*me)
-    end
-    # reduction function
-    f = (a,b) -> (a[1]+b[1], a[2]+b[2], max(a[3],b[3]))
-    (maps, d_avg, wc) = @sync @parallel f for i=1:samples
-        compute_row_stats(i)
+        _d_avgs[i] = avg
     end
     # Clean up
-    # row_stats = pmap(compute_row_stats, 1:samples)
-    # println("Row stats: $(row_stats)")
-    # (maps, d_avg, wc) = reduce(f, row_stats)
-    # maps  = sum(_maps)
-    # d_avg = sum(_d_avgs)
-    # wc    = maximum(_wcs)
+    maps  = sum(_maps)
+    d_avg = sum(_d_avgs)
+    wc    = maximum(_wcs)
 
     if weighted
         println("Note: MAP is not well defined for weighted graphs")
@@ -296,7 +205,4 @@ println("fat")
     # Final stats:
     println("Final MAP = $(maps/samples)")
     println("Final d_avg = $(d_avg/samples), d_wc = $(wc)")
-    println("Sum MAP = $(maps)")
-    println("Sum d_avg = $(d_avg)")
-    toc()
-# end
+end
