@@ -1,0 +1,120 @@
+bio-diseasome.edges  convert.py               smalltree.edges
+bio-yeast.edges      facebook_combined.edges  web-edu.edges
+ca-CSphd.edges       grqc.edges               wikilinks.edges
+california.edges     inf-power.edges
+cithepph.edges       phylo_tree.edges
+
+
+[[0.7995692374725211, 0.2864340796635409, 0.1810134512194992,
+  0.1319665073419103, 0.1057592017248727, 0.0874390316528095,
+  0.0746273713168631, 0.0642698942304265, 0.0579400658853256,
+  0.4433689386979781]]
+
+smalltree -p 256 -r 2 -a
+Computing quality statistics
+Final MAP = 1.0
+Final d_avg = 0.008977263924835673, d_wc = 1.0154089292769657
+
+smalltree -e 1.0 -p 16384 -r 2
+Computing quality statistics
+Final MAP = 1.0
+Final d_avg = 0.07115617138314254, d_wc = 1.1407777087625084
+
+phylotree -p 256 -r 2 -a
+Computing quality statistics
+Final MAP = 0.9407622739018089
+Final d_avg = 0.1359635235870651, d_wc = 2.557996766080939
+
+phylotree -p 16384 -r 2 -a
+Computing quality statistics
+Final MAP = 1.0
+Final d_avg = 0.002007482491268511, d_wc = 1.0094417508824676
+
+phylotree -p 16384 -r 2
+Computing quality statistics
+Final MAP = 1.0
+Final d_avg = 0.03506199919285833, d_wc = 1.195254131633282
+
+procs 4
+Finished loading data. Elapsed time 0.04804585687816143
+Final MAP = 0.18553253396653585
+Final d_avg = 0.005299998760119166, d_wc = 1.195254131633282
+
+ca-CSphd -p 16384 -r 2 -e 1.0
+=====================================
+Data set = data/edges/ca-CSphd.edges
+Dimensions = 2
+Epsilon  = 1.0
+Precision = 16384
+No file specified to save embedding!
+
+Graph information
+Number of vertices = 1025
+Number of edges = 1043
+Max degree = 46, Max path = 23
+
+Performing the embedding
+Scaling factor tau = 14.236441094800838
+Using uniform sphere child placement
+elapsed time: 14.683766102 seconds
+
+Saving embedded distance matrix
+Finished computing distance matrix
+elapsed time: 1755.656963789 seconds
+Finished writing distance matrix
+elapsed time: 2.201162262 seconds
+Finished loading data. Elapsed time 0.44698865711688995
+
+Final MAP = 0.9917549985374289
+Final d_avg = 0.2643605864614858, d_wc = 30.7143550005315, d_c = 1.2324053520974712, d_e = 24.92228303638712
+-------------------------old stats
+Final d_avg = 0.2643605864614857, d_wc = 27.356542156627228
+Finished computing stats. Elapsed time 5.215576520189643
+no parallelism------------------
+1755.656963789 seconds
+threaded------------------------
+249.095267234 seconds
+multiprocess--------------------
+76.972189667 seconds
+---------------------------------
+
+grqc -p 16384 -r 2 -e 1.0
+=============================
+Combinatorial Embedding. Info:
+Data set = data/edges/grqc.edges
+Dimensions = 2
+Epsilon  = 1.0
+Precision = 16384
+No file specified to save embedding!
+
+Graph information
+Number of vertices = 4158
+Number of edges = 13428
+Max degree = 81, Max path = 10
+
+Performing the embedding
+Scaling factor tau = 16.500403789701185
+Using uniform sphere child placement
+elapsed time: 53.263748227 seconds
+
+Saving embedded distance matrix
+Finished computing distance matrix
+elapsed time: 739.246290317 seconds
+Finished writing distance matrix
+elapsed time: 28.71346939 seconds
+
+Finished loading data. Elapsed time 5.617137163877487
+Final MAP = 0.7091685097974921
+Final d_avg = 0.34769982684380646, d_wc = 14.720011106174635
+Finished computing stats. Elapsed time 93.22180386632681
+
+no parallelism------------------
+threaded------------------------
+4245.724126261 seconds
+multiprocess--------------------
+739.246290317 seconds
+
+
+WORDNET-----------------------
+Final MAP = 0.9895645324081269
+Final d_avg = 0.12695019454688614, d_wc = 23.00613890802842, d_c = 1.0565226387078872, d_e = 21.775339273529067
