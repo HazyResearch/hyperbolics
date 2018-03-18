@@ -2,12 +2,12 @@
 # various functions needed for combinatorial embeddings
 
 # Hyperbolic distance d_H(u,v)
-function dist(u,v)
-    z  = 2*norm(u-v)^2
-    uu = 1 - norm(u)^2
-    vv = 1 - norm(v)^2
-    return acosh(1+z/(uu*vv))
-end
+# function dist(u,v)
+#     z  = 2*norm(u-v)^2
+#     uu = 1 - norm(u)^2
+#     vv = 1 - norm(v)^2
+#     return acosh(1+z/(uu*vv))
+# end
 
 # Reflection (circle inversion of x through orthogonal circle centered at a)
 function isometric_transform(a, x)
@@ -96,14 +96,14 @@ function get_emb_par(G, k, eps, weighted)
 end
 
 # Compute distances from i to all others
-function dist_matrix_row(T,i)
-   (n,_) = size(T)
-   D = zeros(BigFloat,1,n)
-   for j in 1:n
-       D[1,j] = dist(T[i,:], T[j,:])
-   end
-   return D
-end
+# function dist_matrix_row(T,i)
+#    (n,_) = size(T)
+#    D = zeros(BigFloat,1,n)
+#    for j in 1:n
+#        D[1,j] = dist(T[i,:], T[j,:])
+#    end
+#    return D
+# end
 
 # Perform a combinatorial embedding into hyperbolic disk
 # Construction based on Sarkar, "Low Distortion Delaunay

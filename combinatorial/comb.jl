@@ -15,6 +15,7 @@ unshift!(PyVector(pyimport("sys")["path"]), "combinatorial")
 include("utilities.jl")
 include("rdim.jl")
 
+
 # Parse command line arguments
 function parse_commandline()
     s = ArgParseSettings()
@@ -54,13 +55,18 @@ function parse_commandline()
         "--auto-tau-float", "-a"
             help = "Calculate scale assuming 64-bit final embedding"
             action = :store_true
+        "--save-distances", "-y"
+            help = "Save the distance matrix"
+        "--procs", "-q"
+            help = "Number of processes to use"
+            arg_type = Int32
     end
     return parse_args(s)
 end
 
 parsed_args = parse_commandline()
 
-println("\n\n=============================")
+println("\n=============================")
 println("Combinatorial Embedding. Info:")
 println("Data set = $(parsed_args["dataset"])")
 if parsed_args["dim"] != nothing
@@ -101,7 +107,8 @@ G_BFS   = gu.get_BFS_tree(G, root)
 # A few statistics
 n_bfs   = G_BFS[:order]();
 degrees = G_BFS[:degree]();
-println("Max degree = $(d_max)")
+path_length  = nx.dag_longest_path_length(G_BFS)
+println("Max degree = $(d_max), Max path = $(path_length)")
 
 # Adjacency matrices for original graph and for BFS
 adj_mat_original    = nx.to_scipy_sparse_matrix(G, 0:n-1)
@@ -114,7 +121,6 @@ tic()
 if parsed_args["scale"] != nothing
     tau = big(parsed_args["scale"])
 elseif parsed_args["auto-tau-float"]
-    path_length  = nx.dag_longest_path_length(G_BFS)
     r = big(1-eps(BigFloat)/2)
     m = big(log((1+r)/(1-r)))
     tau = big(m/(1.3*path_length))
@@ -206,3 +212,84 @@ if parsed_args["get-stats"]
     println("Final MAP = $(maps/samples)")
     println("Final d_avg = $(d_avg/samples), d_wc = $(wc)")
 end
+
+if parsed_args["save-distances"] != nothing
+    println("\nSaving embedded distance matrix")
+
+    if parsed_args["procs"] != nothing
+        addprocs(parsed_args["procs"]-1)
+    end
+
+    # *****Multiprocessing memory sharing*****
+    # @everywhere using Distances: dist, dist_matrix_row
+    tic()
+    @everywhere include(pwd() * "/combinatorial/distances.jl")
+
+    @eval @everywhere T = $T
+    @eval @everywhere tau = $tau
+
+    # set global precision
+    @eval @everywhere prec = $prec
+    @everywhere setprecision(BigFloat, prec)
+
+    @everywhere _dist_matrix_row = i -> convert(Array{Float64},vec(dist_matrix_row(T, i)/tau))
+
+    println("Finished multiprocess sharing memory")
+    toc()
+    # *****End memory sharing*****
+        hyp_dist_mat = hcat(pmap(_dist_matrix_row, 1:n_bfs)...)'
+        D = DataFrame(hyp_dist_mat)
+        to_csv(D, parsed_args["save-distances"])
+        println("Finished writing rows of distance matrix")
+
+    #=
+    function _compute_and_save_rows(i, rows)
+        tic()
+        # *****Multiprocessing solution*****
+        hyp_dist_mat = hcat(pmap(_dist_matrix_row, rows)...)'
+        # *****End multiprocessing solution*****
+
+        # TODO: control multiprocessing vs multithreading with a flag to pass in; set JULIA_NUM_THREADS with ENV[] call
+
+        # *****Multithreading solution*****
+        # include(pwd() * "/combinatorial/distances.jl")
+        # hyp_dist_mat = zeros(n_bfs, n_bfs)
+        # Threads.@threads for i=1:n_bfs
+        # # for i in 1:n_bfs
+        #    # the hyperbolic distances for the points we've embedded
+        #     hyp_dist_row = convert(Array{Float64},vec(dist_matrix_row(T, i)/tau))
+
+        #     hyp_dist_mat[i,:] = hyp_dist_row
+        # end
+        # *****End multithreading solution*****
+
+        println("Finished computing rows of distance matrix, chunk $(i)")
+        toc()
+
+        tic()
+        D = DataFrame(hyp_dist_mat, index=rows-1)
+        to_csv(D, parsed_args["save-distances"] * ".$(i)")
+        # D[:rows] = rows
+        # to_csv(D, parsed_args["save-distances"] * ".$(i)", index_label="rows")
+        println("Finished writing rows of distance matrix")
+        toc()
+    end
+    =#
+
+    # Random chunk and compute
+    # sample_nodes = randperm(n_bfs)
+    #=
+    sample_nodes = collect(1:n_bfs)
+    chunk_sz = 50
+    chunk_i = 0
+    while chunk_i * chunk_sz < n_bfs
+        chunk_start = 1 + chunk_i * chunk_sz
+        chunk_end = min(chunk_start+chunk_sz-1, n_bfs)
+        chunk_rows = sample_nodes[chunk_start:chunk_end]
+        _compute_and_save_rows(chunk_i, chunk_rows)
+        chunk_i += 1
+    end
+    =#
+
+end
+println()
