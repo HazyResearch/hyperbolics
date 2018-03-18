@@ -279,7 +279,7 @@ if parsed_args["save-distances"] != nothing
     # Random chunk and compute
     sample_nodes = randperm(n_bfs)
     # sample_nodes = collect(1:n_bfs)
-    chunk_sz = 100
+    chunk_sz = 20
     chunk_i = 0
     while chunk_i * chunk_sz < n_bfs
         chunk_start = 1 + chunk_i * chunk_sz

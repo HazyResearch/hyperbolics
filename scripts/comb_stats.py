@@ -43,11 +43,12 @@ def stats(edge_file, distance_file):
     n_ = np.sum(_stats[:,0])
     map_ = np.sum(_stats[:,1])
     d_avg_ = np.sum(_stats[:,2])
-    wc_ = np.max(_stats[:,3])
+    dc_ = np.max(_stats[:,3])
+    de_ = np.max(_stats[:,4])
 
     # print(_stats)
     print(f"Final MAP = {map_/n_}")
-    print(f"Final d_avg = {d_avg_/n_}, d_wc = {wc_}")
+    print(f"Final d_avg = {d_avg_/n_}, d_wc = {dc_*de_}, d_c = {dc_}, d_e = {de_}")
 
 
 
@@ -62,7 +63,7 @@ if __name__ == '__main__':
     edge_file = f"data/edges/{dataset}.edges"
     distance_file = f"distances/{dataset}/{dataset}{''.join(flags)}.dist"
 
-    # comb(edge_file, distance_file, flags)
+    comb(edge_file, distance_file, flags)
     stats(edge_file, distance_file)
 
     # TODO: pipe result here, compile stats into a dataframe somehow

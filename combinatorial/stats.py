@@ -24,14 +24,14 @@ def compute_row_stats(i, n, adj_mat_original, hyp_dist_row, weighted, verbose=Fa
     curr_map  = dis.map_row(true_dist_row, hyp_dist_row, n, i)
 
     # these are distortions: worst cases (contraction, expansion) and average
-    mc, me, avg, bad = dis.distortion_row(true_dist_row, hyp_dist_row, n, i)
-    wc = mc*me
+    dc, de, avg, bad = dis.distortion_row(true_dist_row, hyp_dist_row, n, i)
+    wc = dc*de
 
     # print out stats for this row
     if verbose:
-        print(f"Row {i}, MAP = {curr_map}, distortion = {avg}, {wc}")
+        print(f"Row {i}, MAP = {curr_map}, distortion = {avg}, d_c = {dc}, d_e = {de}")
 
-    return (curr_map, avg, wc)
+    return (curr_map, avg, dc, de)
 
 
 @argh.arg("dataset", help="Dataset to compute stats for")
@@ -93,35 +93,37 @@ def stats(dataset, d_file, procs=1, verbose=False):
 
     #hyp_dist_mat = pandas.read_csv(d_file, index_col=0).as_matrix()
     hyp_dist_df = pandas.read_csv(d_file, index_col=0)
-    loaded = time()
-    print(f"Finished loading distance matrix chunk {chunk_i}. Elapsed time {loaded-start}")
+    loaded = timer()
+    print(f"Finished loading distance matrix. Elapsed time {loaded-start}")
     rows = hyp_dist_df.index.values
     hyp_dist_mat = hyp_dist_df.as_matrix()
     n_ = rows.size
 
-    _map = np.zeros(n)
-    _d_avg = np.zeros(n)
-    _wc = np.zeros(n)
+    _map = np.zeros(n_)
+    _d_avg = np.zeros(n_)
+    _dc = np.zeros(n_)
+    _de = np.zeros(n_)
     # for i in range(n):
         # (_map[i], _d_avg[i], _wc[i]) = compute_row_stats(i, n, adj_mat_original, hyp_dist_mat[i,:], weighted=weighted, verbose=verbose)
     for (i, row) in enumerate(rows):
-        (_map[i], _d_avg[i], _wc[i]) = compute_row_stats(row, n, adj_mat_original, hyp_dist_mat[i,:], weighted=weighted, verbose=verbose)
+        (_map[i], _d_avg[i], _dc[i], _de[i]) = compute_row_stats(row, n, adj_mat_original, hyp_dist_mat[i,:], weighted=weighted, verbose=verbose)
     map_ = np.sum(_map)
     d_avg_ = np.sum(_d_avg)
-    wc_ = np.max(_wc)
+    dc_ = np.max(_dc)
+    de_ = np.max(_de)
 
     if weighted:
         print("Note: MAP is not well defined for weighted graphs")
 
     # Final stats:
     print(f"MAP = {map_/n_}")
-    print(f"d_avg = {d_avg_/n_}, d_wc = {wc_}")
+    print(f"d_avg = {d_avg_/n_}, d_c = {dc_}, d_e = {de_}")
 
     end = timer()
     print(f"Finished computing stats. Total elapsed time {end-start}")
 
     with open(f"{d_file}.stats", "w") as stats_log:
-        stats_log.write(f"{n_},{map_},{d_avg_},{wc_}\n")
+        stats_log.write(f"{n_},{map_},{d_avg_},{dc_},{de_}\n")
 
 if __name__ == '__main__':
     _parser = argh.ArghParser() 
