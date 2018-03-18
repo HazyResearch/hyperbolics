@@ -216,7 +216,7 @@ end
 if parsed_args["save-distances"] != nothing
     println("\nSaving embedded distance matrix")
 
-    srand(0)
+    srand(0) # TODO: get rid of this line if confident this works
 
     if parsed_args["procs"] != nothing
         addprocs(parsed_args["procs"]-1)
@@ -236,7 +236,7 @@ if parsed_args["save-distances"] != nothing
 
     @sync @everywhere _dist_matrix_row = i -> convert(Array{Float64},vec(dist_matrix_row(T, i)/tau))
 
-    println("Finished multiprocess sharing memory")
+    println("Finished multiprocess memory sharing")
     toc()
     # *****End memory sharing*****
         # hyp_dist_mat = hcat(pmap(_dist_matrix_row, 1:n_bfs)...)'
@@ -270,16 +270,13 @@ if parsed_args["save-distances"] != nothing
         tic()
         D = DataFrame(hyp_dist_mat, index=rows-1)
         to_csv(D, parsed_args["save-distances"] * ".$(i)")
-        # D[:rows] = rows
-        # to_csv(D, parsed_args["save-distances"] * ".$(i)", index_label="rows")
         println("Finished writing rows of distance matrix")
         toc()
     end
 
     # Random chunk and compute
     sample_nodes = randperm(n_bfs)
-    # sample_nodes = collect(1:n_bfs)
-    chunk_sz = 20
+    chunk_sz = 1000
     chunk_i = 0
     while chunk_i * chunk_sz < n_bfs
         chunk_start = 1 + chunk_i * chunk_sz
