@@ -216,6 +216,8 @@ end
 if parsed_args["save-distances"] != nothing
     println("\nSaving embedded distance matrix")
 
+    srand(0)
+
     if parsed_args["procs"] != nothing
         addprocs(parsed_args["procs"]-1)
     end
@@ -232,17 +234,16 @@ if parsed_args["save-distances"] != nothing
     @eval @everywhere prec = $prec
     @everywhere setprecision(BigFloat, prec)
 
-    @everywhere _dist_matrix_row = i -> convert(Array{Float64},vec(dist_matrix_row(T, i)/tau))
+    @sync @everywhere _dist_matrix_row = i -> convert(Array{Float64},vec(dist_matrix_row(T, i)/tau))
 
     println("Finished multiprocess sharing memory")
     toc()
     # *****End memory sharing*****
-        hyp_dist_mat = hcat(pmap(_dist_matrix_row, 1:n_bfs)...)'
-        D = DataFrame(hyp_dist_mat)
-        to_csv(D, parsed_args["save-distances"])
-        println("Finished writing rows of distance matrix")
+        # hyp_dist_mat = hcat(pmap(_dist_matrix_row, 1:n_bfs)...)'
+        # D = DataFrame(hyp_dist_mat)
+        # to_csv(D, parsed_args["save-distances"])
+        # println("Finished writing rows of distance matrix")
 
-    #=
     function _compute_and_save_rows(i, rows)
         tic()
         # *****Multiprocessing solution*****
@@ -274,13 +275,11 @@ if parsed_args["save-distances"] != nothing
         println("Finished writing rows of distance matrix")
         toc()
     end
-    =#
 
     # Random chunk and compute
-    # sample_nodes = randperm(n_bfs)
-    #=
-    sample_nodes = collect(1:n_bfs)
-    chunk_sz = 50
+    sample_nodes = randperm(n_bfs)
+    # sample_nodes = collect(1:n_bfs)
+    chunk_sz = 100
     chunk_i = 0
     while chunk_i * chunk_sz < n_bfs
         chunk_start = 1 + chunk_i * chunk_sz
@@ -289,7 +288,6 @@ if parsed_args["save-distances"] != nothing
         _compute_and_save_rows(chunk_i, chunk_rows)
         chunk_i += 1
     end
-    =#
 
 end
 println()
