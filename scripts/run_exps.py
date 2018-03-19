@@ -3,9 +3,6 @@ import os
 import subprocess
 import itertools
 
-# datasets = ["bio-diseasome", "bio-yeast"]
-# datasets = ["grqc"]
-# default_datasets = ["wordnet"]
 # ranks = [2,5,10,50,100,200]
 ranks = [2,10,200]
 def run_comb2(run_name, datasets):
@@ -66,7 +63,6 @@ def run_pytorch(run_name, datasets, epochs, batch_size, warm_start=False, comb=F
     precision = None
     if warm_start:
         # run combinatorial code first in double precision
-        # TODO: only run this if files don't already exist
         precision = 53
         if comb:
             run_comb(run_name, datasets, precision=precision)
@@ -115,29 +111,16 @@ def run_pytorch(run_name, datasets, epochs, batch_size, warm_start=False, comb=F
 def run(run_name, datasets=[], epochs=5000, batch_size=1024):
     os.makedirs(run_name, exist_ok=True)
 
-    # combinatorial only
-    # run_comb(run_name, datasets)
+    # combinatorial high dim
+    run_comb(run_name, datasets)
     # 2d combinatorial
-    # run_comb2(run_name, datasets)
+    run_comb2(run_name, datasets)
     # pytorch by itself
-    # run_pytorch(run_name, datasets, epochs=epochs, batch_size=batch_size, warm_start=False)
+    run_pytorch(run_name, datasets, epochs=epochs, batch_size=batch_size, warm_start=False)
     # pytorch with warmstart
     run_pytorch(run_name, datasets, epochs=epochs, batch_size=batch_size, warm_start=True, comb=False)
 
 
-# with open(f"{run_name}/{exp_name}", "w") as output_file:
-# with open(run_name + '/' + exp_name, "w") as output_file:
-    # subprocess.run(['CUDA_VISIBLE_DEVICES="1"',
-    #                 'python', 'pytorch/pytorch_hyperbolic.py',
-    #                 'learn', f"data/edges/{dataset}.edges",
-    #                 '--log-name', f"{run_name}/{exp_name}",
-    #                 '--batch-size', str(batch_size),
-    #                 '--epochs', str(epochs),
-    #                 '-r', str(rank),
-    #                 '--checkpoint-freq', '100',
-    #                 '--learning-rate', '5'],
-    #                 # stderr=output_file
-    # )
 
 if __name__ == '__main__':
     _parser = argh.ArghParser() 
