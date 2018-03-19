@@ -1,4 +1,0 @@
--d data/edges/smalltree.edges -m data/comb/smalltree.r2.p8192.e1.0.emb -p 8192 -e 1.0 -r 2 -s
--d data/edges/smalltree.edges -m data/comb/smalltree.r2.p8192.e0.1.emb -p 8192 -e 0.1 -r 2 -s
--d data/edges/phylo_tree.edges -m data/comb/phylo_tree.r2.p8192.e1.0.emb -p 8192 -e 1.0 -r 2 -s
--d data/edges/phylo_tree.edges -m data/comb/phylo_tree.r2.p8192.e0.1.emb -p 8192 -e 0.1 -r 2 -s
