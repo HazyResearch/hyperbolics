@@ -10,11 +10,11 @@ In this README, all instructions are assumed to be run inside the Docker contain
 
 
 ## Usage
-The following programs and scripts expect the input graphs to exist in the /data/edges folder, e.g. /data/edges/phylo_tree.edges. All graphs that we report results on have been prepared and saved.
+The following programs and scripts expect the input graphs to exist in the /data/edges folder, e.g. /data/edges/phylo_tree.edges. All graphs that we report results on have been prepared and saved here.
 
 
 ### Combinatorial construction
-`julia combinatorial/comb.jl --help` to see options. Example usage (for better results on this dataset, up the precision):
+`julia combinatorial/comb.jl --help` to see options. Example usage (for better results on this dataset, raise the precision):
 
 ```
 julia combinatorial/comb.jl -d data/edges/phylo_tree.edges -m phylo_tree.r10.emb -e 1.0 -p 64 -r 10 -a -s
@@ -28,7 +28,7 @@ python pytorch/pytorch_hyperbolic.py learn data/edges/phylo_tree.edges --batch-s
 ```
 
 ### Experiment scripts
-* `scripts/run_exps.py` is a script that runs a full set of experiments for given datasets. Example usage (note: the default run settings take a long time to finish):
+* `scripts/run_exps.py` runs a full set of experiments for a list of datasets. Example usage (note: the default run settings take a long time to finish):
     ```
     python scripts/run_exps.py phylo -d phylo_tree --epochs 20
     ```
