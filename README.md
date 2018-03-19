@@ -28,7 +28,10 @@ python pytorch/pytorch_hyperbolic.py learn data/edges/phylo_tree.edges --batch-s
 ```
 
 ### Experiment scripts
-* `scripts/run_exps.py` is a script that runs a full set of experiments for given datasets. Example usage: `python scripts/run_exps.py small -d smalltree`
+* `scripts/run_exps.py` is a script that runs a full set of experiments for given datasets. Example usage:
+    ```
+    python scripts/run_exps.py small -d smalltree
+    ```
 
     Currently, it executes the following experiments:
     1. The combinatorial construction with fixed precision in varying dimensions
@@ -36,8 +39,10 @@ python pytorch/pytorch_hyperbolic.py learn data/edges/phylo_tree.edges --batch-s
     3. Pytorch optimizer in varying dimensions, random initialization
     4. Pytorch optimizer in varying dimensions, using the embedding produced by the combinatorial construction as initialization 
 
-* The combinatorial constructor `combinatorial/comb.jl` has an option for reporting statistics such as MAP and distortion. However, this can be slow on larger datasets such as wordnet
+* The combinatorial constructor `combinatorial/comb.jl` has an option for reporting the MAP and distortion statistics. However, this can be slow on larger datasets such as wordnet
     * `scripts/comb_stats.py` provides an alternate method for computing stats that uses multiprocessing
+
+=========================
 
 [comment]: # ( scripts/comb_stats.py for embedding and stats just for combinatorial construction)
 
