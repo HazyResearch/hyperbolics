@@ -66,8 +66,7 @@ def run_pytorch(run_name, datasets, epochs, batch_size, warm_start=False, comb=F
         precision = 53
         if comb:
             run_comb(run_name, datasets, precision=precision)
-
-    learning_rate = 5 if warm_start else 10
+    learning_rate = 5
 
     params = []
     # with open(f"{run_name}/pytorch.params", "w") as param_file:
@@ -118,7 +117,7 @@ def run(run_name, datasets=[], epochs=5000, batch_size=1024):
     # pytorch by itself
     run_pytorch(run_name, datasets, epochs=epochs, batch_size=batch_size, warm_start=False)
     # pytorch with warmstart
-    run_pytorch(run_name, datasets, epochs=epochs, batch_size=batch_size, warm_start=True, comb=False)
+    run_pytorch(run_name, datasets, epochs=epochs, batch_size=batch_size, warm_start=True, comb=True)
 
 
 

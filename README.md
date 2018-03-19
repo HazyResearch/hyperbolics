@@ -14,7 +14,7 @@ The following programs and scripts expect the input graphs to exist in the /data
 
 
 ### Combinatorial construction
-`julia combinatorial/comb.jl --help` to see options. Example usage:
+`julia combinatorial/comb.jl --help` to see options. Example usage (for better results on this dataset, up the precision):
 
 ```
 julia combinatorial/comb.jl -d data/edges/phylo_tree.edges -m phylo_tree.r10.emb -e 1.0 -p 64 -r 10 -a -s
