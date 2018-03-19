@@ -6,8 +6,8 @@ import itertools
 # datasets = ["bio-diseasome", "bio-yeast"]
 # datasets = ["grqc"]
 # default_datasets = ["wordnet"]
-# ranks = [50]
-ranks = [2,5,10,50,100,200]
+# ranks = [2,5,10,50,100,200]
+ranks = [2,10,200]
 def run_comb2(run_name, datasets):
     os.makedirs(f"{run_name}/comb_dim2", exist_ok=True)
     params = []
@@ -62,13 +62,16 @@ def run_comb(run_name, datasets, precision=256):
                 shell=True, stdout=log)
 
 
-def run_pytorch(run_name, datasets, epochs, batch_size, warm_start=False):
+def run_pytorch(run_name, datasets, epochs, batch_size, warm_start=False, comb=False):
     precision = None
     if warm_start:
         # run combinatorial code first in double precision
         # TODO: only run this if files don't already exist
         precision = 53
-        run_comb(run_name, datasets, precision=precision)
+        if comb:
+            run_comb(run_name, datasets, precision=precision)
+
+    learning_rate = 5 if warm_start else 10
 
     params = []
     # with open(f"{run_name}/pytorch.params", "w") as param_file:
@@ -85,9 +88,9 @@ def run_pytorch(run_name, datasets, epochs, batch_size, warm_start=False):
                 '--checkpoint-freq', '100',
                 '--use-svrg',
                 '-T 0',
-                '--learning-rate', '10']
+                '--learning-rate', str(learning_rate)]
         if warm_start:
-            param += ['--warm-start', f"data/comb/{dataset}.r{rank}.p{precision}.emb"]
+            param += ['--warm-start', f"{run_name}/comb_embeddings/{dataset}.r{rank}.p{precision}.emb"]
         params.append(" ".join(param))
 
     cmd = " ".join([ 'CUDA_VISIBLE_DEVICES=0', 'python', 'pytorch/pytorch_hyperbolic.py', 'learn' ])
@@ -97,27 +100,29 @@ def run_pytorch(run_name, datasets, epochs, batch_size, warm_start=False):
     #         *[f'"{cmd} {p}"' for p in params]
     #         ], shell=True)
 
-    subprocess.run(" ".join(['parallel',
+    parallel_cmd = " ".join(['parallel',
             ':::',
             *[f'"{cmd} {p}"' for p in params]
-            ]), shell=True)
+            ])
+    print(parallel_cmd)
+    subprocess.run(parallel_cmd, shell=True)
 
 
-@argh.arg("run_name", help="Directory to store the run")
+@argh.arg("run_name", help="Directory to store the run; will be created if necessary")
 @argh.arg('-d', "--datasets", nargs='+', type=str, help = "Datasets")
-@argh.arg("--epochs", help="Number of epochs to run")
-@argh.arg("--batch-size", help="Batch Size")
+@argh.arg("--epochs", help="Number of epochs to run Pytorch optimizer")
+@argh.arg("--batch-size", help="Batch size")
 def run(run_name, datasets=[], epochs=5000, batch_size=1024):
     os.makedirs(run_name, exist_ok=True)
 
     # combinatorial only
-    run_comb(run_name, datasets)
+    # run_comb(run_name, datasets)
     # 2d combinatorial
-    run_comb2(run_name, datasets)
+    # run_comb2(run_name, datasets)
     # pytorch by itself
-    run_pytorch(run_name, datasets, epochs=epochs, batch_size=batch_size, warm_start=False)
+    # run_pytorch(run_name, datasets, epochs=epochs, batch_size=batch_size, warm_start=False)
     # pytorch with warmstart
-    run_pytorch(run_name, datasets, epochs=epochs, batch_size=batch_size, warm_start=True)
+    run_pytorch(run_name, datasets, epochs=epochs, batch_size=batch_size, warm_start=True, comb=False)
 
 
 # with open(f"{run_name}/{exp_name}", "w") as output_file:
