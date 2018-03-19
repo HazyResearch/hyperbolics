@@ -10,7 +10,7 @@ unshift!(PyVector(pyimport("sys")["path"]), "")
 # unshift!(PyVector(pyimport("sys")["path"]), "..")
 unshift!(PyVector(pyimport("sys")["path"]), "combinatorial")
 @pyimport utils.load_graph as lg
-@pyimport distortions as dis
+@pyimport utils.distortions as dis
 @pyimport graph_util as gu
 include("utilities.jl")
 include("rdim.jl")
