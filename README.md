@@ -10,27 +10,27 @@ In this README, all instructions are assumed to be run inside the Docker contain
 
 
 ## Usage
-The following programs and scripts expect the input graphs to exist in the /data/edges folder, e.g. /data/edges/phylo_tree.edges. All graphs we report results on have been prepared and saved.
+The following programs and scripts expect the input graphs to exist in the /data/edges folder, e.g. /data/edges/phylo_tree.edges. All graphs that we report results on have been prepared and saved.
 
 
 ### Combinatorial construction
 `julia combinatorial/comb.jl --help` to see options. Example usage:
 
 ```
-julia combinatorial/comb.jl julia combinatorial/comb.jl -d data/edges/smalltree.edges -e 1.0 -p 256 -r 2 -s
+julia combinatorial/comb.jl -d data/edges/phylo_tree.edges -m phylo_tree.r10.emb -e 1.0 -p 64 -r 10 -a -s
 ```
 
 ### Pytorch optimizer
 `pytorch pytorch/pytorch_hyperbolic.py learn --help` to see options. Example usage:
 
 ```
-python pytorch/pytorch_hyperbolic.py learn data/edges/phylo_tree.edges --batch-size 64 -r 100 --epochs 500 --checkpoint-freq 100 -w combinatorial/phylo_tree.save
+python pytorch/pytorch_hyperbolic.py learn data/edges/phylo_tree.edges --batch-size 64 -r 10 -l 5.0 --epochs 100 --checkpoint-freq 10 -w phylo_tree.r10.emb
 ```
 
 ### Experiment scripts
-* `scripts/run_exps.py` is a script that runs a full set of experiments for given datasets. Example usage:
+* `scripts/run_exps.py` is a script that runs a full set of experiments for given datasets. Example usage (note: the default run settings take a long time to finish):
     ```
-    python scripts/run_exps.py small -d smalltree
+    python scripts/run_exps.py phylo -d phylo_tree --epochs 20
     ```
 
     Currently, it executes the following experiments:
@@ -40,9 +40,10 @@ python pytorch/pytorch_hyperbolic.py learn data/edges/phylo_tree.edges --batch-s
     4. Pytorch optimizer in varying dimensions, using the embedding produced by the combinatorial construction as initialization 
 
 * The combinatorial constructor `combinatorial/comb.jl` has an option for reporting the MAP and distortion statistics. However, this can be slow on larger datasets such as wordnet
-    * `scripts/comb_stats.py` provides an alternate method for computing stats that uses multiprocessing
+    * `scripts/comb_stats.py` provides an alternate method for computing stats that can leverage multiprocessing
+        Example usage: `python scripts/comb_stats.py phylo_tree -e 1.0 -r 2 -p 1024 -q 4` to run on 4 cores
 
-=========================
+<!--
 
 [comment]: # ( scripts/comb_stats.py for embedding and stats just for combinatorial construction)
 
@@ -54,3 +55,4 @@ python pytorch/pytorch_hyperbolic.py learn data/edges/phylo_tree.edges --batch-s
 
 [comment]: # (        * warning about overloading files; if you play with batch size in this code, you might need to clear this directory after every run)
 
+-->

@@ -157,6 +157,7 @@ if parsed_args["save-embedding"] != nothing
 end
 
 if parsed_args["get-stats"]
+include(pwd() * "/combinatorial/distances.jl")
     println("\nComputing quality statistics")
     # The rest is statistics: MAP, distortion
     maps = 0;
@@ -176,7 +177,7 @@ if parsed_args["get-stats"]
     _d_avgs = zeros(samples)
     _wcs    = zeros(samples)
 
-    Threads.@threads for i=1:samples
+    for i in 1:n
         # the real distances in the graph
         true_dist_row = vec(csg.dijkstra(adj_mat_original, indices=[sample_nodes[i]-1], unweighted=(!weighted), directed=false))
 
