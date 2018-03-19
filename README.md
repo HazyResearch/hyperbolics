@@ -14,24 +14,25 @@ The following programs and scripts expect the input graphs to exist in the /data
 
 
 ### Combinatorial construction
-    `julia combinatorial/comb.jl --help` to see options. Example usage:
+`julia combinatorial/comb.jl --help` to see options. Example usage:
     ``` julia combinatorial/comb.jl julia combinatorial/comb.jl -d data/edges/smalltree.edges -e 1.0 -p 256 -r 2 -s ```
 
 ### Pytorch optimizer
-`pytorch pytorch/pytorch_hyperbolic.py learn --help` to see options. Example:
-``` python pytorch/pytorch_hyperbolic.py learn data/edges/phylo_tree.edges --batch-size 64 -r 100 --epochs 500 --checkpoint-freq 100 -w combinatorial/phylo_tree.save ```
+`pytorch pytorch/pytorch_hyperbolic.py learn --help` to see options. Example usage:
+    ``` python pytorch/pytorch_hyperbolic.py learn data/edges/phylo_tree.edges --batch-size 64 -r 100 --epochs 500 --checkpoint-freq 100 -w combinatorial/phylo_tree.save ```
 
 ### Experiment scripts
-* `scripts/run_exps.py` is a script that runs a full set of experiments for given datasets. Example: `python scripts/run_exps.py phylo -d phylo_tree`
+* `scripts/run_exps.py` is a script that runs a full set of experiments for given datasets. Example usage: `python scripts/run_exps.py small -d smalltree`
 
-Currently, it executes the following experiments:
-1. The combinatorial construction with fixed precision in varying dimensions
-2. The combinatorial construction in dimension 2 (Sarkar's algorithm), with very high precision
-3. Pytorch optimizer in varying dimensions, random initialization
-4. Pytorch optimizer in varying dimensions, with initialization as the embedding produced by the combinatorial construction
+    Currently, it executes the following experiments:
+    1. The combinatorial construction with fixed precision in varying dimensions
+    2. The combinatorial construction in dimension 2 (Sarkar's algorithm), with very high precision
+    3. Pytorch optimizer in varying dimensions, random initialization
+    4. Pytorch optimizer in varying dimensions, using the embedding produced by the combinatorial construction as initialization 
 
 * The combinatorial constructor `combinatorial/comb.jl` has an option for reporting statistics such as MAP and distortion. However, this can be slow on larger datasets such as wordnet
     * `scripts/comb_stats.py` provides an alternate method for computing stats that uses multiprocessing
+
 
 [//]: # (scripts/comb_stats.py for embedding and stats just for combinatorial construction)
 
