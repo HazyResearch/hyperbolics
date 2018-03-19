@@ -31,32 +31,32 @@ function parse_commandline()
         "--dim", "-r"
             help = "Dimension r"
             arg_type = Int32
-        "--get-stats", "-s"
-            help = "Get statistics"
+        "--precision", "-p"
+            help = "Internal precision in bits"
+            arg_type = Int64
+            default = 256
+        "--scale", "-t"
+            arg_type = Float64
+            help = "Use a particular scaling factor"
+        "--auto-tau-float", "-a"
+            help = "Calculate scale assuming 64-bit final embedding"
             action = :store_true
-        "--embedding-save", "-m"
+        "--save-embedding", "-m"
             help = "Save embedding to file"
         "--verbose", "-v"
             help = "Prints out row-by-row stats"
             action = :store_true
-        "--scale", "-t"
-            arg_type = Float64
-            help = "Use a particular scaling factor"
         "--use-codes", "-c"
             help = "Use coding-theoretic child placement"
             action = :store_true
         "--stats-sample", "-z"
             help = "Number of rows to sample when computing statistics"
             arg_type = Int32
-        "--precision", "-p"
-            help = "Internal precision in bits"
-            arg_type = Int64
-            default = 256
-        "--auto-tau-float", "-a"
-            help = "Calculate scale assuming 64-bit final embedding"
-            action = :store_true
         "--save-distances", "-y"
             help = "Save the distance matrix"
+        "--get-stats", "-s"
+            help = "Get statistics"
+            action = :store_true
         "--procs", "-q"
             help = "Number of processes to use"
             arg_type = Int32
@@ -79,10 +79,10 @@ setprecision(BigFloat, prec)
 println("Precision = $(prec)")
 
 
-if parsed_args["embedding-save"] == nothing
+if parsed_args["save-embedding"] == nothing
     println("No file specified to save embedding!")
 else
-    println("Save embedding to $(parsed_args["embedding-save"])")
+    println("Save embedding to $(parsed_args["save-embedding"])")
 end
 
 G        = lg.load_graph(parsed_args["dataset"])
@@ -148,12 +148,12 @@ end
 toc()
 
 # Save the embedding:
-if parsed_args["embedding-save"] != nothing
-    JLD.save(string(parsed_args["embedding-save"],".jld"), "T", T);
+if parsed_args["save-embedding"] != nothing
+    JLD.save(string(parsed_args["save-embedding"],".jld"), "T", T);
     df = DataFrame(convert(Array{Float64,2},T))
     # save tau also:
     df["tau"] = convert(Float64, tau)
-    to_csv(df, parsed_args["embedding-save"])
+    to_csv(df, parsed_args["save-embedding"])
 end
 
 if parsed_args["get-stats"]
@@ -184,7 +184,7 @@ if parsed_args["get-stats"]
         hyp_dist_row = convert(Array{Float64},vec(dist_matrix_row(T, sample_nodes[i])/tau))
 
         # this is this row MAP
-        # TODO: should this be n_bfs instead of n? n might include points that weren't embedded?
+        # TODO: n=n_bfs for the way we're currently loading data, but be careful in future
         curr_map  = dis.map_row(true_dist_row, hyp_dist_row[1:n], n, sample_nodes[i]-1)
         _maps[i]  = curr_map
 
@@ -216,7 +216,7 @@ end
 if parsed_args["save-distances"] != nothing
     println("\nSaving embedded distance matrix")
 
-    srand(0) # TODO: get rid of this line if confident this works
+    srand(0) # shuffle data so we can take terminate early and take sampled statistics
 
     if parsed_args["procs"] != nothing
         addprocs(parsed_args["procs"]-1)
@@ -239,10 +239,6 @@ if parsed_args["save-distances"] != nothing
     println("Finished multiprocess memory sharing")
     toc()
     # *****End memory sharing*****
-        # hyp_dist_mat = hcat(pmap(_dist_matrix_row, 1:n_bfs)...)'
-        # D = DataFrame(hyp_dist_mat)
-        # to_csv(D, parsed_args["save-distances"])
-        # println("Finished writing rows of distance matrix")
 
     function _compute_and_save_rows(i, rows)
         tic()
@@ -250,7 +246,7 @@ if parsed_args["save-distances"] != nothing
         hyp_dist_mat = hcat(pmap(_dist_matrix_row, rows)...)'
         # *****End multiprocessing solution*****
 
-        # TODO: control multiprocessing vs multithreading with a flag to pass in; set JULIA_NUM_THREADS with ENV[] call
+        # TODO: enable either multiprocessing vs multithreading with a flag to pass in; set JULIA_NUM_THREADS with ENV[] call
 
         # *****Multithreading solution*****
         # include(pwd() * "/combinatorial/distances.jl")

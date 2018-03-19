@@ -1,6 +1,10 @@
-# module Distances
+# distances.jl
+# functions for computing distances; particularly needed in final statistics computation
+# separatedly into separate file for ease of including on multiple processes
 
-export dist, dist_matrix_row
+
+# module Distances
+# export dist, dist_matrix_row
 
 # Hyperbolic distance d_H(u,v)
 function dist(u,v)

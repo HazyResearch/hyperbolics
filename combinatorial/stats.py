@@ -13,24 +13,20 @@ import graph_util as gu
 
 
 def compute_row_stats(i, n, adj_mat_original, hyp_dist_row, weighted, verbose=False):
-    # print("i", i, "hyp_dist_row", hyp_dist_row)
     # the real distances in the graph
-    # print(hyp_dist_row)
     true_dist_row = csg.dijkstra(adj_mat_original, indices=[i], unweighted=(not weighted), directed=False).squeeze()
-    # print(true_dist_row)
-    # print(true_dist_row.shape)
-    # this is this row MAP
-    # TODO: should this be n_bfs instead of n? n might include points that weren't embedded?
-    curr_map  = dis.map_row(true_dist_row, hyp_dist_row, n, i)
 
-    # these are distortions: worst cases (contraction, expansion) and average
-    dc, de, avg, bad = dis.distortion_row(true_dist_row, hyp_dist_row, n, i)
+    # row MAP
+    row_map  = dis.map_row(true_dist_row, hyp_dist_row, n, i)
+
+    # distortions: worst cases (contraction, expansion) and average
+    dc, de, avg, _ = dis.distortion_row(true_dist_row, hyp_dist_row, n, i)
 
     # print out stats for this row
     if verbose:
         print(f"Row {i}, MAP = {curr_map}, distortion = {avg}, d_c = {dc}, d_e = {de}")
 
-    return (curr_map, avg, dc, de)
+    return (row_map, avg, dc, de)
 
 
 @argh.arg("dataset", help="Dataset to compute stats for")
@@ -51,44 +47,6 @@ def stats(dataset, d_file, procs=1, verbose=False):
     print(f"Finished loading graph. Elapsed time {timer()-start}")
 
     # Load distance matrix chunks
-    # chunk_i = -1
-    # n_ = 0
-    # map_ = 0.0
-    # d_avg_ = 0.0
-    # wc_ = 0.0
-    # while True:
-    #     tic = timer()
-    #     chunk_i += 1
-    #     chunk_file = f"{d_file}.{chunk_i}"
-    #     chunk_exists = os.path.isfile(chunk_file)
-    #     if not chunk_exists:
-    #         break
-    #     hyp_dist_df = pandas.read_csv(chunk_file, index_col=0)
-    #     rows = hyp_dist_df.index.values
-    #     hyp_dist_mat = hyp_dist_df.as_matrix()
-
-    #     toc = timer()
-    #     print(f"Finished loading distance matrix chunk {chunk_i}. Elapsed time {toc-tic}")
-
-    #     _map = np.zeros(rows.shape)
-    #     _d_avg = np.zeros(rows.shape)
-    #     _wc = np.zeros(rows.shape)
-
-    #     for (i, row) in enumerate(rows):
-    #         (_map[i], _d_avg[i], _wc[i]) = compute_row_stats(row, n, adj_mat_original, hyp_dist_mat[i,:], weighted=weighted, verbose=verbose)
-    #     # with Pool(processes=proc) as pool:
-
-    #     n_ += rows.size
-    #     map_ += np.sum(_map)
-    #     d_avg_ += np.sum(_d_avg)
-    #     wc_ = max(wc_, np.max(_wc))
-
-    #     # Running stats:
-    #     print(f"Running MAP = {map_/n_}")
-    #     print(f"Running d_avg = {d_avg_/n_}, d_wc = {wc_}")
-
-    #     tac = timer()
-    #     print(f"Finished computing stats for chunk. Elapsed time {tac-toc}")
 
     hyp_dist_df = pandas.read_csv(d_file, index_col=0)
     loaded = timer()
@@ -115,10 +73,12 @@ def stats(dataset, d_file, procs=1, verbose=False):
     print(f"MAP = {map_/n_}, d_avg = {d_avg_/n_}, d_wc = {dc_*de_}, d_c = {dc_}, d_e = {de_}")
 
     end = timer()
-    print(f"Finished computing stats. Total elapsed time {end-start}\n")
+    print(f"Finished computing stats. Total elapsed time {end-start}")
 
     with open(f"{d_file}.stats", "w") as stats_log:
         stats_log.write(f"{n_},{map_},{d_avg_},{dc_},{de_}\n")
+        print(f"Stats saved to {d_file}.stats")
+    print()
 
 if __name__ == '__main__':
     _parser = argh.ArghParser() 

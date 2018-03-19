@@ -5,17 +5,14 @@ import pandas
 
 def comb(edge_file, distance_file, flags):
     comb_cmd = ['julia', 'combinatorial/comb.jl',
-                    '--dataset', edge_file,
-                    '--save-distances', distance_file] + flags
+                '--dataset', edge_file,
+                '--save-distances', distance_file] + flags
     print(comb_cmd)
+    print()
     subprocess.run(comb_cmd)
 
 def stats(edge_file, distance_file):
-    # stats_cmd = ['python', 'combinatorial/stats.py', edge_file, distance_file]
-    # print(stats_cmd)
-    # subprocess.run(stats_cmd)
-
-    # Load distance matrix chunks
+    # Find distance matrix chunks
     chunk_i = -1
     n_ = 0
     map_ = 0.0
@@ -30,9 +27,10 @@ def stats(edge_file, distance_file):
             break
         files.append(chunk_file)
 
-    parallel_cmd = ['parallel', 'python', 'combinatorial/stats.py', edge_file, ':::'] + files
-    print(parallel_cmd)
-    subprocess.run(parallel_cmd)
+    parallel_stats_cmd = ['parallel', 'python', 'combinatorial/stats.py', edge_file, ':::'] + files
+    print(parallel_stats_cmd)
+    print()
+    subprocess.run(parallel_stats_cmd)
 
     stats_file = f"{distance_file}.stats"
     cat_cmd = ['cat'] + [f+'.stats' for f in files]
@@ -46,18 +44,15 @@ def stats(edge_file, distance_file):
     dc_ = np.max(_stats[:,3])
     de_ = np.max(_stats[:,4])
 
-    # print(_stats)
     print(f"Final MAP = {map_/n_}")
     print(f"Final d_avg = {d_avg_/n_}, d_wc = {dc_*de_}, d_c = {dc_}, d_e = {de_}")
 
 
 
 if __name__ == '__main__':
-    # print(sys.argv)
     dataset = sys.argv[1]
     flags = sys.argv[2:]
 
-    # TODO: with the chunking, this currently fails if there was a previous run with a smaller chunk size (i.e. there are preexisting files that do not get overwritten by the new run)
     os.makedirs(f"distances/{dataset}", exist_ok=True)
 
     edge_file = f"data/edges/{dataset}.edges"
@@ -65,8 +60,3 @@ if __name__ == '__main__':
 
     comb(edge_file, distance_file, flags)
     stats(edge_file, distance_file)
-
-    # TODO: pipe result here, compile stats into a dataframe somehow
-
-    # julia combinatorial/comb.jl -d data/edges/ca-CSphd.edges -e 1.0 -r 2 -p 16384 -y ca-CSphd.dist
-    # python combinatorial/stats.py data/edges/phylo_tree.edges phylo_tree.dist
