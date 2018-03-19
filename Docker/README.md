@@ -18,6 +18,6 @@ Install Docker
     * You need to restart docker `service docker stop`
     
     
-* Build the docker container using `sh build.sh` in the Docker directory.
-* There is a run_docker script (if you change the name of the tag, update this)
-  * It runs in interactive omode
+* Build the Docker container using `sh build.sh` in the Docker/ directory.
+* Launch the Docker container using `sh run_docker.sh` in the main repository.
+  * It runs in interactive mode

@@ -7,13 +7,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
          git \
          curl \
          vim \
+	 emacs \
+         parallel \
          ca-certificates \
          libjpeg-dev \
-	 emacs \
 	 hdf5-tools \
          libpng-dev &&\
      rm -rf /var/lib/apt/lists/*
 
+
+RUN mkdir ~/.parallel && touch ~/.parallel/will-cite
 
 RUN curl -o ~/miniconda.sh -O  https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh  && \
      chmod +x ~/miniconda.sh && \
@@ -26,7 +29,7 @@ ENV PATH /opt/conda/bin:$PATH
 # This must be done before pip so that requirements.txt is available
 WORKDIR /opt/pytorch
 COPY . .
-#RUN conda install pytorch torchvision -c pytorch
+RUN conda install pytorch torchvision -c pytorch
 
 #
 # Now install the julia dependencies.
@@ -43,3 +46,5 @@ RUN julia -e "Pkg.init()"
 COPY setup.jl /julia/setup.jl
 RUN julia /julia/setup.jl
 
+WORKDIR /root/hyperbolics
+ENV PYTHONPATH /root/hyperbolics
