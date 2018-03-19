@@ -57,3 +57,7 @@ def load_graph(opt):
 
     return G_comp
     # return Gc
+
+
+def save_edges(G, name):
+    nx.write_edgelist(G, "data/edges/" + name + ".edges", data=False)
