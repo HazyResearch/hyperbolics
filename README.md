@@ -15,11 +15,17 @@ The following programs and scripts expect the input graphs to exist in the /data
 
 ### Combinatorial construction
 `julia combinatorial/comb.jl --help` to see options. Example usage:
-    ``` julia combinatorial/comb.jl julia combinatorial/comb.jl -d data/edges/smalltree.edges -e 1.0 -p 256 -r 2 -s ```
+
+```
+julia combinatorial/comb.jl julia combinatorial/comb.jl -d data/edges/smalltree.edges -e 1.0 -p 256 -r 2 -s
+```
 
 ### Pytorch optimizer
 `pytorch pytorch/pytorch_hyperbolic.py learn --help` to see options. Example usage:
-    ``` python pytorch/pytorch_hyperbolic.py learn data/edges/phylo_tree.edges --batch-size 64 -r 100 --epochs 500 --checkpoint-freq 100 -w combinatorial/phylo_tree.save ```
+
+```
+python pytorch/pytorch_hyperbolic.py learn data/edges/phylo_tree.edges --batch-size 64 -r 100 --epochs 500 --checkpoint-freq 100 -w combinatorial/phylo_tree.save
+```
 
 ### Experiment scripts
 * `scripts/run_exps.py` is a script that runs a full set of experiments for given datasets. Example usage: `python scripts/run_exps.py small -d smalltree`
@@ -33,14 +39,13 @@ The following programs and scripts expect the input graphs to exist in the /data
 * The combinatorial constructor `combinatorial/comb.jl` has an option for reporting statistics such as MAP and distortion. However, this can be slow on larger datasets such as wordnet
     * `scripts/comb_stats.py` provides an alternate method for computing stats that uses multiprocessing
 
+[comment]: # ( scripts/comb_stats.py for embedding and stats just for combinatorial construction)
 
-[//]: # (scripts/comb_stats.py for embedding and stats just for combinatorial construction)
+[comment]: # (    * this is intended specifically for computing statistics for the combinatorial embedding on large datasets. for other uses, e.g. generating the embedding for downstream use, it is recommended to use the basic program)
 
-[//]: # (    * this is intended specifically for computing statistics for the combinatorial embedding on large datasets. for other uses, e.g. generating the embedding for downstream use, it is recommended to use the basic program)
+[comment]: # (    * will save temporary files to distances/ directory)
 
-[//]: # (    * will save temporary files to distances/ directory)
+[comment]: # (    * If the dataset is large (wordnet), you will see stats for every batch and aggregate statistics at the end)
 
-[//]: # (    * If the dataset is large (wordnet), you will see stats for every batch and aggregate statistics at the end)
-
-[//]: # (        * warning about overloading files; if you play with batch size in this code, you might need to clear this directory after every run)
+[comment]: # (        * warning about overloading files; if you play with batch size in this code, you might need to clear this directory after every run)
 
