@@ -5,7 +5,7 @@ import pickle
 import scipy.sparse.csgraph as csg
 from joblib import Parallel, delayed
 import multiprocessing
-import data_prep as dp
+#import data_prep as dp
 import time
 
 def compute_row(i, adj_mat): 
