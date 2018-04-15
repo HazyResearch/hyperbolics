@@ -8,7 +8,7 @@ from timeit import default_timer as timer
 from multiprocessing import Pool
 
 import utils.load_graph as lg
-import distortions as dis
+import utils.distortions as dis
 import graph_util as gu
 
 
