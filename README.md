@@ -1,9 +1,11 @@
 # hyperbolics
-Hyperbolic embedding implementations of [Representation Tradeoffs for Hyperbolic Embeddings](https://arxiv.org/pdf/1804.03329.pdf)
+Hyperbolic embedding implementations of [Representation Tradeoffs for Hyperbolic Embeddings](https://arxiv.org/pdf/1804.03329.pdf).
 
+<p align="center">
+  <img src="binary_tree.png" alt="Hyperbolic embedding of binary tree" width="400"/>
+</p>
 
 ## Setup
-
 We use Docker to set up the environment for our code. See Docker/README.md for installation and launch instructions.
 
 In this README, all instructions are assumed to be run inside the Docker container. All paths are relative to the /hyperbolics directory, and all commands are expected to be run from this directory.
