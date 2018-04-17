@@ -1,5 +1,5 @@
 # hyperbolics
-Hyperbolic Embeddings 
+Hyperbolic embedding implementations of [Representation Tradeoffs for Hyperbolic Embeddings](https://arxiv.org/pdf/1804.03329.pdf)
 
 
 ## Setup
