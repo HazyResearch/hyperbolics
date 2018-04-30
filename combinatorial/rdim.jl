@@ -155,14 +155,6 @@ function place_children(dim, c, use_sp, sp, sample_from, sb)
         # approximate edge length for N-1 dimensional hypercube
         delta = big((AN/K)^(1/(N-1)))
 
-        # k isn't exact, so we have to iteratively change delta until we get 
-        #  the k we actually want
-        true_k = 0
-        while true_k < K
-            points, true_k = place_on_sphere(delta, N, K, false)
-            delta = big(delta*(true_k/K)^(1/(N-1)))
-        end
-
         points, true_k = place_on_sphere(delta, N, K, true)
     end
     
@@ -302,7 +294,7 @@ function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, tau, d_max, use_code
     end
     
     if  !use_codes || d_max > dim
-        SB_points = 1000
+        SB_points = 10000
         SB        = place_children(dim, SB_points, false, 0, false, 0) 
     end
 
