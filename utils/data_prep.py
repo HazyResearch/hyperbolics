@@ -54,7 +54,10 @@ def load_graph(opt):
     return G_comp
 
 def save_edges(G, name, data=False):
-    nx.write_edgelist(G, "data/edges/" + name + ".edges", data)
+    if data:
+        nx.write_weighted_edgelist(G, "data/edges/" + name + ".edges")
+    else:
+        nx.write_edgelist(G, "data/edges/" + name + ".edges", data)
 
 def make_wordnet_weights():
     (n,C) = wnp.load_big_component()
