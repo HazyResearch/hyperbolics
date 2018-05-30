@@ -4,8 +4,8 @@ import scipy as sp
 import numpy as np
 
 from Bio import Phylo
-# import nltk.corpus as nc
-# import word_net_prep as wnp
+import nltk.corpus as nc
+import utils.word_net_prep as wnp
 
 def load_graph(opt):
     if opt == 1:
@@ -44,10 +44,6 @@ def load_graph(opt):
         assert(False)
     # take the largest component
     Gc = max(nx.connected_component_subgraphs(G), key=len)
-    # n = Gc.order()
-    #print(n)
-    # C = nx.to_scipy_sparse_matrix(Gc)
-
     G_comp_unsort = max(nx.connected_component_subgraphs(Gc), key=len)
 
     # the connected_component function changes the edge orders, so fix:
@@ -56,8 +52,38 @@ def load_graph(opt):
     G_comp = nx.convert_node_labels_to_integers(G_comp_sorted)
 
     return G_comp
-    # return Gc
 
+def save_edges(G, name, data=False):
+    nx.write_edgelist(G, "data/edges/" + name + ".edges", data)
 
-def save_edges(G, name):
-    nx.write_edgelist(G, "data/edges/" + name + ".edges", data=False)
+def make_wordnet_weights():
+    (n,C) = wnp.load_big_component()
+    G = nx.Graph(C).to_undirected()
+    Gc = max(nx.connected_component_subgraphs(G), key=len)
+
+    # 'entity' is 0:
+    G_BFS = nx.bfs_tree(Gc, 0)
+    G_W   = nx.Graph()
+
+    # each edge must be appropriately weighted:
+    curr_nodes = [0]
+    next_nodes = []
+    depth = 0
+
+    while 1:
+        if len(curr_nodes) == 0:
+            if len(next_nodes) == 0:
+                break
+            depth += 1
+            curr_nodes = next_nodes.copy()
+            next_nodes.clear()
+
+        node = curr_nodes[0]
+        parent = list(G_BFS.predecessors(node))
+        if len(parent) > 0:
+            G_W.add_edge(node, parent[0], weight=2**(depth-1))
+
+        curr_nodes.remove(node)
+        next_nodes += list(G_BFS.successors(node))
+
+    save_edges(G_W, "weighted_wordnet", data=True)
