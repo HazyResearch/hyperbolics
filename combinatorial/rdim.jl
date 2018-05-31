@@ -266,7 +266,7 @@ function add_children_dim(p, x, dim, edge_lengths, use_codes, SB, Gen_matrices; 
 end
 
 # higher dimensional combinatorial hyperbolic embedding
-function hyp_embedding_dim(G_BFS, root, eps, weighted, dim, tau, d_max, use_codes)    
+function hyp_embedding_dim(G_BFS, root, weighted, dim, tau, d_max, use_codes)    
 	n             = G_BFS[:order]()
     T             = zeros(BigFloat, n, dim)
     

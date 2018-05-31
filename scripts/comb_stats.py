@@ -30,6 +30,7 @@ def stats(edge_file, distance_file):
     parallel_stats_cmd = ['parallel', 'python', 'combinatorial/stats.py', edge_file, ':::'] + files
     print(parallel_stats_cmd)
     print()
+    print("before subprocess call")
     subprocess.run(parallel_stats_cmd)
 
     stats_file = f"{distance_file}.stats"
@@ -51,12 +52,14 @@ def stats(edge_file, distance_file):
 
 if __name__ == '__main__':
     dataset = sys.argv[1]
-    flags = sys.argv[2:]
+    stats_dataset = sys.argv[2]
+    flags = sys.argv[3:]
 
     os.makedirs(f"distances/{dataset}", exist_ok=True)
 
     edge_file = f"data/edges/{dataset}.edges"
+    stats_edge_file = f"data/edges/{stats_dataset}.edges"
     distance_file = f"distances/{dataset}/{dataset}{''.join(flags)}.dist"
 
     comb(edge_file, distance_file, flags)
-    stats(edge_file, distance_file)
+    stats(stats_edge_file, distance_file)

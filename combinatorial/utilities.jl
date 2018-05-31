@@ -93,7 +93,7 @@ end
 # Embedding of Trees in Hyperbolic Plane"
 #  G_BFS should be a directed, rooted tree, in order to
 #  use the networkx functions
-function hyp_embedding(G_BFS, root, eps, weighted, tau)
+function hyp_embedding(G_BFS, root, weighted, tau)
     n             = G_BFS[:order]()
     T             = zeros(BigFloat,n,2)
 

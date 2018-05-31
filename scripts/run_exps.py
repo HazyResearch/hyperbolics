@@ -4,7 +4,7 @@ import subprocess
 import itertools
 
 # ranks = [2,5,10,50,100,200]
-ranks = [2,10,200]
+ranks = [200]
 def run_comb2(run_name, datasets):
     os.makedirs(f"{run_name}/comb_dim2", exist_ok=True)
     params = []
@@ -19,8 +19,8 @@ def run_comb2(run_name, datasets):
             '-m', f"{run_name}/comb_embeddings/{dataset}.r{rank}.p{precision}.e{eps}.emb",
             '-p', str(precision),
             '-e', str(eps),
-            '-r', str(rank),
-            '-s']
+            '-r', str(rank)
+            ]
         params.append(" ".join(param))
 
     cmd = 'julia combinatorial/comb.jl'
@@ -44,7 +44,7 @@ def run_comb(run_name, datasets, precision=256):
                 '-p', str(precision),
                 '-e', '1.0',
                 '-r', str(rank),
-                '-a', '-s']
+                '-a']
         if rank > 10:
             param.append('-c')
         params.append(" ".join(param))
@@ -83,6 +83,7 @@ def run_pytorch(run_name, datasets, epochs, batch_size, warm_start=False, comb=F
                 '--checkpoint-freq', '100',
                 '--use-svrg',
                 '-T 0',
+                # '--subsample 2000',
                 '--learning-rate', str(learning_rate)]
         if warm_start:
             param += ['--warm-start', f"{run_name}/comb_embeddings/{dataset}.r{rank}.p{precision}.emb"]
@@ -111,9 +112,9 @@ def run(run_name, datasets=[], epochs=5000, batch_size=1024):
     os.makedirs(run_name, exist_ok=True)
 
     # combinatorial high dim
-    run_comb(run_name, datasets)
+    # run_comb(run_name, datasets)
     # 2d combinatorial
-    run_comb2(run_name, datasets)
+    # run_comb2(run_name, datasets)
     # pytorch by itself
     run_pytorch(run_name, datasets, epochs=epochs, batch_size=batch_size, warm_start=False)
     # pytorch with warmstart

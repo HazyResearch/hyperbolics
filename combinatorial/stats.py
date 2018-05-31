@@ -20,7 +20,8 @@ def compute_row_stats(i, n, adj_mat_original, hyp_dist_row, weighted, verbose=Fa
     row_map  = dis.map_row(true_dist_row, hyp_dist_row, n, i)
 
     # distortions: worst cases (contraction, expansion) and average
-    dc, de, avg, _ = dis.distortion_row(true_dist_row, hyp_dist_row, n, i)
+    # dc, de, avg, _ = dis.distortion_row(true_dist_row, hyp_dist_row, n, i)
+    dc, de, avg = 0.0, 0.0, 0.0
 
     # print out stats for this row
     if verbose:

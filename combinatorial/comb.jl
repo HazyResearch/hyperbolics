@@ -25,7 +25,7 @@ function parse_commandline()
             required = true
         "--eps", "-e"
             help = "Epsilon distortion"
-            required = true
+            # required = true
             arg_type = Float64
             default = 0.1
         "--dim", "-r"
@@ -72,7 +72,6 @@ println("Data set = $(parsed_args["dataset"])")
 if parsed_args["dim"] != nothing
     println("Dimensions = $(parsed_args["dim"])")
 end
-println("Epsilon  = $(parsed_args["eps"])")
 
 prec = parsed_args["precision"]
 setprecision(BigFloat, prec)
@@ -87,7 +86,6 @@ end
 
 G        = lg.load_graph(parsed_args["dataset"])
 weighted = gu.is_weighted(G)
-epsilon      = parsed_args["eps"]
 println("\nGraph information")
 
 # Number of vertices:
@@ -124,8 +122,12 @@ elseif parsed_args["auto-tau-float"]
     r = big(1-eps(BigFloat)/2)
     m = big(log((1+r)/(1-r)))
     tau = big(m/(1.3*path_length))
-else
+elseif parsed_args["eps"] != nothing
+    println("Epsilon  = $(parsed_args["eps"])")
+    epsilon      = parsed_args["eps"]
     tau = get_emb_par(G_BFS, 1, epsilon, weighted)
+else
+    tau = 1.0
 end
 
 # Print out the scaling factor we got
@@ -141,9 +143,9 @@ end
 
 if parsed_args["dim"] != nothing && parsed_args["dim"] != 2
     dim = parsed_args["dim"]
-    T = hyp_embedding_dim(G_BFS, root, epsilon, weighted, dim, tau, d_max, use_codes)
+    T = hyp_embedding_dim(G_BFS, root, weighted, dim, tau, d_max, use_codes)
 else
-    T = hyp_embedding(G_BFS, root, epsilon, weighted, tau)
+    T = hyp_embedding(G_BFS, root, weighted, tau)
 end
 toc()
 
