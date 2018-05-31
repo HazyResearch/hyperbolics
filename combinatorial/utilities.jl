@@ -120,9 +120,16 @@ function hyp_embedding(G_BFS, root, eps, weighted, tau)
     # queue containing the nodes whose children we're placing
     q = [];
     append!(q, root_children)
+    node_idx = 0
 
     while length(q) > 0
         h            = q[1];
+
+        node_idx     += 1
+        if node_idx%100 == 0
+            println("Placing children of node $(node_idx)")
+        end
+
         children     = collect(G_BFS[:successors](h));
         parent       = collect(G_BFS[:predecessors](h));
         num_children = length(children);
