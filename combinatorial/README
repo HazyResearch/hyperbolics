@@ -7,17 +7,23 @@ usage: comb.jl -d DATASET -e EPS [-r DIM] [-s] [-m EMBEDDING-SAVE]
   -d, --dataset         Dataset to embed
   -e, --eps EPS         Epsilon distortion 
   -r, --dim DIM         Dimension r 
-  -p, --precision PRECISION
-                        Internal precision in bits
+  -p, --precision       Internal precision in bits
   -s, --get-stats       Get statistics
   -m, --embedding-save  Save embedding to file
   -v, --verbose         Prints out row-by-row stats
   -t, --scale SCALE     Use a particular scaling factor 
       (otherwise, auto-generate from epsilon) 
+  -a, --auto-tau-float  Calculate scale assuming 64-bit final
+                        embedding  
   -c, --use-codes       Use coding-theoretic child placement   
-  -z, --stats-sample STATS-SAMPLE
-                        Number of rows to sample when computing
+  -z, --stats-sample    Number of rows to sample when computing
                         statistics   
+  -y, --save-distances  Save the distance matrix
+  -q, --procs PROCS     Number of processes to use for stats computation
+  -f, --forest          Forest embedding; use all the edgelists in the
+                        given folder (i.e., separate components)
+  -w, --visualize       Visualize the embedding (only for 2
+                        dimensions; requires matplotlib)
   -h, --help            Show this help message and exit
 
 Example on small attached tree. Epsilon = 1.0, custom scaling factor 2.0,
