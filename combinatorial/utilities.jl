@@ -1,6 +1,8 @@
 # utilities.jl
 # various functions needed for combinatorial embeddings
-
+unshift!(PyVector(pyimport("sys")["path"]), "combinatorial")
+@pyimport utils.vis as vis
+@pyimport matplotlib.pyplot as plt
 
 # Reflection (circle inversion of x through orthogonal circle centered at a)
 function isometric_transform(a, x)
@@ -23,7 +25,7 @@ function hyp_to_euc_dist(x)
 end
 
 # Place children
-function add_children(p,x,edge_lengths; verbose=false)
+function add_children(p,x,edge_lengths, visualize, ax; verbose=false)
     (p0,x0) = (reflect_at_zero(x,p),reflect_at_zero(x,x))
     c       = length(edge_lengths);
     q       = norm(p0)
@@ -45,9 +47,25 @@ function add_children(p,x,edge_lengths; verbose=false)
         points0[k+1,1] = edge_lengths[k]*cos( angle )
         points0[k+1,2] = edge_lengths[k]*sin( angle )
     end
+    
+    if visualize
+        midpoints = copy(points0)
+        midpoints ./= big(2.0)
+    end
+
     for k=0:c
         points0[k+1,:] = reflect_at_zero(x,points0[k+1,:])
+        if visualize 
+            midpoints[k+1,:]   = reflect_at_zero(x, R_mid[k+1,:]) 
+        end
+                
+        # R_mid contains the mid-points, so we can draw a bunch of edges
+        if visualize && k > 0
+            vis.draw_geodesic(convert(Array{Float64,1}, points0[1,:]), convert(Array{Float64,1}, points0[k+1,:]), convert(Array{Float64,1}, R_mid[k+1,:]), ax)
+            plt.pause(0.05)
+        end    
     end
+            
     return points0[2:end,:]
 end
 
@@ -93,7 +111,7 @@ end
 # Embedding of Trees in Hyperbolic Plane"
 #  G_BFS should be a directed, rooted tree, in order to
 #  use the networkx functions
-function hyp_embedding(G_BFS, root, weighted, tau)
+function hyp_embedding(G_BFS, root, weighted, tau, visualize)
     n             = G_BFS[:order]()
     T             = zeros(BigFloat,n,2)
 
@@ -111,12 +129,22 @@ function hyp_embedding(G_BFS, root, weighted, tau)
             k = k+1;
         end
     end
-
+    
+    ax = 0
+    if visualize
+        midpoints = zeros(BigFloat, d, 2)
+        fig, ax = vis.setup_plot(draw_circle=true)
+    end
+    
     # place the children of the root:
     for i=1:d
-         T[1+root_children[i],:] = edge_lengths[i]*[cos(2*(i-1)*big(pi)/BigFloat(d)),sin(2*(i-1)*big(pi)/BigFloat(d))]
+        T[1+root_children[i],:] = edge_lengths[i]*[cos(2*(i-1)*big(pi)/BigFloat(d)),sin(2*(i-1)*big(pi)/BigFloat(d))]
+        if visualize
+            midpoints[i,:] = edge_lengths[i]*[cos(2*(i-1)*big(pi)/BigFloat(d)),sin(2*(i-1)*big(pi)/BigFloat(d))]./big(2.0)        
+            vis.draw_geodesic(convert(Array{Float64,1}, T[1,:]), convert(Array{Float64,1}, T[1+root_children[i],:]), convert(Array{Float64,1}, midpoints[i,:]), ax)
+        end
     end
-
+    
     # queue containing the nodes whose children we're placing
     q = [];
     append!(q, root_children)
@@ -147,7 +175,7 @@ function hyp_embedding(G_BFS, root, weighted, tau)
         end
 
         if num_children > 0
-            R = add_children(T[parent[1]+1,:], T[h+1,:], edge_lengths)
+            R = add_children(T[parent[1]+1,:], T[h+1,:], edge_lengths, visualize, ax)
             for i=1:num_children
                 T[children[i]+1,:] = R[i,:];
             end
@@ -155,6 +183,8 @@ function hyp_embedding(G_BFS, root, weighted, tau)
 
         deleteat!(q, 1)
     end
+
+    vis.draw_plot()  
 
     return T
 end
@@ -241,7 +271,7 @@ function hyp_embedding_parallel(G_BFS, root, eps, weighted, edges_weights, tau)
         end
 
         if num_children > 0
-            R = add_children(T[parent[1]+1,:], T[h+1,:], edge_lengths)
+            R = add_children(T[parent[1]+1,:], T[h+1,:], edge_lengths, visualize, ax)
             for i=1:num_children
                 #println("Placed child $(children[i])")
                 T[children[i]+1,:] = R[i,:];

@@ -65,6 +65,9 @@ function parse_commandline()
         "--forest", "-f"
             help = "Forest embedding; use all the edgelists in the given folder"
             action = :store_true
+        "--visualize", "-w"
+            help = "Visualize the embedding (only for 2 dimensions)"
+            action = :store_true
     end
     return parse_args(s)
 end
@@ -73,8 +76,16 @@ function do_embedding(parsed_args)
     println("\n=============================")
     println("Combinatorial Embedding. Info:")
     println("Data set = $(parsed_args["dataset"])")
-    if parsed_args["dim"] != nothing
-        println("Dimensions = $(parsed_args["dim"])")
+    println("Dimensions = $(parsed_args["dim"])")
+
+    # visualization checks:
+    visualize = false
+    if parsed_args["visualize"]
+        if parsed_args["dim"] > 2
+            println("Error: visualization not supported for more than 2 dimensions!")
+            exit()
+        end
+        visualize = true
     end
 
     prec = parsed_args["precision"]
@@ -150,7 +161,7 @@ function do_embedding(parsed_args)
         dim = parsed_args["dim"]
         T = hyp_embedding_dim(G_BFS, root, weighted, dim, tau, d_max, use_codes)
     else
-        T = hyp_embedding(G_BFS, root, weighted, tau)
+        T = hyp_embedding(G_BFS, root, weighted, tau, visualize)
     end
     toc()
 
