@@ -56,12 +56,12 @@ function add_children(p,x,edge_lengths, visualize, ax; verbose=false)
     for k=0:c
         points0[k+1,:] = reflect_at_zero(x,points0[k+1,:])
         if visualize 
-            midpoints[k+1,:]   = reflect_at_zero(x, R_mid[k+1,:]) 
+            midpoints[k+1,:]   = reflect_at_zero(x, midpoints[k+1,:]) 
         end
                 
         # R_mid contains the mid-points, so we can draw a bunch of edges
         if visualize && k > 0
-            vis.draw_geodesic(convert(Array{Float64,1}, points0[1,:]), convert(Array{Float64,1}, points0[k+1,:]), convert(Array{Float64,1}, R_mid[k+1,:]), ax)
+            vis.draw_geodesic(convert(Array{Float64,1}, points0[1,:]), convert(Array{Float64,1}, points0[k+1,:]), convert(Array{Float64,1}, midpoints[k+1,:]), ax)
             plt.pause(0.05)
         end    
     end

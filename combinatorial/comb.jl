@@ -15,6 +15,7 @@ unshift!(PyVector(pyimport("sys")["path"]), "combinatorial")
 include("utilities.jl")
 include("rdim.jl")
 include("forests.jl")
+include("distances.jl")
 
 
 # Parse command line arguments
@@ -45,6 +46,8 @@ function parse_commandline()
             action = :store_true
         "--save-embedding", "-m"
             help = "Save embedding to file"
+       # "--save-embedding-forest", "-mf"
+	   # help = "Save forest embedding to file"
         "--verbose", "-v"
             help = "Prints out row-by-row stats"
             action = :store_true
@@ -167,7 +170,7 @@ function do_embedding(parsed_args)
 
     # Save the embedding:
     if parsed_args["save-embedding"] != nothing
-        JLD.save(string(parsed_args["save-embedding"],".jld"), "T", T);
+        # JLD.save(string(parsed_args["save-embedding"],".jld"), "T", T);
         df = DataFrame(convert(Array{Float64,2},T))
         # save tau also:
         df["tau"] = convert(Float64, tau)
@@ -304,7 +307,7 @@ function do_embedding(parsed_args)
     end
     println()
 
-    return T
+    return T, tau
 end
 
 parsed_args = parse_commandline()
@@ -315,20 +318,33 @@ if parsed_args["forest"]
     files        = readdir(edges_folder)
     n_files      = size(files)[1]
     components   = Array{Array{}}(n_files);
+    tau_components = Array{Float64}(n_files);
 
     for i = 1:n_files
         parsed_args["dataset"] = string(edges_folder, '/', files[i])
-        components[i] = do_embedding(parsed_args)
+        components[i], tau_components[i] = do_embedding(parsed_args)
     end
-
+    println(tau_components)
+    println(files)
+    
     Gen_matrices = make_gen_matrices(n_files)
     F = embed_forest(parsed_args["dim"], components, Gen_matrices, big(0.9), big(1.0))
-
-    # debug:
-    n_points = size(F)[1]
-    for i=1:n_points
-        println(F[i,:])
+    println(tau_components)
+    # Save the forest embedding:
+    if parsed_args["save-embedding"] != nothing
+        dforest = DataFrame(convert(Array{Float64,2},F))
+	dcomp_tau_components = DataFrame(convert(Array{Float64,1},tau_components))
+        # save tau for each cc and corresponding file name
+	dfiles = DataFrame(convert(Array{String},files))
+        to_csv(dforest, parsed_args["save-embedding"])
+        to_csv(dcomp_tau_components, "tau_test.txt")
+	to_csv(dfiles, "cc_test.txt")
     end
+    # debug:
+    # n_points = size(F)[1]
+    # for i=1:n_points
+        # println(F[i,:])
+    # end
 else
     do_embedding(parsed_args)
 end
