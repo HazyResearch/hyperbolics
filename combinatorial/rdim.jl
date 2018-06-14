@@ -279,7 +279,7 @@ function hyp_embedding_dim(G_BFS, root, weighted, dim, tau, d_max, use_codes)
     if weighted
         k = 1;
         for child in root_children
-            weight = G[root+1][child+1]["weight"]
+            weight = G_BFS[root+1][child+1]["weight"]
             edge_lengths[k] = hyp_to_euc_dist(weight*tau);
             k = k+1;
         end
@@ -345,7 +345,7 @@ function hyp_embedding_dim(G_BFS, root, weighted, dim, tau, d_max, use_codes)
         if weighted
             k = 1;
             for child in children
-                weight = G[h+1][child+1]["weight"];
+                weight = G_BFS[h+1][child+1]["weight"];
                 edge_lengths[k] = hyp_to_euc_dist(big(weight)*tau);
                 k = k+1;
             end
