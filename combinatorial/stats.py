@@ -14,19 +14,19 @@ import graph_util as gu
 
 def compute_row_stats(i, n, adj_mat_original, hyp_dist_row, weighted, verbose=False):
     # the real distances in the graph
-    # true_dist_row = csg.dijkstra(adj_mat_original, indices=[i], unweighted=(not weighted), directed=False).squeeze()
-    true_dist_row = csg.dijkstra(adj_mat_original, indices=[i], unweighted=True, directed=True).squeeze()
-    print(f"{i}: {true_dist_row}")
+    true_dist_row = csg.dijkstra(adj_mat_original, indices=[i], unweighted=(not weighted), directed=False).squeeze()
+    # true_dist_row = csg.dijkstra(adj_mat_original, indices=[i], unweighted=True, directed=True).squeeze()
+    # print(f"{i}: {true_dist_row}")
 
     # row MAP
     neighbors = adj_mat_original.todense()[i].A1
-    print(f"row {i}: ", neighbors)
-    print("shape", neighbors.shape)
+    # print(f"row {i}: ", neighbors)
+    # print("shape", neighbors.shape)
     row_map  = dis.map_row(neighbors, hyp_dist_row, n, i)
 
     # distortions: worst cases (contraction, expansion) and average
-    # dc, de, avg, _ = dis.distortion_row(true_dist_row, hyp_dist_row, n, i)
-    dc, de, avg = 0.0, 0.0, 0.0
+    dc, de, avg, _ = dis.distortion_row(true_dist_row, hyp_dist_row, n, i)
+    # dc, de, avg = 0.0, 0.0, 0.0
 
     # print out stats for this row
     if verbose:
@@ -67,7 +67,7 @@ def stats(dataset, d_file, procs=1, verbose=False):
     _dc = np.zeros(n_)
     _de = np.zeros(n_)
     for (i, row) in enumerate(rows):
-        if row == 0: continue
+        # if row == 0: continue
         (_map[i], _d_avg[i], _dc[i], _de[i]) = compute_row_stats(row, n, adj_mat_original, hyp_dist_mat[i,:], weighted=weighted, verbose=verbose)
     map_ = np.sum(_map)
     d_avg_ = np.sum(_d_avg)
@@ -78,7 +78,7 @@ def stats(dataset, d_file, procs=1, verbose=False):
         print("Note: MAP is not well defined for weighted graphs")
 
     # Final stats:
-    n_ -= 1
+    # n_ -= 1
     print(f"MAP = {map_/n_}, d_avg = {d_avg_/n_}, d_wc = {dc_*de_}, d_c = {dc_}, d_e = {de_}")
 
     end = timer()
