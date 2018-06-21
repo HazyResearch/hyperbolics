@@ -80,6 +80,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
         self.verbose   = False
         self.n_cached  = 0
         self.Z         = Z
+        self.nbr_frac  = 0.9 # fill up this proportion of samples with neighbors
         logging.info(self)
 
     def __getitem__(self, index):
@@ -94,7 +95,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
                 self.idx_cache[index,cur,1] = int(e)
                 self.val_cache[index,cur] = self.scale
                 cur += 1
-                if cur >= self.subsample: break
+                if cur >= self.nbr_frac * self.subsample: break
 
             scratch   = np.array(range(self.n))
             np.random.shuffle(scratch)
@@ -112,6 +113,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
             self.n_cached += 1
             if self.n_cached % (max(self.n//20,1)) == 0: logging.info(f"\t Cached {self.n_cached} of {self.n}")
 
+        # print("GraphRowSubSampler: idx shape ", self.idx_cache[index,:].size())
         return (self.idx_cache[index,:], self.val_cache[index,:])
 
     def __len__(self): return self.n
@@ -169,8 +171,8 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
                 else:
                     bad         += 1
             _count += len(v)
-            if n_rows_sampled*n < _count:
-                logging.info(f"\t\t Completed {n} {n_rows_sampled} {_count} good={good} bad={bad}")
+            if n_rows_sampled*(n-1) <= _count:
+                logging.info(f"\t\t Completed {n_rows_sampled}/{n} edges={_count} good={good} bad={bad}")
                 break
         avg_dist     = avg/good if good > 0 else 0
         dist_wc      = me*mc
@@ -179,7 +181,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
 
         # sample for rows
         shuffled     = list(range(n))
-        #np.random.shuffle(shuffled)
+        np.random.shuffle(shuffled)
         mm = 0
         for i in shuffled[0:n_rows_sampled]:
             h_rec      = m.dist_row(i).cpu().data.numpy()

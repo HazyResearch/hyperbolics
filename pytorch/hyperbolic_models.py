@@ -114,6 +114,7 @@ class Hyperbolic_Emb(nn.Module):
 
     def loss(self, _x):
         idx, values = _x
+        # print("idx shape: ", idx.size(), "values shape: ", values.size())
         wi = torch.index_select(self.w, 0, idx[:,0])
         wj = torch.index_select(self.w, 0, idx[:,1])
         _scale = 1+torch.clamp(self.scale,self.lo_scale,self.hi_scale)
