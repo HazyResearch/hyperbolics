@@ -115,6 +115,58 @@ function place_children_codes(dim, c, use_sp, sp, Gen_matrices)
 end
 
 
+# placing a huge number of children. this is only for the case where the coding-theoretic
+# approach fails (since the # of children c > dim) and the number is large enough to 
+# slow down the place_on_sphere function below. this function places children on
+# faces of the hypercube, e.g., smaller-dimensional hypercubes. this can be viewed as a 
+# simpler, faster, but less sharp version of the sphere placing algorithm below
+function place_many_children(dim, c, use_sp, sp)
+    points = zeros(BigFloat, c, dim)
+
+    # number of hyperfaces we can work with:
+    n_faces     = 2*dim
+    n_chil_face = ceil((c+1)/(2*dim))
+    gap         = 2/(n_chil_face^(1/(dim-1))+1)
+
+    b = Int32(ceil(n_chil_face^(1/(dim-1))))
+
+    face = 1
+    idx  = 0
+
+    for i=0:c-1
+        if idx == n_chil_face
+            face += 1
+            idx = 0
+        end
+
+        indexes = digits(i,b,dim-1)
+        pos = -big(1.0) .+ gap .+ indexes.*gap
+
+        # we need to put in the last position:
+        f = Int32(ceil(face/2))
+
+        if f == 0
+            points[i+1, 2:dim] = pos
+        elseif f == n_faces
+            points[i+1, 1:dim-1] = pos
+        else
+            points[i+1, 1:f-1] = pos[1:f-1]
+            points[i+1, f+1:dim] = pos[f:dim-1]
+        end
+
+        points[i+1, f] = (-1)^(face - 2*f) * big(1.0)
+        idx += 1
+    end
+
+    # rotate to match the parent, if we need to
+    if use_sp == true
+        points = rotate_points(points, sp, dim, c)
+    end
+
+    return points
+end
+
+
 # algorithm to place a set of points uniformly on the n-dimensional unit sphere
 #  see: http://www02.smt.ufrj.br/~eduardo/papers/ri15.pdf
 #  the idea is to try to tile the surface of the sphere with hypercubes
