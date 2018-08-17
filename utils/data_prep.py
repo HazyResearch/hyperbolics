@@ -3,7 +3,7 @@ import networkx as nx
 import scipy as sp
 import numpy as np
 
-from Bio import Phylo
+# from Bio import Phylo
 # import nltk.corpus as nc
 # import utils.word_net_prep as wnp
 
