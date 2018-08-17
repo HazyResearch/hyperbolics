@@ -12,7 +12,7 @@ import graph_helpers as gh
 import mds_warmstart
 import pandas
 from hyperbolic_parameter import Hyperbolic_Parameter
-from hyperbolic_models import Hyperbolic_Emb, dist
+from hyperbolic_models import Hyperbolic_Emb
 
 # This describes a hyperbolic optimizer in Pytorch. It requires two modifications:
 #
@@ -34,14 +34,6 @@ from torch.utils.data import DataLoader, TensorDataset
 
 import numpy as np, math
 import random
-
-# compute marix of non-squard distances
-def dist_matrix(_data):
-    m    = _data.size(0)
-    rets = cudaify( torch.DoubleTensor(m, m).zero_() )
-    for i in range(m):
-        rets[i,:] = dist(_data[i,:].clone().unsqueeze(0).repeat(m,1), _data)
-    return rets
 
 
 #
@@ -164,7 +156,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
             v      = vs.cpu().numpy()
             for i in range(len(v)):
                 if dis.entry_is_good(v[i], v_rec[i]):
-                    (_avg,me,mc) = dis.distortion_entry(v[i]*scale, v_rec[i], me, mc)
+                    (_avg,me,mc) = dis.distortion_entry(v[i], v_rec[i], me, mc)
                     avg         += _avg
                     good        += 1
                 else:
@@ -188,9 +180,8 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
             mm        += 1
         mapscore = map_avg/mm
     else:
-        #H    = Z/scale
-        H    = Z*scale
-        Hrec = dist_matrix(m.w.data).cpu().numpy()
+        H    = Z
+        Hrec = m.dist_matrix().detach().cpu().numpy()
         logging.info("Compare matrices built")
         mc, me, avg_dist, nan_elements = dis.distortion(H, Hrec, n, num_workers)
         dist_wc = me*mc
@@ -198,7 +189,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
 
     logging.info(f"Distortion avg={avg_dist} wc={dist_wc} me={me} mc={mc} nan_elements={nan_elements}")
     logging.info(f"MAP = {mapscore}")
-    logging.info(f"data_scale={scale} scale={m.scale.data[0]}")
+    logging.info(f"data_scale={scale} scale={m.scale().data}")
 
 
 @argh.arg("dataset", help="dataset number")
@@ -283,7 +274,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
     if model_load_file is not None:
         logging.info(f"Loading {model_load_file}...")
         m = cudaify( torch.load(model_load_file) )
-        logging.info(f"Loaded scale {m.scale.data[0]} {torch.sum(m.w.data)} {m.epoch}")
+        logging.info(f"Loaded scale {m.scale().data} {torch.sum(m.H.w.data)} {m.epoch}")
     else:
         logging.info(f"Creating a fresh model warm_start?={warm_start}")
 
@@ -301,7 +292,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
         m       = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale, exponential_rescale=exponential_rescale) )
         m.normalize()
         m.epoch = 0
-    logging.info(f"Constructed model with rank={rank} and epochs={m.epoch} isnan={np.any(np.isnan(m.w.cpu().data.numpy()))}")
+    logging.info(f"Constructed model with rank={rank} and epochs={m.epoch} isnan={np.any(np.isnan(m.H.w.cpu().data.numpy()))}")
 
     #
     # Build the Optimizer
@@ -326,7 +317,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
 
     # Log stats from import: when warmstarting, check that it matches Julia's stats
     logging.info(f"*** Initial Checkpoint. Computing Stats")
-    major_stats(GM,1+m.scale.data[0],n,m, lazy_generation, Z, z)
+    major_stats(GM,1+m.scale().data[0],n,m, lazy_generation, Z, z)
     logging.info("*** End Initial Checkpoint\n")
 
     for i in range(m.epoch, m.epoch+epochs):
@@ -353,9 +344,9 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
                     _loss.backward()
                     l += _loss.item()
                 Hyperbolic_Parameter.correct_metric(m.parameters()) # NB: THIS IS THE NEW CALL
-                # print("Scale before step: ", m.scale.data)
+                # print("Scale before step: ", m.scale().data)
                 opt.step()
-                # print("Scale after step: ", m.scale.data)
+                # print("Scale after step: ", m.scale().data)
                 # Projection
                 m.normalize()
 
@@ -369,10 +360,10 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
             logging.info(f"{i} loss={l}")
         if i % checkpoint_freq == 0:
             logging.info(f"\n*** Major Checkpoint. Computing Stats and Saving")
-            major_stats(GM,1+m.scale.data[0],n,m, True, Z, z)
+            major_stats(GM,1+m.scale().data[0],n,m, True, Z, z)
             if model_save_file is not None:
                 fname = f"{model_save_file}.{m.epoch}"
-                logging.info(f"Saving model into {fname} {torch.sum(m.w.data)} ")
+                logging.info(f"Saving model into {fname} {torch.sum(m.H.w.data)} ")
                 torch.save(m, fname)
             logging.info("*** End Major Checkpoint\n")
         m.epoch += 1
@@ -381,10 +372,10 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
 
     if model_save_file is not None:
         fname = f"{model_save_file}.final"
-        logging.info(f"Saving model into {fname}-final {torch.sum(m.w.data)} {m.scale.data[0]}")
+        logging.info(f"Saving model into {fname}-final {torch.sum(m.H.w.data)} {m.scale().data}")
         torch.save(m, fname)
 
-    major_stats(GM,1+m.scale.data[0], n, m, lazy_generation, Z,z)
+    major_stats(GM,1+m.scale().data[0], n, m, lazy_generation, Z,z)
 
 if __name__ == '__main__':
     _parser = argh.ArghParser()

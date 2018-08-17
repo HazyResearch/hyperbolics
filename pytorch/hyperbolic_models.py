@@ -5,6 +5,8 @@ from torch import nn
 from hyperbolic_parameter import Hyperbolic_Parameter
 import logging
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 #
 # Our models
 #
@@ -73,11 +75,55 @@ def line_dist_sq(_x,y):
 
 class Hyperbolic_Emb(nn.Module):
     def __init__(self, n, d, project=True, initialize=None, learn_scale=False, absolute_loss=False, exponential_rescale=None):
-        super(Hyperbolic_Emb, self).__init__()
+        super().__init__()
         self.n = n
-        self.d = d
         #self.pairs     = n*(n-1)/2.
         self.pairs     = n # Due to sampling, we may not be prop to n/2
+
+        self.H = Embedding(n, d, project, initialize, learn_scale)
+
+        self.absolute_loss = absolute_loss
+        abs_str = "absolute" if self.absolute_loss else "relative"
+
+        self.exponential_rescale = exponential_rescale
+        exp_str = f"Exponential {self.exponential_rescale}" if self.exponential_rescale is not None else "No Rescale"
+        logging.info(f"{abs_str} {exp_str}")
+
+    def step_rescale( self, values ):
+        y = cudaify( torch.ones( values.size() ).double()/(10*self.n) )
+        y[torch.lt( values.data, 5)] = 1.0
+        return Variable(y, requires_grad=False)
+        #return values**(-2)
+
+    def scale(self):
+        return self.H.scale
+
+    def dist(self, idx):
+        return self.H.dist(idx)
+    def dist_row(self, i):
+        return self.H.dist_row(i)
+    def dist_matrix(self):
+        return self.H.dist_matrix()
+
+    def loss(self, _x):
+        idx, values = _x
+        d = self.H.dist(idx)
+
+        #term_rescale = torch.exp( 2*(1.-values) ) if self.exponential_rescale else self.step_rescale(values)
+        term_rescale  = torch.exp( self.exponential_rescale*(1.-values) ) if self.exponential_rescale is not None else 1.0
+        if self.absolute_loss:
+            return torch.sum( term_rescale*( d - values)**2) /self.pairs
+        else:
+            return torch.sum( term_rescale*(d/values - 1)**2 ) / self.pairs
+
+    def normalize(self):
+        self.H.normalize()
+
+
+class Embedding(nn.Module):
+    def __init__(self, n, d, project=True, initialize=None, learn_scale=False):
+        super().__init__()
+        self.d = d
         self.project   = project
         if initialize is not None: logging.info(f"Initializing {np.any(np.isnan(initialize.numpy()))} {initialize.size()} {(n,d)}")
         x      = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None  else torch.DoubleTensor(initialize[0:n,0:d])
@@ -86,25 +132,17 @@ class Hyperbolic_Emb(nn.Module):
         self.learn_scale = learn_scale
         self.lo_scale    = -0.999
         self.hi_scale    = 10.0
-        self.absolute_loss = absolute_loss
-        abs_str = "absolute" if self.absolute_loss else "relative"
-
-        self.exponential_rescale = exponential_rescale
-        exp_str = f"Exponential {self.exponential_rescale}" if self.exponential_rescale is not None else "No Rescale"
-        logging.info(f"{torch.norm(self.w.data - x)} {x.size()} {abs_str} {exp_str}")
-        logging.info(self)
-
-    def step_rescale( self, values ):
-        y = cudaify( torch.ones( values.size() ).double()/(10*self.n) )
-        y[torch.lt( values.data, 5)] = 1.0
-        return Variable(y, requires_grad=False)
-        #return values**(-2)
+        logging.info(f"{self} {torch.norm(self.w.data - x)} {x.size()}")
 
     def dist(self, idx):
+        # print("idx shape: ", idx.size(), "values shape: ", values.size())
         wi = torch.index_select(self.w, 0, idx[:,0])
         wj = torch.index_select(self.w, 0, idx[:,1])
         d = dist(wi,wj)
-        return d / (1+self.scale) # rescale to the size of the true distances matrix
+        _scale = 1+torch.clamp(self.scale,self.lo_scale,self.hi_scale)
+        _s = _scale if self.learn_scale else 1.0
+        # print("loss: scale ", self.scale.data)
+        return d / _s # rescale to the size of the true distances matrix
         # return dist(wi,wj)*(1+self.scale)
 
     def dist_row(self, i):
@@ -112,27 +150,12 @@ class Hyperbolic_Emb(nn.Module):
         return dist(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w) / (1+self.scale)
         # return (1+self.scale)*dist(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w)
 
-    def loss(self, _x):
-        idx, values = _x
-        # print("idx shape: ", idx.size(), "values shape: ", values.size())
-        wi = torch.index_select(self.w, 0, idx[:,0])
-        wj = torch.index_select(self.w, 0, idx[:,1])
-        _scale = 1+torch.clamp(self.scale,self.lo_scale,self.hi_scale)
-        _s = _scale if self.learn_scale else 1.0
-        # print("loss: scale ", self.scale.data)
-
-        #term_rescale = torch.exp( 2*(1.-values) ) if self.exponential_rescale else self.step_rescale(values)
-        term_rescale  = torch.exp( self.exponential_rescale*(1.-values) ) if self.exponential_rescale is not None else 1.0
-        if self.absolute_loss:
-            # _values = values*_scale if self.learn_scale else values
-            _values = values * _s
-            return torch.sum( term_rescale*( dist(wi,wj)/_s - values)**2) /self.pairs
-            # TODO: the below doesn't look right, why is the square outside the sum? also, divide by tau^2 at end
-            return torch.sum( term_rescale*( dist(wi,wj) - _values))**2/self.pairs
-        else:
-            _values = values * _s
-            # return torch.sum( term_rescale*_s*(dist(wi,wj)/values - 1.0)**2/self.pairs )
-            return torch.sum( term_rescale*(dist(wi,wj)/_values - 1)**2 ) / self.pairs
+    def dist_matrix(self):
+        m    = self.w.size(0)
+        rets = torch.zeros(m, m, dtype=torch.double, device=device)
+        for i in range(m):
+            rets[i,:] = self.dist_row(i)
+        return rets
 
     def normalize(self):
         if self.project:
