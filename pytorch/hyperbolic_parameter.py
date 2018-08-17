@@ -9,7 +9,7 @@ import random
 # 1. Improve speed up of projection by making operations in place.
 class Hyperbolic_Parameter(nn.Parameter):
     def __new__(cls, data=None, requires_grad=True, project=True, check_graph=False):
-        ret =  super(nn.Parameter, cls).__new__(cls, data, requires_grad=requires_grad)
+        ret =  super().__new__(cls, data, requires_grad=requires_grad)
         if project: ret.proj()
         ret.project = project
         ret.data    = data
@@ -17,7 +17,7 @@ class Hyperbolic_Parameter(nn.Parameter):
         return ret
 
     def __init__(self, x):
-        super (nn.Parameter, self).__init__(self)
+        super().__init__()
         self.data    = x
 
     def modify_grad_inplace(self):

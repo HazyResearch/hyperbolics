@@ -47,11 +47,10 @@ def dist_matrix(_data):
 #
 # This is the step for training
 #
-def cu_var(x, requires_grad=None, volatile=False):
-    if isinstance(x, list) : return [cu_var(u, requires_grad=requires_grad, volatile=volatile) for u in x]
-    if isinstance(x, tuple): return tuple([cu_var(u, requires_grad=requires_grad, volatile=volatile) for u in list(x)])
-    rg = not volatile if requires_grad is None else requires_grad
-    vx = Variable(x, requires_grad=rg, volatile=volatile)
+def cu_var(x, requires_grad=True):
+    if isinstance(x, list) : return [cu_var(u, requires_grad=requires_grad) for u in x]
+    if isinstance(x, tuple): return tuple([cu_var(u, requires_grad=requires_grad) for u in list(x)])
+    vx = torch.tensor(x, requires_grad=requires_grad)
     return vx.cuda() if torch.cuda.is_available() else vx
 def cudaify(x):            return x.cuda() if torch.cuda.is_available() else x
 
@@ -74,7 +73,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
         self.n         = G.order()
         self.scale     = scale
         self.subsample = subsample
-        self.val_cache = torch.DoubleTensor(self.n,subsample).zero_()
+        self.val_cache = torch.zeros((self.n,subsample), dtype=torch.double)
         self.idx_cache = torch.LongTensor(self.n,subsample,2).zero_()
         self.cache     = set()
         self.verbose   = False
@@ -140,7 +139,7 @@ class GraphRowSampler(torch.utils.data.Dataset):
             h = self.cache[index]
             #logging.info(f"hit {index}")
 
-        idx = torch.LongTensor([ (index, j) for j in range(self.n) if j != index])
+        idx = torch.tensor([ (index, j) for j in range(self.n) if j != index], dtype=torch.long)
         v   = torch.DoubleTensor(h).view(-1)[idx[:,1]]
         return (idx, v)
 
@@ -161,7 +160,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
         _count      = 0
         for u in z:
             index,vs = u
-            v_rec  = m.dist(cu_var(index)).data.cpu().numpy()
+            v_rec  = m.dist(cudaify(index)).data.cpu().numpy()
             v      = vs.cpu().numpy()
             for i in range(len(v)):
                 if dis.entry_is_good(v[i], v_rec[i]):
@@ -352,7 +351,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
                 for u in z:
                     _loss = m.loss(cu_var(u, requires_grad=False))
                     _loss.backward()
-                    l += _loss.data[0]
+                    l += _loss.item()
                 Hyperbolic_Parameter.correct_metric(m.parameters()) # NB: THIS IS THE NEW CALL
                 # print("Scale before step: ", m.scale.data)
                 opt.step()
