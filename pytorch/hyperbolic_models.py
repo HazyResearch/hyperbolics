@@ -48,7 +48,7 @@ class Hyperbolic_Lines(nn.Module):
 def acosh(x):
     return torch.log(x + torch.sqrt(x**2-1))
 
-def dist(u,v):
+def dist_h(u,v):
     z  = 2*torch.norm(u-v,2,1)**2
     uu = 1. + torch.div(z,((1-torch.norm(u,2,1)**2)*(1-torch.norm(v,2,1)**2)))
     # machine_eps = np.finfo(uu.data.numpy().dtype).eps  # problem with cuda tensor
@@ -80,7 +80,7 @@ class Hyperbolic_Emb(nn.Module):
         #self.pairs     = n*(n-1)/2.
         self.pairs     = n # Due to sampling, we may not be prop to n/2
 
-        self.H = Embedding(n, d, project, initialize, learn_scale)
+        self.H = Embedding(dist_h, n, d, project, initialize, learn_scale)
 
         self.scale_params = [self.H.scale_log] if learn_scale else []
         self.embed_params = [self.H.w]
@@ -101,8 +101,8 @@ class Hyperbolic_Emb(nn.Module):
     def scale(self):
         return self.H.scale()
 
-    def dist(self, idx):
-        return self.H.dist(idx)
+    def dist_idx(self, idx):
+        return self.H.dist_idx(idx)
     def dist_row(self, i):
         return self.H.dist_row(i)
     def dist_matrix(self):
@@ -110,7 +110,7 @@ class Hyperbolic_Emb(nn.Module):
 
     def loss(self, _x):
         idx, values = _x
-        d = self.H.dist(idx)
+        d = self.dist_idx(idx)
 
         #term_rescale = torch.exp( 2*(1.-values) ) if self.exponential_rescale else self.step_rescale(values)
         term_rescale  = torch.exp( self.exponential_rescale*(1.-values) ) if self.exponential_rescale is not None else 1.0
@@ -124,9 +124,10 @@ class Hyperbolic_Emb(nn.Module):
 
 
 class Embedding(nn.Module):
-    def __init__(self, n, d, project=True, initialize=None, learn_scale=False):
+    def __init__(self, dist_fn, n, d, project=True, initialize=None, learn_scale=False):
         super().__init__()
-        self.d = d
+        self.dist_fn = dist_fn
+        self.n, self.d = n, d
         self.project   = project
         if initialize is not None: logging.info(f"Initializing {np.any(np.isnan(initialize.numpy()))} {initialize.size()} {(n,d)}")
         x      = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None  else torch.DoubleTensor(initialize[0:n,0:d])
@@ -134,7 +135,7 @@ class Embedding(nn.Module):
         z =  torch.tensor([0.0], dtype=torch.double)
         if learn_scale:
             self.scale_log       = nn.Parameter(torch.tensor([0.0], dtype=torch.double))
-            self.scale_log.register_hook(lambda grad: torch.clamp(grad, -0.1, 0.1))
+            self.scale_log.register_hook(lambda grad: torch.clamp(grad, -1.0, 1.0))
         else:
             self.scale_log       = torch.tensor([0.0], dtype=torch.double, device=device)
         self.learn_scale = learn_scale
@@ -149,19 +150,19 @@ class Embedding(nn.Module):
         # scale = scale if self.learn_scale else 1.0
         return scale
 
-    def dist(self, idx):
+    def dist_idx(self, idx):
         # print("idx shape: ", idx.size(), "values shape: ", values.size())
         wi = torch.index_select(self.w, 0, idx[:,0])
         wj = torch.index_select(self.w, 0, idx[:,1])
-        d = dist(wi,wj)
+        d = self.dist_fn(wi,wj)
         # print("loss: scale ", self.scale.data)
         return d / self.scale() # rescale to the size of the true distances matrix
-        # return dist(wi,wj)*(1+self.scale)
+        # return self.dist_fn(wi,wj)*(1+self.scale)
 
     def dist_row(self, i):
         m = self.w.size(0)
-        return dist(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w) / self.scale()
-        # return (1+self.scale)*dist(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w)
+        return self.dist_fn(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w) / self.scale()
+        # return (1+self.scale)*self.dist_fn(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w)
 
     def dist_matrix(self):
         m    = self.w.size(0)

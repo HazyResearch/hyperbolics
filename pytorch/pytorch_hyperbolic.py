@@ -1,24 +1,27 @@
-
 import logging, argh
 import os, sys
-
-root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, root_dir)
-
-# Data prep.
-#import utils.data_prep as data_prep
-import utils.load_graph as load_graph
-import utils.vis as vis
 import networkx as nx
 import scipy
 import scipy.sparse.csgraph as csg
+import pandas
+import numpy as np, math
+import matplotlib.pyplot as plt
+import random
+
+import torch
+from torch import nn
+from torch.autograd import Variable
+from torch.utils.data import DataLoader, TensorDataset
+
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, root_dir)
+import utils.load_graph as load_graph
+import utils.vis as vis
 import utils.distortions as dis
 import graph_helpers as gh
 import mds_warmstart
-import pandas
-import matplotlib.pyplot as plt
-from hyperbolic_parameter import Hyperbolic_Parameter
 from hyperbolic_models import Hyperbolic_Emb
+from hyperbolic_parameter import Hyperbolic_Parameter
 
 
 # This describes a hyperbolic optimizer in Pytorch. It requires two modifications:
@@ -34,13 +37,6 @@ from hyperbolic_models import Hyperbolic_Emb
 #  * The step function below can be used pretty generically.
 
 
-import torch
-from torch import nn
-from torch.autograd import Variable
-from torch.utils.data import DataLoader, TensorDataset
-
-import numpy as np, math
-import random
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -161,7 +157,7 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
         _count      = 0
         for u in z:
             index,vs = u
-            v_rec  = m.dist(cudaify(index)).data.cpu().numpy()
+            v_rec  = m.dist_idx(cudaify(index)).data.cpu().numpy()
             v      = vs.cpu().numpy()
             for i in range(len(v)):
                 if dis.entry_is_good(v[i], v_rec[i]):
