@@ -35,6 +35,8 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np, math
 import random
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 #
 # This is the step for training
@@ -44,7 +46,7 @@ def cu_var(x, requires_grad=True):
     if isinstance(x, tuple): return tuple([cu_var(u, requires_grad=requires_grad) for u in list(x)])
     vx = torch.tensor(x, requires_grad=requires_grad)
     return vx.cuda() if torch.cuda.is_available() else vx
-def cudaify(x):            return x.cuda() if torch.cuda.is_available() else x
+def cudaify(x): return x.to(device)
 
 def step(hm, opt, data):
     hm.train(True)
@@ -143,7 +145,7 @@ class GraphRowSampler(torch.utils.data.Dataset):
 #
 # DATA Diagnostics
 #
-def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_workers=16):
+def major_stats(G, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_workers=16):
     m.train(False)
     if lazy_generation:
         logging.info(f"\t Computing Major Stats lazily... ")
@@ -189,7 +191,7 @@ def major_stats(G, scale, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_wo
 
     logging.info(f"Distortion avg={avg_dist} wc={dist_wc} me={me} mc={mc} nan_elements={nan_elements}")
     logging.info(f"MAP = {mapscore}")
-    logging.info(f"data_scale={scale} scale={m.scale().data}")
+    logging.info(f"scale={m.scale().detach().cpu().numpy()} log={m.H.scale_log.detach().cpu().numpy()}")
 
 
 @argh.arg("dataset", help="dataset number")
@@ -298,26 +300,32 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
     # Build the Optimizer
     #
     # TODO: Redo this in a sensible way!!
-    #
-    opt = torch.optim.SGD(m.parameters(), lr=learning_rate)
+
+    # per-parameter learning rates
+    scale_params = {'params': m.H.scale_log, 'lr': 1e-4*learning_rate}
+    emb_params   = {'params': m.H.w}
+    model_params = [scale_params, emb_params]
+
+    opt = torch.optim.SGD(model_params, lr=learning_rate)
     if use_yellowfin:
         from yellowfin import YFOptimizer
-        opt = YFOptimizer(m.parameters())
+        opt = YFOptimizer(model_params)
 
     if use_adagrad:
-        opt = torch.optim.Adagrad(m.parameters())
+        opt = torch.optim.Adagrad(model_params)
 
     if use_svrg:
         from svrg import SVRG
         base_opt = torch.optim.Adagrad if use_adagrad else torch.optim.SGD
         opt      = SVRG(m.parameters(), lr=learning_rate, T=T, data_loader=z, opt=base_opt)
+        # TODO add ability for SVRG to take parameter groups
 
 
     logging.info(opt)
 
     # Log stats from import: when warmstarting, check that it matches Julia's stats
     logging.info(f"*** Initial Checkpoint. Computing Stats")
-    major_stats(GM,1+m.scale().data[0],n,m, lazy_generation, Z, z)
+    major_stats(GM,n,m, lazy_generation, Z, z)
     logging.info("*** End Initial Checkpoint\n")
 
     for i in range(m.epoch, m.epoch+epochs):
@@ -360,7 +368,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
             logging.info(f"{i} loss={l}")
         if i % checkpoint_freq == 0:
             logging.info(f"\n*** Major Checkpoint. Computing Stats and Saving")
-            major_stats(GM,1+m.scale().data[0],n,m, True, Z, z)
+            major_stats(GM,n,m, True, Z, z)
             if model_save_file is not None:
                 fname = f"{model_save_file}.{m.epoch}"
                 logging.info(f"Saving model into {fname} {torch.sum(m.H.w.data)} ")
@@ -375,7 +383,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
         logging.info(f"Saving model into {fname}-final {torch.sum(m.H.w.data)} {m.scale().data}")
         torch.save(m, fname)
 
-    major_stats(GM,1+m.scale().data[0], n, m, lazy_generation, Z,z)
+    major_stats(GM, n, m, lazy_generation, Z,z)
 
 if __name__ == '__main__':
     _parser = argh.ArghParser()

@@ -96,7 +96,7 @@ class Hyperbolic_Emb(nn.Module):
         #return values**(-2)
 
     def scale(self):
-        return self.H.scale
+        return self.H.scale()
 
     def dist(self, idx):
         return self.H.dist(idx)
@@ -128,26 +128,35 @@ class Embedding(nn.Module):
         if initialize is not None: logging.info(f"Initializing {np.any(np.isnan(initialize.numpy()))} {initialize.size()} {(n,d)}")
         x      = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None  else torch.DoubleTensor(initialize[0:n,0:d])
         self.w = Hyperbolic_Parameter(x)
-        self.scale       = nn.Parameter( torch.DoubleTensor([0.0]))
+        z =  torch.tensor([0.0], dtype=torch.double)
+        if learn_scale:
+            self.scale_log       = nn.Parameter(torch.tensor([0.0], dtype=torch.double))
+            self.scale_log.register_hook(lambda grad: torch.clamp(grad, -1.0, 1.0))
+        else:
+            self.scale_log       = torch.tensor([0.0], dtype=torch.double, device=device)
         self.learn_scale = learn_scale
-        self.lo_scale    = -0.999
-        self.hi_scale    = 10.0
+        self.scale_clamp       = 3.0
         logging.info(f"{self} {torch.norm(self.w.data - x)} {x.size()}")
+
+    def scale(self):
+        # print(self.scale_log.type(), self.lo_scale.type(), self.hi_scale.type())
+        # scale = torch.exp(torch.clamp(self.scale_log, -self.thres, self.thres))
+        scale = torch.exp(self.scale_log.tanh()*self.scale_clamp)
+        # scale = scale if self.learn_scale else 1.0
+        return scale
 
     def dist(self, idx):
         # print("idx shape: ", idx.size(), "values shape: ", values.size())
         wi = torch.index_select(self.w, 0, idx[:,0])
         wj = torch.index_select(self.w, 0, idx[:,1])
         d = dist(wi,wj)
-        _scale = 1+torch.clamp(self.scale,self.lo_scale,self.hi_scale)
-        _s = _scale if self.learn_scale else 1.0
         # print("loss: scale ", self.scale.data)
-        return d / _s # rescale to the size of the true distances matrix
+        return d / self.scale() # rescale to the size of the true distances matrix
         # return dist(wi,wj)*(1+self.scale)
 
     def dist_row(self, i):
         m = self.w.size(0)
-        return dist(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w) / (1+self.scale)
+        return dist(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w) / self.scale()
         # return (1+self.scale)*dist(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w)
 
     def dist_matrix(self):
@@ -161,4 +170,5 @@ class Embedding(nn.Module):
         if self.project:
             self.w.proj()
             # print("normalize: scale ", self.scale.data)
-            self.scale.data = torch.clamp(self.scale.data,self.lo_scale, self.hi_scale)
+            # print(type(self.scale_log), self.scale_log.type())
+            # self.scale_log = torch.clamp(self.scale_log, self.lo_scale, self.hi_scale)
