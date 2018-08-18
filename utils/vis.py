@@ -9,6 +9,7 @@ import torch
 
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 from matplotlib.patches import Circle, Wedge, Polygon
 from matplotlib.collections import PatchCollection
 from matplotlib import patches
@@ -122,17 +123,21 @@ def draw_graph(G, m, fig, ax):
     Gr = nx.from_scipy_sparse_matrix(G)
     for edge in Gr.edges():
         idx = torch.LongTensor([edge[0], edge[1]])
-        a = ((torch.index_select(m.w, 0, idx[0])).clone()).detach().numpy()[0]
-        b = ((torch.index_select(m.w, 0, idx[1])).clone()).detach().numpy()[0]
+        a = ((torch.index_select(m.H.w, 0, idx[0])).clone()).detach().numpy()[0]
+        b = ((torch.index_select(m.H.w, 0, idx[1])).clone()).detach().numpy()[0]
         c = get_third_point(a,b)
         draw_geodesic(a,b,c,ax)
 
 def setup_plot(draw_circle=False):
     # create plot
     fig, ax = plt.subplots()
+    writer = animation.ImageMagickFileWriter(fps=10, metadata=dict(artist='HazyResearch'), bitrate=1800)
+    writer.setup(fig, 'HypDistances.gif', dpi=100)
+
     if draw_circle:
         hyperbolic_setup(fig, ax)
-    return fig, ax
+    return fig, ax, writer
+
 
 def hyperbolic_setup(fig, ax):
     fig.set_size_inches(10.0, 10.0, forward=True)

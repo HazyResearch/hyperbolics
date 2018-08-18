@@ -1,9 +1,14 @@
 
 import logging, argh
-import sys
+import os, sys
+
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, root_dir)
+
 # Data prep.
 #import utils.data_prep as data_prep
 import utils.load_graph as load_graph
+import utils.vis as vis
 import networkx as nx
 import scipy
 import scipy.sparse.csgraph as csg
@@ -11,8 +16,10 @@ import utils.distortions as dis
 import graph_helpers as gh
 import mds_warmstart
 import pandas
+import matplotlib.pyplot as plt
 from hyperbolic_parameter import Hyperbolic_Parameter
 from hyperbolic_models import Hyperbolic_Emb
+
 
 # This describes a hyperbolic optimizer in Pytorch. It requires two modifications:
 #
@@ -145,7 +152,7 @@ class GraphRowSampler(torch.utils.data.Dataset):
 #
 # DATA Diagnostics
 #
-def major_stats(G, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_workers=16):
+def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_rows_sampled=250, num_workers=16):
     m.train(False)
     if lazy_generation:
         logging.info(f"\t Computing Major Stats lazily... ")
@@ -189,6 +196,16 @@ def major_stats(G, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_workers=1
         dist_wc = me*mc
         mapscore = dis.map_score(scipy.sparse.csr_matrix.todense(G).A, Hrec, n, num_workers)
 
+    if visualize:
+        plt.cla()
+        #vis.clear_plot()
+        vis.draw_graph(G,m,fig, ax)
+        plt.text(0.70, 1.1, "Epoch "+str(m.epoch), fontsize=20)
+        plt.text(0.70, 1.0, "MAP "+str(mapscore)[0:5], fontsize=20)
+        #plt.pause(0.1)
+        fig.set_size_inches(10.0, 10.0, forward=True)
+        writer.grab_frame()
+
     logging.info(f"Distortion avg={avg_dist} wc={dist_wc} me={me} mc={mc} nan_elements={nan_elements}")
     logging.info(f"MAP = {mapscore}")
     logging.info(f"scale={m.scale().detach().cpu().numpy()} log={m.H.scale_log.detach().cpu().numpy()}")
@@ -219,10 +236,11 @@ def major_stats(G, n, m, lazy_generation, Z,z, n_rows_sampled=250, num_workers=1
 @argh.arg("--use-svrg", help="Use SVRG")
 @argh.arg("-T", help="SVRG T parameter")
 @argh.arg("--use-hmds", help="Use MDS warmstart")
+@argh.arg("--visualize", help="Produce an animation (rank 2 only)")
 def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
           use_yellowfin=False, use_adagrad=False, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
           num_workers=None, lazy_generation=False, log_name=None, warm_start=None, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None,
-          exponential_rescale=None, extra_steps=1, use_svrg=False, T=10, use_hmds=False):
+          exponential_rescale=None, extra_steps=1, use_svrg=False, T=10, use_hmds=False, visualize=False):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
@@ -239,6 +257,13 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
     if model_save_file is None: logging.warn("No Model Save selected!")
     G  = load_graph.load_graph(dataset)
     GM = nx.to_scipy_sparse_matrix(G)
+
+    if visualize:
+        fig, ax, writer = vis.setup_plot(draw_circle=True)
+    else:
+        fig = None
+        ax = None
+        writer = None
 
     # grab scale if warm starting:
     if warm_start:
@@ -325,7 +350,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
 
     # Log stats from import: when warmstarting, check that it matches Julia's stats
     logging.info(f"*** Initial Checkpoint. Computing Stats")
-    major_stats(GM,n,m, lazy_generation, Z, z)
+    major_stats(GM,n,m, lazy_generation, Z, z, fig, ax, writer, visualize)
     logging.info("*** End Initial Checkpoint\n")
 
     for i in range(m.epoch, m.epoch+epochs):
@@ -368,7 +393,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
             logging.info(f"{i} loss={l}")
         if i % checkpoint_freq == 0:
             logging.info(f"\n*** Major Checkpoint. Computing Stats and Saving")
-            major_stats(GM,n,m, True, Z, z)
+            major_stats(GM,n,m, True, Z, z, fig, ax, writer, visualize)
             if model_save_file is not None:
                 fname = f"{model_save_file}.{m.epoch}"
                 logging.info(f"Saving model into {fname} {torch.sum(m.H.w.data)} ")
@@ -377,13 +402,15 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
         m.epoch += 1
 
     logging.info(f"final loss={l}")
+    if visualize:
+        writer.finish()
 
     if model_save_file is not None:
         fname = f"{model_save_file}.final"
         logging.info(f"Saving model into {fname}-final {torch.sum(m.H.w.data)} {m.scale().data}")
         torch.save(m, fname)
 
-    major_stats(GM, n, m, lazy_generation, Z,z)
+    major_stats(GM, n, m, lazy_generation, Z,z, fig, ax, writer, False)
 
 if __name__ == '__main__':
     _parser = argh.ArghParser()
