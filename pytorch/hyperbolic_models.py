@@ -82,6 +82,9 @@ class Hyperbolic_Emb(nn.Module):
 
         self.H = Embedding(n, d, project, initialize, learn_scale)
 
+        self.scale_params = [self.H.scale_log] if learn_scale else []
+        self.embed_params = [self.H.w]
+
         self.absolute_loss = absolute_loss
         abs_str = "absolute" if self.absolute_loss else "relative"
 
@@ -131,7 +134,7 @@ class Embedding(nn.Module):
         z =  torch.tensor([0.0], dtype=torch.double)
         if learn_scale:
             self.scale_log       = nn.Parameter(torch.tensor([0.0], dtype=torch.double))
-            self.scale_log.register_hook(lambda grad: torch.clamp(grad, -1.0, 1.0))
+            self.scale_log.register_hook(lambda grad: torch.clamp(grad, -0.1, 0.1))
         else:
             self.scale_log       = torch.tensor([0.0], dtype=torch.double, device=device)
         self.learn_scale = learn_scale
@@ -141,7 +144,8 @@ class Embedding(nn.Module):
     def scale(self):
         # print(self.scale_log.type(), self.lo_scale.type(), self.hi_scale.type())
         # scale = torch.exp(torch.clamp(self.scale_log, -self.thres, self.thres))
-        scale = torch.exp(self.scale_log.tanh()*self.scale_clamp)
+        # scale = torch.exp(self.scale_log.tanh()*self.scale_clamp)
+        scale = torch.exp(self.scale_log)
         # scale = scale if self.learn_scale else 1.0
         return scale
 

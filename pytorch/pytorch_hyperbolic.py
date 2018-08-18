@@ -327,9 +327,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
     # TODO: Redo this in a sensible way!!
 
     # per-parameter learning rates
-    scale_params = {'params': m.H.scale_log, 'lr': 1e-4*learning_rate}
-    emb_params   = {'params': m.H.w}
-    model_params = [scale_params, emb_params]
+    model_params = [{'params': m.embed_params}, {'params': m.scale_params, 'lr': 1e-4*learning_rate}]
 
     opt = torch.optim.SGD(model_params, lr=learning_rate)
     if use_yellowfin:
