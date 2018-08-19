@@ -112,7 +112,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
             if self.verbose: logging.info(f"\t neighbors={neighbors} {self.idx_cache[index,:,1].numpy().T}")
             self.cache.add(index)
             self.n_cached += 1
-            if self.n_cached % (max(self.n//20,1)) == 0: logging.info(f"\t Cached {self.n_cached} of {self.n}")
+            # if self.n_cached % (max(self.n//20,1)) == 0: logging.info(f"\t Cached {self.n_cached} of {self.n}")
 
         # print("GraphRowSubSampler: idx shape ", self.idx_cache[index,:].size())
         return (self.idx_cache[index,:], self.val_cache[index,:])
@@ -159,18 +159,21 @@ def build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, num_
     n = G.order()
     Z = None
 
+    if subsample is not None and subsample <= 0:
+        subsample = n-1
+
     if lazy_generation:
         if subsample is not None:
-            z = DataLoader(GraphRowSubSampler(G, scale, subsample), batch_size, shuffle=True, collate_fn=collate)
+            z = DataLoader(GraphRowSubSampler(G, scale, subsample), batch_size//subsample, shuffle=True, collate_fn=collate)
         else:
-            z = DataLoader(GraphRowSampler(G, scale), batch_size, shuffle=True, collate_fn=collate)
+            z = DataLoader(GraphRowSampler(G, scale), batch_size//(n-1), shuffle=True, collate_fn=collate)
         logging.info("Built Data Sampler")
     else:
         Z   = gh.build_distance(G, scale, num_workers=int(num_workers) if num_workers is not None else 16)   # load the whole matrix
         logging.info(f"Built distance matrix with {scale} factor")
 
         if subsample is not None:
-            z = DataLoader(GraphRowSubSampler(G, scale, subsample,Z=Z), batch_size, shuffle=True, collate_fn=collate)
+            z = DataLoader(GraphRowSubSampler(G, scale, subsample,Z=Z), batch_size//subsample, shuffle=True, collate_fn=collate)
         else:
             idx       = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
             Z_sampled = gh.dist_sample_rebuild_pos_neg(Z, sample) if sample < 1 else Z
@@ -255,7 +258,7 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
 @argh.arg("--print-freq", help="print loss this every this number of steps")
 @argh.arg("--model-save-file", help="Save model file")
 @argh.arg("--model-load-file", help="Load model file")
-@argh.arg("--batch-size", help="Batch size")
+@argh.arg("--batch-size", help="Batch size (number of edges)")
 @argh.arg("--num-workers", help="Number of workers for loading. Default is to use all cores")
 @argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
 @argh.arg("--subsample", type=int, help="Number of edges per row to subsample")
