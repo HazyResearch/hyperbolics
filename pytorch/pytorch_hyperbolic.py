@@ -74,9 +74,9 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
         self.graph     = nx.to_scipy_sparse_matrix(G)
         self.n         = G.order()
         self.scale     = scale
-        self.subsample = subsample
-        self.val_cache = torch.zeros((self.n,subsample), dtype=torch.double)
-        self.idx_cache = torch.LongTensor(self.n,subsample,2).zero_()
+        self.subsample = subsample if subsample > 0 else self.n-1
+        self.val_cache = torch.zeros((self.n,self.subsample), dtype=torch.double)
+        self.idx_cache = torch.LongTensor(self.n,self.subsample,2).zero_()
         self.cache     = set()
         self.verbose   = False
         self.n_cached  = 0
@@ -149,6 +149,37 @@ class GraphRowSampler(torch.utils.data.Dataset):
 
     def __repr__(self):
         return f"DATA: {self.n} points with scale {self.scale}"
+
+
+def collate(ls):
+    x, y = zip(*ls)
+    return torch.cat(x), torch.cat(y)
+
+def build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, num_workers):
+    n = G.order()
+    Z = None
+
+    if lazy_generation:
+        if subsample is not None:
+            z = DataLoader(GraphRowSubSampler(G, scale, subsample), batch_size, shuffle=True, collate_fn=collate)
+        else:
+            z = DataLoader(GraphRowSampler(G, scale), batch_size, shuffle=True, collate_fn=collate)
+        logging.info("Built Data Sampler")
+    else:
+        Z   = gh.build_distance(G, scale, num_workers=int(num_workers) if num_workers is not None else 16)   # load the whole matrix
+        logging.info(f"Built distance matrix with {scale} factor")
+
+        if subsample is not None:
+            z = DataLoader(GraphRowSubSampler(G, scale, subsample,Z=Z), batch_size, shuffle=True, collate_fn=collate)
+        else:
+            idx       = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
+            Z_sampled = gh.dist_sample_rebuild_pos_neg(Z, sample) if sample < 1 else Z
+            vals      = torch.DoubleTensor([Z_sampled[i,j] for i in range(n) for j in range(i+1, n)])
+            z         = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True, pin_memory=torch.cuda.is_available())
+        logging.info("Built data loader")
+
+    return Z, z
+
 
 #
 # DATA Diagnostics
@@ -227,7 +258,7 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
 @argh.arg("--batch-size", help="Batch size")
 @argh.arg("--num-workers", help="Number of workers for loading. Default is to use all cores")
 @argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
-@argh.arg("--subsample", type=int, help="Number of edges to subsample")
+@argh.arg("--subsample", type=int, help="Number of edges per row to subsample")
 @argh.arg("--log-name", help="Log to a file")
 @argh.arg("-w", "--warm-start", help="Warm start the model with MDS")
 @argh.arg("--learn-scale", help="Learn scale")
@@ -274,31 +305,7 @@ def learn(dataset, rank=2, hyp=1, scale=1., learning_rate=1e-1, tol=1e-8, epochs
     n = G.order()
     logging.info(f"Loaded Graph {dataset} with {n} nodes scale={scale}")
 
-    Z = None
-
-    def collate(ls):
-        x, y = zip(*ls)
-        return torch.cat(x), torch.cat(y)
-
-    if lazy_generation:
-        if subsample is not None:
-            z = DataLoader(GraphRowSubSampler(G, scale, subsample), batch_size, shuffle=True, collate_fn=collate)
-        else:
-            z = DataLoader(GraphRowSampler(G, scale), batch_size, shuffle=True, collate_fn=collate)
-        logging.info("Built Data Sampler")
-    else:
-        Z   = gh.build_distance(G, scale, num_workers=int(num_workers) if num_workers is not None else 16)   # load the whole matrix
-        logging.info(f"Built distance matrix with {scale} factor")
-
-        if subsample is not None:
-            z = DataLoader(GraphRowSubSampler(G, scale, subsample,Z=Z), batch_size, shuffle=True, collate_fn=collate)
-        else:
-            idx       = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
-            Z_sampled = gh.dist_sample_rebuild_pos_neg(Z, sample) if sample < 1 else Z
-            vals      = torch.DoubleTensor([Z_sampled[i,j] for i in range(n) for j in range(i+1, n)])
-            z         = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True, pin_memory=torch.cuda.is_available())
-        logging.info("Built data loader")
-
+    Z, z = build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, num_workers)
 
     if model_load_file is not None:
         logging.info(f"Loading {model_load_file}...")
