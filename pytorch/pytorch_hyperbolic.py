@@ -267,6 +267,7 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
 @argh.arg("--sample", help="Sample the distance matrix")
 @argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
 @argh.arg("--subsample", type=int, help="Number of edges per row to subsample")
+@argh.arg("--resample-freq", type=int, help="Resample data frequency (expensive)")
 # logging and saving
 @argh.arg("--print-freq", help="Print loss this every this number of steps")
 @argh.arg("--checkpoint-freq", help="Checkpoint Frequency (Expensive)")
@@ -279,7 +280,7 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
 @argh.arg("-e", "--exponential-rescale", type=float, help="Exponential Rescale")
 @argh.arg("--visualize", help="Produce an animation (rank 2 only)")
 def learn(dataset, rank=2, hyp=1, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
-          use_yellowfin=False, use_adagrad=False, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
+          use_yellowfin=False, use_adagrad=False, resample_freq=100, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
           num_workers=None, lazy_generation=False, log_name=None, warm_start=None, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None,
           exponential_rescale=None, extra_steps=1, use_svrg=False, T=10, use_hmds=False, visualize=False):
     # Log configuration
@@ -415,6 +416,9 @@ def learn(dataset, rank=2, hyp=1, scale=1., learning_rate=1e-1, tol=1e-8, epochs
                 logging.info(f"Saving model into {fname} {torch.sum(m.embedding().data)} ")
                 torch.save(m, fname)
             logging.info("*** End Major Checkpoint\n")
+        if i % resample_freq == 0:
+            if sample < 1. or subsample is not None:
+                Z, z = build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, num_workers)
 
     logging.info(f"final loss={l}")
     if visualize:
