@@ -74,16 +74,16 @@ def line_dist_sq(_x,y):
     return torch.norm(y - torch.diag(dot(x,y)*norm_x)@x,2,1)**2
 
 class Hyperbolic_Emb(nn.Module):
-    def __init__(self, n, d, project=True, initialize=None, learn_scale=False, absolute_loss=False, exponential_rescale=None):
+    def __init__(self, n, d, copies=1, project=True, initialize=None, learn_scale=False, absolute_loss=False, exponential_rescale=None):
         super().__init__()
         self.n = n
         #self.pairs     = n*(n-1)/2.
         self.pairs     = n # Due to sampling, we may not be prop to n/2
 
-        self.H = Embedding(dist_h, n, d, project, initialize, learn_scale)
+        self.H = nn.ModuleList([Embedding(dist_h, n, d, project, initialize, learn_scale) for _ in range(copies)])
 
-        self.scale_params = [self.H.scale_log] if learn_scale else []
-        self.embed_params = [self.H.w]
+        self.scale_params = [H.scale_log for H in self.H] if learn_scale else []
+        self.embed_params = [H.w for H in self.H]
 
         self.absolute_loss = absolute_loss
         abs_str = "absolute" if self.absolute_loss else "relative"
@@ -98,15 +98,18 @@ class Hyperbolic_Emb(nn.Module):
         return Variable(y, requires_grad=False)
         #return values**(-2)
 
+    def embedding(self):
+        return torch.stack([H.w for H in self.H], dim=0)
+
     def scale(self):
-        return self.H.scale()
+        return [H.scale() for H in self.H]
 
     def dist_idx(self, idx):
-        return self.H.dist_idx(idx)
+        return sum([H.dist_idx(idx) for H in self.H])
     def dist_row(self, i):
-        return self.H.dist_row(i)
+        return sum([H.dist_row(i) for H in self.H])
     def dist_matrix(self):
-        return self.H.dist_matrix()
+        return sum([H.dist_matrix() for H in self.H])
 
     def loss(self, _x):
         idx, values = _x
@@ -120,7 +123,8 @@ class Hyperbolic_Emb(nn.Module):
             return torch.sum( term_rescale*(d/values - 1)**2 ) / self.pairs
 
     def normalize(self):
-        self.H.normalize()
+        for H in self.H:
+            H.normalize()
 
 
 class Embedding(nn.Module):

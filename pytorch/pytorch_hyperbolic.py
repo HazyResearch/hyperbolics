@@ -62,6 +62,11 @@ def step(hm, opt, data):
     hm.normalize()
     return loss
 
+def unwrap(x):
+    """ Extract the numbers from (sequences of) pytorch tensors """
+    if isinstance(x, list) : return [unwrap(u) for u in x]
+    if isinstance(x, tuple): return tuple([unwrap(u) for u in list(x)])
+    return x.detach().cpu().numpy()
 
 class GraphRowSubSampler(torch.utils.data.Dataset):
     def __init__(self, G, scale, subsample, Z=None):
@@ -204,11 +209,12 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
 
     logging.info(f"Distortion avg={avg_dist} wc={dist_wc} me={me} mc={mc} nan_elements={nan_elements}")
     logging.info(f"MAP = {mapscore}")
-    logging.info(f"scale={m.scale().detach().cpu().numpy()} log={m.H.scale_log.detach().cpu().numpy()}")
+    logging.info(f"scale={unwrap(m.scale())}")
 
 
 @argh.arg("dataset", help="dataset number")
 @argh.arg("-r", "--rank", help="Rank to use")
+@argh.arg("--hyp", help="Number of copies of hyperbolic space")
 @argh.arg("-s", "--scale", help="Scale factor")
 @argh.arg("-l", "--learning-rate", help="Learning rate")
 @argh.arg("-t", "--tol", help="Tolerances for projection")
@@ -233,7 +239,7 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
 @argh.arg("-T", help="SVRG T parameter")
 @argh.arg("--use-hmds", help="Use MDS warmstart")
 @argh.arg("--visualize", help="Produce an animation (rank 2 only)")
-def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
+def learn(dataset, rank=2, hyp=1, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
           use_yellowfin=False, use_adagrad=False, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
           num_workers=None, lazy_generation=False, log_name=None, warm_start=None, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None,
           exponential_rescale=None, extra_steps=1, use_svrg=False, T=10, use_hmds=False, visualize=False):
@@ -297,7 +303,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
     if model_load_file is not None:
         logging.info(f"Loading {model_load_file}...")
         m = cudaify( torch.load(model_load_file) )
-        logging.info(f"Loaded scale {m.scale().data} {torch.sum(m.H.w.data)} {m.epoch}")
+        logging.info(f"Loaded scale {unwrap(m.scale())} {torch.sum(m.embedding().data)} {m.epoch}")
     else:
         logging.info(f"Creating a fresh model warm_start?={warm_start}")
 
@@ -312,10 +318,10 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
             m_init = torch.DoubleTensor(mds_warmstart.get_model(dataset,rank,scale)[1])
 
         logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
-        m       = cudaify( Hyperbolic_Emb(G.order(), rank, initialize=m_init, learn_scale=learn_scale, exponential_rescale=exponential_rescale) )
+        m       = cudaify( Hyperbolic_Emb(G.order(), rank, hyp, initialize=m_init, learn_scale=learn_scale, exponential_rescale=exponential_rescale) )
         m.normalize()
         m.epoch = 0
-    logging.info(f"Constructed model with rank={rank} and epochs={m.epoch} isnan={np.any(np.isnan(m.H.w.cpu().data.numpy()))}")
+    logging.info(f"Constructed model with rank={rank} and epochs={m.epoch} isnan={np.any(np.isnan(m.embedding().cpu().data.numpy()))}")
 
     #
     # Build the Optimizer
@@ -371,9 +377,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
                     _loss.backward()
                     l += _loss.item()
                 Hyperbolic_Parameter.correct_metric(m.parameters()) # NB: THIS IS THE NEW CALL
-                # print("Scale before step: ", m.scale().data)
                 opt.step()
-                # print("Scale after step: ", m.scale().data)
                 # Projection
                 m.normalize()
 
@@ -390,7 +394,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
             major_stats(GM,n,m, True, Z, z, fig, ax, writer, visualize)
             if model_save_file is not None:
                 fname = f"{model_save_file}.{m.epoch}"
-                logging.info(f"Saving model into {fname} {torch.sum(m.H.w.data)} ")
+                logging.info(f"Saving model into {fname} {torch.sum(m.embedding().data)} ")
                 torch.save(m, fname)
             logging.info("*** End Major Checkpoint\n")
         m.epoch += 1
@@ -401,7 +405,7 @@ def learn(dataset, rank=2, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
 
     if model_save_file is not None:
         fname = f"{model_save_file}.final"
-        logging.info(f"Saving model into {fname}-final {torch.sum(m.H.w.data)} {m.scale().data}")
+        logging.info(f"Saving model into {fname}-final {torch.sum(m.embedding().data)} {unwrap(m.scale())}")
         torch.save(m, fname)
 
     major_stats(GM, n, m, lazy_generation, Z,z, fig, ax, writer, False)
