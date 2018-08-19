@@ -363,7 +363,7 @@ def learn(dataset, rank=2, hyp=1, scale=1., learning_rate=1e-1, tol=1e-8, epochs
     major_stats(GM,n,m, lazy_generation, Z, z, fig, ax, writer, visualize)
     logging.info("*** End Initial Checkpoint\n")
 
-    for i in range(m.epoch, m.epoch+epochs):
+    for i in range(m.epoch+1, m.epoch+epochs+1):
         l = 0.0
         m.train(True)
         if use_svrg:
@@ -393,6 +393,9 @@ def learn(dataset, rank=2, hyp=1, scale=1., learning_rate=1e-1, tol=1e-8, epochs
 
                 #l += step(m, opt, u).data[0]
 
+        # m.epoch refers to num of training epochs finished
+        m.epoch += 1
+
         # Logging code
         if l < tol:
                 logging.info("Found a {l} solution. Done at iteration {i}!")
@@ -407,7 +410,6 @@ def learn(dataset, rank=2, hyp=1, scale=1., learning_rate=1e-1, tol=1e-8, epochs
                 logging.info(f"Saving model into {fname} {torch.sum(m.embedding().data)} ")
                 torch.save(m, fname)
             logging.info("*** End Major Checkpoint\n")
-        m.epoch += 1
 
     logging.info(f"final loss={l}")
     if visualize:
