@@ -41,32 +41,20 @@ from hyperbolic_parameter import Hyperbolic_Parameter
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-#
-# This is the step for training
-#
-def cu_var(x, requires_grad=True):
-    if isinstance(x, list) : return [cu_var(u, requires_grad=requires_grad) for u in x]
-    if isinstance(x, tuple): return tuple([cu_var(u, requires_grad=requires_grad) for u in list(x)])
-    vx = torch.tensor(x, requires_grad=requires_grad)
-    return vx.cuda() if torch.cuda.is_available() else vx
-def cudaify(x): return x.to(device)
-
-def step(hm, opt, data):
-    hm.train(True)
-    opt.zero_grad()
-    loss = hm.loss(cu_var(data, requires_grad=False))
-    loss.backward()
-    Hyperbolic_Parameter.correct_metric(hm.parameters()) # NB: THIS IS THE NEW CALL
-    opt.step()
-    # Projection
-    hm.normalize()
-    return loss
+def cu_var(x):
+    if isinstance(x, list) : return [cu_var(u) for u in x]
+    if isinstance(x, tuple): return tuple([cu_var(u) for u in list(x)])
+    return torch.tensor(x, device=device)
 
 def unwrap(x):
     """ Extract the numbers from (sequences of) pytorch tensors """
     if isinstance(x, list) : return [unwrap(u) for u in x]
     if isinstance(x, tuple): return tuple([unwrap(u) for u in list(x)])
     return x.detach().cpu().numpy()
+
+#
+# Dataset extractors
+#
 
 class GraphRowSubSampler(torch.utils.data.Dataset):
     def __init__(self, G, scale, subsample, Z=None):
@@ -196,7 +184,7 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
         _count      = 0
         for u in z:
             index,vs = u
-            v_rec  = m.dist_idx(cudaify(index)).data.cpu().numpy()
+            v_rec  = unwrap(m.dist_idx(index.to(device)))
             v      = vs.cpu().numpy()
             for i in range(len(v)):
                 if dis.entry_is_good(v[i], v_rec[i]):
@@ -318,7 +306,7 @@ def learn(dataset, rank=2, hyp=1, scale=1., learning_rate=1e-1, tol=1e-8, epochs
 
     if model_load_file is not None:
         logging.info(f"Loading {model_load_file}...")
-        m = cudaify( torch.load(model_load_file) )
+        m = torch.load(model_load_file).to(device)
         logging.info(f"Loaded scale {unwrap(m.scale())} {torch.sum(m.embedding().data)} {m.epoch}")
     else:
         logging.info(f"Creating a fresh model warm_start?={warm_start}")
@@ -334,7 +322,7 @@ def learn(dataset, rank=2, hyp=1, scale=1., learning_rate=1e-1, tol=1e-8, epochs
             m_init = torch.DoubleTensor(mds_warmstart.get_model(dataset,rank,scale)[1])
 
         logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
-        m       = cudaify( Hyperbolic_Emb(G.order(), rank, hyp, initialize=m_init, learn_scale=learn_scale, exponential_rescale=exponential_rescale) )
+        m       = Hyperbolic_Emb(G.order(), rank, hyp, initialize=m_init, learn_scale=learn_scale, exponential_rescale=exponential_rescale).to(device)
         m.normalize()
         m.epoch = 0
     logging.info(f"Constructed model with rank={rank} and epochs={m.epoch} isnan={np.any(np.isnan(m.embedding().cpu().data.numpy()))}")
@@ -376,7 +364,7 @@ def learn(dataset, rank=2, hyp=1, scale=1., learning_rate=1e-1, tol=1e-8, epochs
             for data in z:
                 def closure(data=data, target=None):
                     _data = data if target is None else (data,target)
-                    c = m.loss(cu_var(_data))
+                    c = m.loss(_data.to(device))
                     c.backward()
                     return c.data[0]
                 l += opt.step(closure)
@@ -389,7 +377,7 @@ def learn(dataset, rank=2, hyp=1, scale=1., learning_rate=1e-1, tol=1e-8, epochs
             for the_step in range(extra_steps):
                 # Accumulate the gradient
                 for u in z:
-                    _loss = m.loss(cu_var(u, requires_grad=False))
+                    _loss = m.loss(cu_var(u))
                     _loss.backward()
                     l += _loss.item()
                 Hyperbolic_Parameter.correct_metric(m.parameters()) # NB: THIS IS THE NEW CALL

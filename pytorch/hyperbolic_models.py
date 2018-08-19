@@ -111,6 +111,7 @@ class Hyperbolic_Emb(nn.Module):
     def dist_matrix(self):
         return sum([H.dist_matrix() for H in self.H])
 
+    # TODO: loss should probably be normalized per edge (or some way that's consistent between methods of sampling the data)
     def loss(self, _x):
         idx, values = _x
         d = self.dist_idx(idx)
