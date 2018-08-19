@@ -247,31 +247,36 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
 
 
 @argh.arg("dataset", help="dataset number")
+# model params
 @argh.arg("-r", "--rank", help="Rank to use")
 @argh.arg("--hyp", help="Number of copies of hyperbolic space")
 @argh.arg("-s", "--scale", help="Scale factor")
-@argh.arg("-l", "--learning-rate", help="Learning rate")
 @argh.arg("-t", "--tol", help="Tolerances for projection")
+# optimizers and params
 @argh.arg("-y", "--use-yellowfin", help="Turn off yellowfin")
 @argh.arg("--use-adagrad", help="Use adagrad")
-@argh.arg("--epochs", help="number of steps in optimization")
-@argh.arg("--print-freq", help="print loss this every this number of steps")
-@argh.arg("--model-save-file", help="Save model file")
-@argh.arg("--model-load-file", help="Load model file")
-@argh.arg("--batch-size", help="Batch size (number of edges)")
-@argh.arg("--num-workers", help="Number of workers for loading. Default is to use all cores")
-@argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
-@argh.arg("--subsample", type=int, help="Number of edges per row to subsample")
-@argh.arg("--log-name", help="Log to a file")
-@argh.arg("-w", "--warm-start", help="Warm start the model with MDS")
-@argh.arg("--learn-scale", help="Learn scale")
-@argh.arg("--sample", help="Sample the distance matrix")
-@argh.arg("--checkpoint-freq", help="Checkpoint Frequency (Expensive)")
-@argh.arg("-e", "--exponential-rescale", type=float, help="Exponential Rescale")
-@argh.arg("-x", "--extra-steps", type=int, help="Steps per batch")
 @argh.arg("--use-svrg", help="Use SVRG")
 @argh.arg("-T", help="SVRG T parameter")
 @argh.arg("--use-hmds", help="Use MDS warmstart")
+@argh.arg("-l", "--learning-rate", help="Learning rate")
+@argh.arg("--epochs", help="number of steps in optimization")
+@argh.arg("-x", "--extra-steps", type=int, help="Steps per batch")
+# data
+@argh.arg("--num-workers", help="Number of workers for loading. Default is to use all cores")
+@argh.arg("--batch-size", help="Batch size (number of edges)")
+@argh.arg("--sample", help="Sample the distance matrix")
+@argh.arg("-g", "--lazy-generation", help="Use a lazy data generation technique")
+@argh.arg("--subsample", type=int, help="Number of edges per row to subsample")
+# logging and saving
+@argh.arg("--print-freq", help="Print loss this every this number of steps")
+@argh.arg("--checkpoint-freq", help="Checkpoint Frequency (Expensive)")
+@argh.arg("--model-save-file", help="Save model file")
+@argh.arg("--model-load-file", help="Load model file")
+@argh.arg("-w", "--warm-start", help="Warm start the model with MDS")
+@argh.arg("--log-name", help="Log to a file")
+# misc
+@argh.arg("--learn-scale", help="Learn scale")
+@argh.arg("-e", "--exponential-rescale", type=float, help="Exponential Rescale")
 @argh.arg("--visualize", help="Produce an animation (rank 2 only)")
 def learn(dataset, rank=2, hyp=1, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
           use_yellowfin=False, use_adagrad=False, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
