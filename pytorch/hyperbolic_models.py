@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from hyperbolic_parameter import Hyperbolic_Parameter
+from hyperbolic_parameter import HyperbolicParameter, SphericalParameter
 import logging
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -48,6 +48,7 @@ class Hyperbolic_Lines(nn.Module):
 def acosh(x):
     return torch.log(x + torch.sqrt(x**2-1))
 
+# TODO: probably makes sense to move distance function into the corresponding Parameter type
 def dist_h(u,v):
     z  = 2*torch.norm(u-v,2,1)**2
     uu = 1. + torch.div(z,((1-torch.norm(u,2,1)**2)*(1-torch.norm(v,2,1)**2)))
@@ -66,6 +67,14 @@ def h_proj(x, eps=1e-9):
 
 def dot(x,y): return torch.sum(x * y, 1)
 
+def dist_e(u, v):
+    """ Input shape (n, d) """
+    return torch.norm(u-v, 2, dim=1)
+
+def dist_s(u, v):
+    eps = 1e-9
+    return torch.acos(torch.clamp(dot(u, v), -1+eps, 1-eps))
+
 # Compute the
 # $$\min_{v} \sum_{j=1}^{n} \mathrm{acosh}\left(1 + d^2_E(L(v), w_j)\right)^2$$
 def line_dist_sq(_x,y):
@@ -73,17 +82,24 @@ def line_dist_sq(_x,y):
     x = _x.repeat(y.size(0),1)
     return torch.norm(y - torch.diag(dot(x,y)*norm_x)@x,2,1)**2
 
-class Hyperbolic_Emb(nn.Module):
-    def __init__(self, n, d, copies=1, project=True, initialize=None, learn_scale=False, absolute_loss=False, exponential_rescale=None):
+class ProductEmbedding(nn.Module):
+    def __init__(self, n, hyp_d, hyp_copies=1, euc_d=1, euc_copies=0, sph_d=1, sph_copies=0, project=True, initialize=None, learn_scale=False, absolute_loss=False, exponential_rescale=None):
         super().__init__()
         self.n = n
         #self.pairs     = n*(n-1)/2.
         self.pairs     = n # Due to sampling, we may not be prop to n/2
 
-        self.H = nn.ModuleList([Embedding(dist_h, n, d, project, initialize, learn_scale) for _ in range(copies)])
+        self.H = nn.ModuleList([Embedding(dist_h, HyperbolicParameter, n, hyp_d, project, initialize, learn_scale) for _ in range(hyp_copies)])
+        self.E = nn.ModuleList([Embedding(dist_e, nn.Parameter, n, euc_d, False, initialize, learn_scale) for _ in range(euc_copies)])
+        self.S = nn.ModuleList([Embedding(dist_s, SphericalParameter, n, sph_d, project, initialize, learn_scale) for _ in range(sph_copies)])
 
-        self.scale_params = [H.scale_log for H in self.H] if learn_scale else []
-        self.embed_params = [H.w for H in self.H]
+        self.scale_params = [H.scale_log for H in self.H] \
+                          + [E.scale_log for E in self.E] \
+                          + [S.scale_log for S in self.S] \
+                          if learn_scale else []
+        self.embed_params = [H.w for H in self.H] \
+                          + [E.w for E in self.E] \
+                          + [S.w for S in self.S]
 
         self.absolute_loss = absolute_loss
         abs_str = "absolute" if self.absolute_loss else "relative"
@@ -98,18 +114,32 @@ class Hyperbolic_Emb(nn.Module):
         return Variable(y, requires_grad=False)
         #return values**(-2)
 
+    def all_attr(self, fn):
+        H_attr = [fn(H) for H in self.H]
+        E_attr = [fn(E) for E in self.E]
+        S_attr = [fn(S) for S in self.S]
+        return H_attr + E_attr + S_attr
+
     def embedding(self):
-        return torch.stack([H.w for H in self.H], dim=0)
+        """ Return list of all entries of the embedding(s) """
+        return torch.cat(self.all_attr(lambda emb: emb.w.view(-1)))
+        # return torch.stack([H.w for H in self.H], dim=0)
+        # return torch.stack(self.all_attr(lambda emb: emb.w), dim=0)
+        # return (torch.stack([H.w for H in self.H], dim=0), torch.stack([H.w for H in self.E], dim=0), torch.stack([H.w for H in self.S], dim=0))
 
     def scale(self):
-        return [H.scale() for H in self.H]
+        # return [H.scale() for H in self.H]
+        return self.all_attr(lambda emb: emb.scale())
 
     def dist_idx(self, idx):
-        return sum([H.dist_idx(idx) for H in self.H])
+        # return sum([H.dist_idx(idx) for H in self.H])
+        return sum(self.all_attr(lambda emb: emb.dist_idx(idx)))
     def dist_row(self, i):
-        return sum([H.dist_row(i) for H in self.H])
+        # return sum([H.dist_row(i) for H in self.H])
+        return sum(self.all_attr(lambda emb: emb.dist_row(i)))
     def dist_matrix(self):
-        return sum([H.dist_matrix() for H in self.H])
+        # return sum([H.dist_matrix() for H in self.H])
+        return sum(self.all_attr(lambda emb: emb.dist_matrix()))
 
     # TODO: loss should probably be normalized per edge (or some way that's consistent between methods of sampling the data)
     def loss(self, _x):
@@ -126,17 +156,20 @@ class Hyperbolic_Emb(nn.Module):
     def normalize(self):
         for H in self.H:
             H.normalize()
+        for S in self.S:
+            S.normalize()
 
 
 class Embedding(nn.Module):
-    def __init__(self, dist_fn, n, d, project=True, initialize=None, learn_scale=False):
+    def __init__(self, dist_fn, param_cls, n, d, project=True, initialize=None, learn_scale=False):
         super().__init__()
         self.dist_fn = dist_fn
         self.n, self.d = n, d
         self.project   = project
         if initialize is not None: logging.info(f"Initializing {np.any(np.isnan(initialize.numpy()))} {initialize.size()} {(n,d)}")
         x      = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None  else torch.DoubleTensor(initialize[0:n,0:d])
-        self.w = Hyperbolic_Parameter(x)
+        # self.w = Hyperbolic_Parameter(x)
+        self.w = param_cls(x)
         z =  torch.tensor([0.0], dtype=torch.double)
         if learn_scale:
             self.scale_log       = nn.Parameter(torch.tensor([0.0], dtype=torch.double))

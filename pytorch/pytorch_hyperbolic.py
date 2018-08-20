@@ -20,8 +20,8 @@ import utils.vis as vis
 import utils.distortions as dis
 import graph_helpers as gh
 import mds_warmstart
-from hyperbolic_models import Hyperbolic_Emb
-from hyperbolic_parameter import Hyperbolic_Parameter
+from hyperbolic_models import ProductEmbedding
+from hyperbolic_parameter import HyperbolicParameter
 
 
 # This describes a hyperbolic optimizer in Pytorch. It requires two modifications:
@@ -236,8 +236,12 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
 
 @argh.arg("dataset", help="dataset number")
 # model params
-@argh.arg("-r", "--rank", help="Rank to use")
+@argh.arg("-d", "--dim", help="Dimension to use")
 @argh.arg("--hyp", help="Number of copies of hyperbolic space")
+@argh.arg("--edim", help="Euclidean dimension to use")
+@argh.arg("--euc", help="Number of copies of Euclidean space")
+@argh.arg("--sdim", help="Spherical dimension to use")
+@argh.arg("--sph", help="Number of copies of spherical space")
 @argh.arg("-s", "--scale", help="Scale factor")
 @argh.arg("-t", "--tol", help="Tolerances for projection")
 # optimizers and params
@@ -266,8 +270,8 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
 # misc
 @argh.arg("--learn-scale", help="Learn scale")
 @argh.arg("-e", "--exponential-rescale", type=float, help="Exponential Rescale")
-@argh.arg("--visualize", help="Produce an animation (rank 2 only)")
-def learn(dataset, rank=2, hyp=1, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
+@argh.arg("--visualize", help="Produce an animation (dimension 2 only)")
+def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
           use_yellowfin=False, use_adagrad=False, resample_freq=100, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
           num_workers=None, lazy_generation=False, log_name=None, warm_start=None, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None,
           exponential_rescale=None, extra_steps=1, use_svrg=False, T=10, use_hmds=False, visualize=False):
@@ -318,14 +322,14 @@ def learn(dataset, rank=2, hyp=1, scale=1., learning_rate=1e-1, tol=1e-8, epochs
             scale = ws_data[0, ws_data.shape[1]-1]
             m_init = torch.DoubleTensor(ws_data[:,range(ws_data.shape[1]-1)])
         elif use_hmds:
-            # m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(mds_warmstart.get_model(dataset,rank,scale)[1]))
-            m_init = torch.DoubleTensor(mds_warmstart.get_model(dataset,rank,scale)[1])
+            # m_init = torch.DoubleTensor(mds_warmstart.get_normalized_hyperbolic(mds_warmstart.get_model(dataset,dim,scale)[1]))
+            m_init = torch.DoubleTensor(mds_warmstart.get_model(dataset,dim,scale)[1])
 
         logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
-        m       = Hyperbolic_Emb(G.order(), rank, hyp, initialize=m_init, learn_scale=learn_scale, exponential_rescale=exponential_rescale).to(device)
+        m       = ProductEmbedding(G.order(), dim, hyp, edim, euc, sdim, sph, initialize=m_init, learn_scale=learn_scale, exponential_rescale=exponential_rescale).to(device)
         m.normalize()
         m.epoch = 0
-    logging.info(f"Constructed model with rank={rank} and epochs={m.epoch} isnan={np.any(np.isnan(m.embedding().cpu().data.numpy()))}")
+    logging.info(f"Constructed model with dim={dim} and epochs={m.epoch} isnan={np.any(np.isnan(m.embedding().cpu().data.numpy()))}")
 
     #
     # Build the Optimizer
@@ -380,7 +384,7 @@ def learn(dataset, rank=2, hyp=1, scale=1., learning_rate=1e-1, tol=1e-8, epochs
                     _loss = m.loss(cu_var(u))
                     _loss.backward()
                     l += _loss.item()
-                Hyperbolic_Parameter.correct_metric(m.parameters()) # NB: THIS IS THE NEW CALL
+                HyperbolicParameter.correct_metric(m.parameters()) # NB: THIS IS THE NEW CALL
                 opt.step()
                 # Projection
                 m.normalize()

@@ -7,7 +7,7 @@ import random
 
 # TODO:
 # 1. Improve speed up of projection by making operations in place.
-class Hyperbolic_Parameter(nn.Parameter):
+class HyperbolicParameter(nn.Parameter):
     def __new__(cls, data=None, requires_grad=True, project=True, check_graph=False):
         ret =  super().__new__(cls, data, requires_grad=requires_grad)
         if project: ret.proj()
@@ -50,16 +50,25 @@ class Hyperbolic_Parameter(nn.Parameter):
 
     @staticmethod
     def _proj(x, eps=1e-10):
-        return x * Hyperbolic_Parameter._correct(x, eps=eps)
+        return x * HyperbolicParameter._correct(x, eps=eps)
 
     def proj(self, eps=1e-10):
-        self.data *= Hyperbolic_Parameter._correct(self.data, eps=eps)
+        self.data *= HyperbolicParameter._correct(self.data, eps=eps)
 
     @staticmethod
     def correct_metric(ps):
         for p in ps:
-            if isinstance(p,Hyperbolic_Parameter):
+            if isinstance(p,HyperbolicParameter):
                 p.modify_grad_inplace()
 
     def __repr__(self):
         return 'Hyperbolic parameter containing:' + self.data.__repr__()
+
+class SphericalParameter(nn.Parameter):
+    def __init__(self, x):
+        super().__init__()
+        self.data    = x
+
+    def proj(self):
+        x = self.detach()
+        x /= torch.norm(x, 2, -1).unsqueeze(1)
