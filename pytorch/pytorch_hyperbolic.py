@@ -147,7 +147,9 @@ def build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, num_
     n = G.order()
     Z = None
 
-    if subsample is not None and subsample <= 0:
+    logging.info("Building dataset")
+
+    if subsample is not None and (subsample <= 0 or subsample >= n):
         subsample = n-1
 
     if lazy_generation:
@@ -195,8 +197,9 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
                     bad         += 1
             _count += len(v)
             if n_rows_sampled*(n-1) <= _count:
-                logging.info(f"\t\t Completed {n_rows_sampled}/{n} edges={_count} good={good} bad={bad}")
                 break
+        logging.info(f"\t\t Completed edges={_count} good={good} bad={bad}")
+
         avg_dist     = avg/good if good > 0 else 0
         dist_wc      = me*mc
         nan_elements = bad
@@ -207,13 +210,13 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
         np.random.shuffle(shuffled)
         mm = 0
         for i in shuffled[0:n_rows_sampled]:
-            h_rec      = m.dist_row(i).cpu().data.numpy()
+            h_rec      = unwrap(m.dist_row(i))
             map_avg   += dis.map_via_edges(G,i, h_rec)
             mm        += 1
         mapscore = map_avg/mm
     else:
         H    = Z
-        Hrec = m.dist_matrix().detach().cpu().numpy()
+        Hrec = unwrap(m.dist_matrix())
         logging.info("Compare matrices built")
         mc, me, avg_dist, nan_elements = dis.distortion(H, Hrec, n, num_workers)
         dist_wc = me*mc
@@ -362,7 +365,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., learnin
     logging.info("*** End Initial Checkpoint\n")
 
     for i in range(m.epoch+1, m.epoch+epochs+1):
-        l = 0.0
+        l, n_edges = 0.0, 0 # track average loss per edge
         m.train(True)
         if use_svrg:
             for data in z:
@@ -377,19 +380,21 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., learnin
                 m.normalize()
 
         else:
-            opt.zero_grad() # This is handled by the SVRG.
             for the_step in range(extra_steps):
                 # Accumulate the gradient
                 for u in z:
+                    opt.zero_grad() # This is handled by the SVRG.
                     _loss = m.loss(cu_var(u))
                     _loss.backward()
-                    l += _loss.item()
-                HyperbolicParameter.correct_metric(m.parameters()) # NB: THIS IS THE NEW CALL
-                opt.step()
-                # Projection
-                m.normalize()
+                    l += _loss.item() * u[0].size(0)
+                    n_edges += u[0].size(0)
+                    HyperbolicParameter.correct_metric(m.parameters()) # NB: THIS IS THE NEW CALL
+                    opt.step()
+                    # Projection
+                    m.normalize()
 
                 #l += step(m, opt, u).data[0]
+        l /= n_edges
 
         # m.epoch refers to num of training epochs finished
         m.epoch += 1
