@@ -19,6 +19,7 @@ class HyperbolicParameter(nn.Parameter):
     def __init__(self, x):
         super().__init__()
         self.data    = x
+        self.proj()
 
     def modify_grad_inplace(self):
         d        = self.data.dim()
@@ -68,6 +69,7 @@ class SphericalParameter(nn.Parameter):
     def __init__(self, x):
         super().__init__()
         self.data    = x
+        self.proj()
 
     def proj(self):
         x = self.detach()

@@ -141,7 +141,6 @@ class ProductEmbedding(nn.Module):
         # return sum([H.dist_matrix() for H in self.H])
         return sum(self.all_attr(lambda emb: emb.dist_matrix()))
 
-    # TODO: loss should probably be normalized per edge (or some way that's consistent between methods of sampling the data)
     def loss(self, _x):
         idx, values = _x
         d = self.dist_idx(idx)
@@ -151,7 +150,11 @@ class ProductEmbedding(nn.Module):
         if self.absolute_loss:
             return torch.sum( term_rescale*( d - values)**2) / values.size(0)
         else:
-            return torch.sum( term_rescale*(d/values - 1)**2 ) / values.size(0)
+            return torch.sum( torch.log((d/values)**2)**2 ) / values.size(0)
+            l1 = torch.sum( term_rescale*((d/values) - 1)**2 ) / values.size(0)
+            # l2 = 0
+            l2 = torch.sum( term_rescale*((values/d) - 1)**2 ) / values.size(0)
+            return l1 + l2
             # perhaps another metric targets (worst-case) distortion better, e.g. log^2 d^2
 
     def normalize(self):
