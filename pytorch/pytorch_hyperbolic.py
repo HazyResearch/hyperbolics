@@ -201,7 +201,7 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
         logging.info(f"\t\t Completed edges={_count} good={good} bad={bad}")
 
         avg_dist     = avg/good if good > 0 else 0
-        dist_wc      = me*mc
+        wc_dist      = me*mc
         nan_elements = bad
         map_avg      = 0.0
 
@@ -219,7 +219,7 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
         Hrec = unwrap(m.dist_matrix())
         logging.info("Compare matrices built")
         mc, me, avg_dist, nan_elements = dis.distortion(H, Hrec, n, num_workers)
-        dist_wc = me*mc
+        wc_dist = me*mc
         mapscore = dis.map_score(scipy.sparse.csr_matrix.todense(G).A, Hrec, n, num_workers)
 
     if visualize:
@@ -232,9 +232,11 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
         fig.set_size_inches(10.0, 10.0, forward=True)
         writer.grab_frame()
 
-    logging.info(f"Distortion avg={avg_dist} wc={dist_wc} me={me} mc={mc} nan_elements={nan_elements}")
+    logging.info(f"Distortion avg={avg_dist} wc={wc_dist} me={me} mc={mc} nan_elements={nan_elements}")
     logging.info(f"MAP = {mapscore}")
     logging.info(f"scale={unwrap(m.scale())}")
+
+    return avg_dist, wc_dist, me, mc, mapscore
 
 
 @argh.arg("dataset", help="dataset number")
@@ -400,6 +402,10 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., learnin
         m.epoch += 1
 
         # Logging code
+        best_loss   = 1.0e10
+        best_dist   = 1.0e10
+        best_wcdist = 1.0e10
+        best_map    = 0.0
         if l < tol:
                 logging.info("Found a {l} solution. Done at iteration {i}!")
                 break
@@ -407,7 +413,11 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., learnin
             logging.info(f"{i} loss={l}")
         if i % checkpoint_freq == 0:
             logging.info(f"\n*** Major Checkpoint. Computing Stats and Saving")
-            major_stats(GM,n,m, True, Z, z, fig, ax, writer, visualize)
+            avg_dist, wc_dist, me, mc, mapscore = major_stats(GM,n,m, True, Z, z, fig, ax, writer, visualize)
+            best_loss   = min(best_loss, l)
+            best_dist   = min(best_dist, avg_dist)
+            best_wcdist = min(best_wcdist, wc_dist)
+            best_map    = max(best_map, mapscore)
             if model_save_file is not None:
                 fname = f"{model_save_file}.{m.epoch}"
                 logging.info(f"Saving model into {fname} {torch.sum(m.embedding().data)} ")
@@ -418,6 +428,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., learnin
                 Z, z = build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, num_workers)
 
     logging.info(f"final loss={l}")
+    logging.info(f"best loss={best_loss}, distortion={best_dist}, map={best_map}, wc_dist={best_wcdist}")
     if visualize:
         writer.finish()
 
