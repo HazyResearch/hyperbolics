@@ -366,6 +366,11 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., learnin
     major_stats(GM,n,m, lazy_generation, Z, z, fig, ax, writer, visualize)
     logging.info("*** End Initial Checkpoint\n")
 
+    # track best stats
+    best_loss   = 1.0e10
+    best_dist   = 1.0e10
+    best_wcdist = 1.0e10
+    best_map    = 0.0
     for i in range(m.epoch+1, m.epoch+epochs+1):
         l, n_edges = 0.0, 0 # track average loss per edge
         m.train(True)
@@ -402,10 +407,6 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., learnin
         m.epoch += 1
 
         # Logging code
-        best_loss   = 1.0e10
-        best_dist   = 1.0e10
-        best_wcdist = 1.0e10
-        best_map    = 0.0
         if l < tol:
                 logging.info("Found a {l} solution. Done at iteration {i}!")
                 break
