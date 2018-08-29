@@ -247,6 +247,7 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
 @argh.arg("--euc", help="Number of copies of Euclidean space")
 @argh.arg("--sdim", help="Spherical dimension to use")
 @argh.arg("--sph", help="Number of copies of spherical space")
+@argh.arg("--riemann", help="Use Riemannian metric for product space. Otherwise, use L1 sum")
 @argh.arg("-s", "--scale", help="Scale factor")
 @argh.arg("-t", "--tol", help="Tolerances for projection")
 # optimizers and params
@@ -274,12 +275,13 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
 @argh.arg("--log-name", help="Log to a file")
 # misc
 @argh.arg("--learn-scale", help="Learn scale")
+@argh.arg("--logloss")
 @argh.arg("-e", "--exponential-rescale", type=float, help="Exponential Rescale")
 @argh.arg("--visualize", help="Produce an animation (dimension 2 only)")
-def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., learning_rate=1e-1, tol=1e-8, epochs=100,
+def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann=False, learning_rate=1e-1, tol=1e-8, epochs=100,
           use_yellowfin=False, use_adagrad=False, resample_freq=100, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
           num_workers=None, lazy_generation=False, log_name=None, warm_start=None, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None,
-          exponential_rescale=None, extra_steps=1, use_svrg=False, T=10, use_hmds=False, visualize=False):
+          logloss=False, exponential_rescale=None, extra_steps=1, use_svrg=False, T=10, use_hmds=False, visualize=False):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
@@ -331,7 +333,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., learnin
             m_init = torch.DoubleTensor(mds_warmstart.get_model(dataset,dim,scale)[1])
 
         logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
-        m       = ProductEmbedding(G.order(), dim, hyp, edim, euc, sdim, sph, initialize=m_init, learn_scale=learn_scale, exponential_rescale=exponential_rescale).to(device)
+        m       = ProductEmbedding(G.order(), dim, hyp, edim, euc, sdim, sph, initialize=m_init, learn_scale=learn_scale, logrel_loss=logloss, exponential_rescale=exponential_rescale, riemann=riemann).to(device)
         m.normalize()
         m.epoch = 0
     logging.info(f"Constructed model with dim={dim} and epochs={m.epoch} isnan={np.any(np.isnan(m.embedding().cpu().data.numpy()))}")
