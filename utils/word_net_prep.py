@@ -55,14 +55,14 @@ def load_big_component():
             y_idx = _d[y]
             # add_edge(e_f, idx  , y_idx)
             # add_edge(e_f, y_idx,   idx)
-            e_f.append((idx, y_idx))
+            e_f.append((y_idx, idx))
         for y in x.closure(lambda z: z.hypernyms()):
             y_idx = _d[y]
             # add_edge(closure, idx, y_idx)
             closure.append((idx, y_idx))
 
     # X2 = csr_matrix(e_f, shape=(n_f,n_f))
-    G = nx.Graph(e_f)
+    G = nx.DiGraph(e_f)
     G_closure = nx.DiGraph(closure)
     return (n_f, G, G_closure)
 
