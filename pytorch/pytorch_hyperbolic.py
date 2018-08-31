@@ -177,7 +177,7 @@ def build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, num_
 #
 # DATA Diagnostics
 #
-def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_rows_sampled=250, num_workers=16):
+def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsample, n_rows_sampled=256, num_workers=16):
     m.train(False)
     if lazy_generation:
         logging.info(f"\t Computing Major Stats lazily... ")
@@ -196,7 +196,8 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, n_row
                 else:
                     bad         += 1
             _count += len(v)
-            if n_rows_sampled*(n-1) <= _count:
+            # if n_rows_sampled*(n-1) <= _count:
+            if n_rows_sampled**subsample <= _count:
                 break
         logging.info(f"\t\t Completed edges={_count} good={good} bad={bad}")
 
@@ -365,7 +366,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
 
     # Log stats from import: when warmstarting, check that it matches Julia's stats
     logging.info(f"*** Initial Checkpoint. Computing Stats")
-    major_stats(GM,n,m, lazy_generation, Z, z, fig, ax, writer, visualize)
+    major_stats(GM,n,m, lazy_generation, Z, z, fig, ax, writer, visualize, subsample)
     logging.info("*** End Initial Checkpoint\n")
 
     # track best stats
@@ -416,7 +417,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
             logging.info(f"{i} loss={l}")
         if i % checkpoint_freq == 0:
             logging.info(f"\n*** Major Checkpoint. Computing Stats and Saving")
-            avg_dist, wc_dist, me, mc, mapscore = major_stats(GM,n,m, True, Z, z, fig, ax, writer, visualize)
+            avg_dist, wc_dist, me, mc, mapscore = major_stats(GM,n,m, True, Z, z, fig, ax, writer, visualize, subsample)
             best_loss   = min(best_loss, l)
             best_dist   = min(best_dist, avg_dist)
             best_wcdist = min(best_wcdist, wc_dist)
@@ -440,7 +441,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
         logging.info(f"Saving model into {fname}-final {torch.sum(m.embedding().data)} {unwrap(m.scale())}")
         torch.save(m, fname)
 
-    major_stats(GM, n, m, lazy_generation, Z,z, fig, ax, writer, False)
+    major_stats(GM, n, m, lazy_generation, Z,z, fig, ax, writer, False, subsample)
 
 if __name__ == '__main__':
     _parser = argh.ArghParser()
