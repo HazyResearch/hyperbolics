@@ -71,6 +71,10 @@ class SphericalParameter(nn.Parameter):
         self.data    = x
         self.proj()
 
+    @staticmethod
+    def _proj(x):
+        return x / torch.norm(x, 2, -1).unsqueeze(1)
+
     def proj(self):
-        x = self.detach()
-        x /= torch.norm(x, 2, -1).unsqueeze(1)
+        x = self.data.detach()
+        self.data = SphericalParameter._proj(x)

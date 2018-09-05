@@ -71,9 +71,10 @@ def dist_e(u, v):
     """ Input shape (n, d) """
     return torch.norm(u-v, 2, dim=1)
 
-def dist_s(u, v):
-    eps = 1e-9
-    return torch.acos(torch.clamp(dot(u, v), -1+eps, 1-eps))
+def dist_s(u, v, eps=1e-9):
+    uu = SphericalParameter._proj(u)
+    vv = SphericalParameter._proj(v)
+    return torch.acos(torch.clamp(dot(uu, vv), -1+eps, 1-eps))
 
 # Compute the
 # $$\min_{v} \sum_{j=1}^{n} \mathrm{acosh}\left(1 + d^2_E(L(v), w_j)\right)^2$$
