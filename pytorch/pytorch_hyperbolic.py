@@ -274,6 +274,7 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsa
 @argh.arg("--model-load-file", help="Load model file")
 @argh.arg("-w", "--warm-start", help="Warm start the model with MDS")
 @argh.arg("--log-name", help="Log to a file")
+@argh.arg("--log", help="Log to a file (automatic name)")
 # misc
 @argh.arg("--learn-scale", help="Learn scale")
 @argh.arg("--logloss")
@@ -281,13 +282,15 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsa
 @argh.arg("--visualize", help="Produce an animation (dimension 2 only)")
 def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann=False, learning_rate=1e-1, tol=1e-8, epochs=100,
           use_yellowfin=False, use_adagrad=False, resample_freq=100, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
-          num_workers=None, lazy_generation=False, log_name=None, warm_start=None, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None,
+          num_workers=None, lazy_generation=False, log_name=None, log=False, warm_start=None, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None,
           logloss=False, exponential_rescale=None, extra_steps=1, use_svrg=False, T=10, use_hmds=False, visualize=False):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s %(message)s',
                         datefmt='%FT%T',)
+    if log_name is None and log:
+        log_name = f"{os.path.splitext(dataset)[0]}.H{dim}-{hyp}.E{edim}-{euc}.S{sdim}-{sph}.lr{learning_rate}.log"
     if log_name is not None:
         logging.info(f"Logging to {log_name}")
         log = logging.getLogger()
