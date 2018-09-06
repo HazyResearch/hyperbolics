@@ -6,9 +6,9 @@ import itertools
 # ranks = [2,5,10,50,100,200]
 
 datasets = [
-    "synthetic/sierp-C50-2",
-    "sierp-C5-5",
-    "diamond6"
+    # "synthetic/sierp-C50-2",
+    "synthetic/sierp-C5-6",
+    # "synthetic/diamond7"
 ]
 
 models = [
@@ -17,10 +17,10 @@ models = [
     {'dim': 50, 'hyp': 0, 'edim': 50, 'euc': 0, 'sdim': 51, 'sph': 1},
     {'dim': 5, 'hyp': 10, 'edim': 50, 'euc': 0, 'sdim': 6, 'sph': 0},
     {'dim': 50, 'hyp': 0, 'edim': 50, 'euc': 0, 'sdim': 6, 'sph': 10},
-    {'dim': 16, 'hyp': 1, 'edim': 16, 'euc': 1, 'sdim': 16, 'sph': 1}
+    {'dim': 20, 'hyp': 1, 'edim': 10, 'euc': 1, 'sdim': 21, 'sph': 1}
 ]
 
-lrs = [1.0, 10.0, 100.0, 1000.0]
+lrs = [100.0, 1000.0]
 
 # CUDA_VISIBLE_DEVICES=1 python pytorch/pytorch_hyperbolic.py learn data/edges/synthetic/sierp-C50-2.edges --batch-size 65536 -d 50 --hyp 0 --euc 0 --edim 50 --sph 1 --sdim 51 -l 100.0 --epochs 1000 --checkpoint-freq 100 --resample-freq 500 -g --subsample 1024 --riemann --log-name C50-2.S50.log
 
