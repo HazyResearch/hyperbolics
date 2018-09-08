@@ -91,7 +91,8 @@ class ProductEmbedding(nn.Module):
 
         self.H = nn.ModuleList([Embedding(dist_h, HyperbolicParameter, n, hyp_d, project, initialize, learn_scale) for _ in range(hyp_copies)])
         self.E = nn.ModuleList([Embedding(dist_e, nn.Parameter, n, euc_d, False, initialize, learn_scale) for _ in range(euc_copies)])
-        self.S = nn.ModuleList([Embedding(dist_s, SphericalParameter, n, sph_d, project, initialize, learn_scale) for _ in range(sph_copies)])
+        # raise the dimension of spherical. TODO this should be done in the appropriate Parameter
+        self.S = nn.ModuleList([Embedding(dist_s, SphericalParameter, n, sph_d+1, project, initialize, learn_scale) for _ in range(sph_copies)])
 
         self.scale_params = [H.scale_log for H in self.H] \
                           + [E.scale_log for E in self.E] \
