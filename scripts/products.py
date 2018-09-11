@@ -42,7 +42,7 @@ def run_pytorch(run_name, epochs, batch_size):
         H_name = "" if model['hyp' ]== 0 else f"H{model['dim']}-{model['hyp']}."
         E_name = "" if model['euc' ]== 0 else f"E{model['edim']}-{model['euc']}."
         S_name = "" if model['sph' ]== 0 else f"S{model['sdim']}-{model['sph']}."
-        log_name = f"{run_name}/{os.path.basename(dataset)[0]}.{H_name}{E_name}{S_name}lr{lr}.log"
+        log_name = f"{run_name}/{os.path.basename(dataset)}.{H_name}{E_name}{S_name}lr{lr}.log"
         param = [
             f"data/edges/{dataset}.edges",
             '--dim', str(model['dim']),
