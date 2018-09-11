@@ -8,7 +8,8 @@ import itertools
 datasets = [
     # "synthetic/sierp-C50-2",
     # "synthetic/sierp-C5-6",
-    "synthetic/diamond7"
+    # "synthetic/diamond7"
+    "synthetic/sierp-K3-8"
 ]
 
 models = [
@@ -19,12 +20,11 @@ models = [
     {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 10, 'sph': 2},
     {'dim': 2, 'hyp': 10, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
     {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 2, 'sph': 10},
-    {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 1, 'sph': 10},
+    {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 1, 'sph': 20},
     {'dim': 10, 'hyp': 1, 'edim': 0, 'euc': 0, 'sdim': 10, 'sph': 1},
     {'dim': 2, 'hyp': 5, 'edim': 0, 'euc': 0, 'sdim': 2, 'sph': 5},
     {'dim': 4, 'hyp': 2, 'edim': 4, 'euc': 1, 'sdim': 4, 'sph': 2},
     {'dim': 2, 'hyp': 4, 'edim': 4, 'euc': 1, 'sdim': 2, 'sph': 4},
-    # {'dim': 20, 'hyp': 1, 'edim': 10, 'euc': 1, 'sdim': 21, 'sph': 1}
 ]
 
 lrs = [10, 100]
@@ -40,7 +40,7 @@ def run_pytorch(run_name, epochs, batch_size):
         # log_name = f"{run_name}/{dataset}{log_w}.r{rank}.log"
         H_name = "" if model['hyp' ]== 0 else f"H{model['dim']}-{model['hyp']}."
         E_name = "" if model['euc' ]== 0 else f"E{model['edim']}-{model['euc']}."
-        S_name = "" if model['sph' ]== 0 else f"E{model['sdim']}-{model['sph']}."
+        S_name = "" if model['sph' ]== 0 else f"S{model['sdim']}-{model['sph']}."
         log_name = f"{run_name}/{os.path.splitext(os.path.basename(dataset))[0]}.{H_name}{E_name}{S_name}lr{lr}.log"
         param = [
             f"data/edges/{dataset}.edges",
