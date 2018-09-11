@@ -278,12 +278,13 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsa
 # misc
 @argh.arg("--learn-scale", help="Learn scale")
 @argh.arg("--logloss")
+@argh.arg("--distortion")
 @argh.arg("-e", "--exponential-rescale", type=float, help="Exponential Rescale")
 @argh.arg("--visualize", help="Produce an animation (dimension 2 only)")
 def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann=False, learning_rate=1e-1, tol=1e-8, epochs=100,
           use_yellowfin=False, use_adagrad=False, resample_freq=100, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
           num_workers=None, lazy_generation=False, log_name=None, log=False, warm_start=None, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None,
-          logloss=False, exponential_rescale=None, extra_steps=1, use_svrg=False, T=10, use_hmds=False, visualize=False):
+          logloss=False, distortion=False, exponential_rescale=None, extra_steps=1, use_svrg=False, T=10, use_hmds=False, visualize=False):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
@@ -337,7 +338,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
             m_init = torch.DoubleTensor(mds_warmstart.get_model(dataset,dim,scale)[1])
 
         logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
-        m       = ProductEmbedding(G.order(), dim, hyp, edim, euc, sdim, sph, initialize=m_init, learn_scale=learn_scale, logrel_loss=logloss, exponential_rescale=exponential_rescale, riemann=riemann).to(device)
+        m       = ProductEmbedding(G.order(), dim, hyp, edim, euc, sdim, sph, initialize=m_init, learn_scale=learn_scale, logrel_loss=logloss, dist_loss=distortion, exponential_rescale=exponential_rescale, riemann=riemann).to(device)
         m.normalize()
         m.epoch = 0
     logging.info(f"Constructed model with dim={dim} and epochs={m.epoch} isnan={np.any(np.isnan(m.embedding().cpu().data.numpy()))}")
@@ -436,6 +437,15 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
 
     logging.info(f"final loss={l}")
     logging.info(f"best loss={best_loss}, distortion={best_dist}, map={best_map}, wc_dist={best_wcdist}")
+
+    final_dist, final_wc, final_me, final_mc, final_map = major_stats(GM, n, m, lazy_generation, Z,z, fig, ax, writer, False, subsample)
+
+
+    if log_name is not None:
+        with open(log_name + '.stat', "w") as f:
+            f.write("Best-loss MAP dist wc Final-loss MAP dist wc me mc\n")
+            f.write(f"{best_loss:10.6f} {best_map:8.4f} {best_dist:8.4f} {best_wcdist:8.4f} {l:10.6f} {final_map:8.4f} {final_dist:8.4f} {final_wc:8.4f} {final_me:8.4f} {final_mc:8.4f}")
+
     if visualize:
         writer.finish()
 
@@ -444,7 +454,6 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
         logging.info(f"Saving model into {fname}-final {torch.sum(m.embedding().data)} {unwrap(m.scale())}")
         torch.save(m, fname)
 
-    major_stats(GM, n, m, lazy_generation, Z,z, fig, ax, writer, False, subsample)
 
 if __name__ == '__main__':
     _parser = argh.ArghParser()

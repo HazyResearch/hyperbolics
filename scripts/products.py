@@ -6,10 +6,11 @@ import itertools
 # ranks = [2,5,10,50,100,200]
 
 datasets = [
-    # "synthetic/sierp-C50-2",
+    "synthetic/sierp-C50-2",
     # "synthetic/sierp-C5-6",
     # "synthetic/diamond7"
-    "synthetic/sierp-K3-8"
+    # "synthetic/sierp-K3-8"
+    # "smalltree"
 ]
 
 models = [
@@ -27,7 +28,7 @@ models = [
     {'dim': 2, 'hyp': 4, 'edim': 4, 'euc': 1, 'sdim': 2, 'sph': 4},
 ]
 
-lrs = [10, 100]
+lrs = [10, 100, 1000]
 
 # CUDA_VISIBLE_DEVICES=1 python pytorch/pytorch_hyperbolic.py learn data/edges/synthetic/sierp-C50-2.edges --batch-size 65536 -d 50 --hyp 0 --euc 0 --edim 50 --sph 1 --sdim 51 -l 100.0 --epochs 1000 --checkpoint-freq 100 --resample-freq 500 -g --subsample 1024 --riemann --log-name C50-2.S50.log
 
@@ -41,7 +42,7 @@ def run_pytorch(run_name, epochs, batch_size):
         H_name = "" if model['hyp' ]== 0 else f"H{model['dim']}-{model['hyp']}."
         E_name = "" if model['euc' ]== 0 else f"E{model['edim']}-{model['euc']}."
         S_name = "" if model['sph' ]== 0 else f"S{model['sdim']}-{model['sph']}."
-        log_name = f"{run_name}/{os.path.splitext(os.path.basename(dataset))[0]}.{H_name}{E_name}{S_name}lr{lr}.log"
+        log_name = f"{run_name}/{os.path.basename(dataset)[0]}.{H_name}{E_name}{S_name}lr{lr}.log"
         param = [
             f"data/edges/{dataset}.edges",
             '--dim', str(model['dim']),
@@ -60,6 +61,9 @@ def run_pytorch(run_name, epochs, batch_size):
             # '-T 0',
             '-g', '--subsample 1024',
             '--riemann',
+            '--learn-scale',
+            # '--logloss',
+            # '--distortion',
             '--learning-rate', str(lr)]
         # if warm_start:
         #     param += ['--warm-start', f"{run_name}/comb_embeddings/{dataset}.r{rank}.p{precision}.emb"]
@@ -91,7 +95,7 @@ def run_pytorch(run_name, epochs, batch_size):
 # @argh.arg('-d', "--datasets", nargs='+', type=str, help = "Datasets")
 @argh.arg("--epochs", help="Number of epochs to run Pytorch optimizer")
 @argh.arg("--batch-size", help="Batch size")
-def run(run_name, epochs=2000, batch_size=65536):
+def run(run_name, epochs=3000, batch_size=65536):
     os.makedirs(run_name, exist_ok=True)
 
     run_pytorch(run_name, epochs=epochs, batch_size=batch_size)
