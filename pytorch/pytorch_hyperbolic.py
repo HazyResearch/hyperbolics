@@ -353,7 +353,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
     # per-parameter learning rates
     model_params = [{'params': m.embed_params}, {'params': m.scale_params, 'lr': 1e-4*learning_rate}]
 
-    opt = torch.optim.SGD(model_params, lr=learning_rate)
+    opt = torch.optim.SGD(model_params, lr=learning_rate, momentum=0.9)
     if use_yellowfin:
         from yellowfin import YFOptimizer
         opt = YFOptimizer(model_params)
