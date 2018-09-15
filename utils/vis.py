@@ -114,34 +114,52 @@ def get_third_point(a,b):
 
     return c
 
+# for circle stuff let's just draw the points
+def draw_points_on_circle(a, ax):
+    ax.plot(a[0], a[1], "o")
+
 # draw the embedding for a graph 
 # G is the graph, m is the PyTorch hyperbolic model
 def draw_graph(G, m, fig, ax):
-    hyperbolic_setup(fig, ax)
+    hyperbolic_setup(fig, ax[0])
+    spherical_setup(fig, ax[1])
 
     # todo: directly read edge list from csr format
     Gr = nx.from_scipy_sparse_matrix(G)
     for edge in Gr.edges():
         idx = torch.LongTensor([edge[0], edge[1]])
-        a = ((torch.index_select(m.H.w, 0, idx[0])).clone()).detach().numpy()[0]
-        b = ((torch.index_select(m.H.w, 0, idx[1])).clone()).detach().numpy()[0]
+        a = ((torch.index_select(m.H[0].w, 0, idx[0])).clone()).detach().numpy()[0]
+        b = ((torch.index_select(m.H[0].w, 0, idx[1])).clone()).detach().numpy()[0]
         c = get_third_point(a,b)
-        draw_geodesic(a,b,c,ax)
+        draw_geodesic(a,b,c,ax[0])
+
+    for node in Gr.nodes():
+        idx = torch.LongTensor([int(node)])
+        v = ((torch.index_select(m.S[0].w, 0, idx)).clone()).detach().numpy()[0]
+        draw_points_on_circle(v, ax[1])
 
 def setup_plot(draw_circle=False):
     # create plot
-    fig, ax = plt.subplots()
+    fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(20,10))
+
+    #fig = plt.figure(figsize=(10,3))
+    #ax1 = fig.add_subplot(121)
+    #ax2 = fig.add_subplot(122)
+
+    #fig.set_size_inches(20.0, 10.0, forward=True)
+    ax = (ax1, ax2)
     writer = animation.ImageMagickFileWriter(fps=10, metadata=dict(artist='HazyResearch'), bitrate=1800)
     writer.setup(fig, 'HypDistances.gif', dpi=100)
 
     if draw_circle:
-        hyperbolic_setup(fig, ax)
+        hyperbolic_setup(fig, ax[0])
+        spherical_setup(fig, ax[1])
     return fig, ax, writer
 
 
 def hyperbolic_setup(fig, ax):
-    fig.set_size_inches(10.0, 10.0, forward=True)
-
+    #fig.set_size_inches(20.0, 10.0, forward=True)
+    
     # set axes
     ax.set_ylim([-1.2, 1.2])
     ax.set_xlim([-1.2, 1.2])
@@ -149,6 +167,18 @@ def hyperbolic_setup(fig, ax):
     # draw Poincare disk boundary
     e = patches.Arc((0,0), 2.0, 2.0,
                      linewidth=2, fill=False, zorder=2)
+    ax.add_patch(e)
+
+def spherical_setup(fig, ax):
+#    fig.set_size_inches(20.0, 10.0, forward=True)
+    
+    # set axes
+    ax.set_ylim([-1.2, 1.2])
+    ax.set_xlim([-1.2, 1.2])
+
+    # draw circle boundary
+    e = patches.Arc((0,0), 2.0, 2.0,
+                     linewidth=1, fill=False, zorder=2)
     ax.add_patch(e)
 
 def draw_plot():

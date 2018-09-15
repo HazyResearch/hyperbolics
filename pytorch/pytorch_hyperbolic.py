@@ -197,7 +197,7 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsa
                     bad         += 1
             _count += len(v)
             # if n_rows_sampled*(n-1) <= _count:
-            if n_rows_sampled*subsample <= _count:
+            if subsample is not None and n_rows_sampled*subsample <= _count:
                 break
         logging.info(f"\t\t Completed edges={_count} good={good} bad={bad}")
 
@@ -224,13 +224,15 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsa
         mapscore = dis.map_score(scipy.sparse.csr_matrix.todense(G).A, Hrec, n, num_workers)
 
     if visualize:
-        plt.cla()
+        #plt.cla()
+        ax[0].cla()
+        ax[1].cla()
         #vis.clear_plot()
         vis.draw_graph(G,m,fig, ax)
         plt.text(0.70, 1.1, "Epoch "+str(m.epoch), fontsize=20)
         plt.text(0.70, 1.0, "MAP "+str(mapscore)[0:5], fontsize=20)
         #plt.pause(0.1)
-        fig.set_size_inches(10.0, 10.0, forward=True)
+        fig.set_size_inches(20.0, 10.0, forward=True)
         writer.grab_frame()
 
     logging.info(f"Distortion avg={avg_dist} wc={wc_dist} me={me} mc={mc} nan_elements={nan_elements}")
