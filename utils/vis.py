@@ -116,7 +116,7 @@ def get_third_point(a,b):
 
 # for circle stuff let's just draw the points
 def draw_points_on_circle(a, ax):
-    ax.plot(a[0], a[1], "o")
+    ax.plot(a[0], a[1], "o", markersize=16)
 
 # draw the embedding for a graph 
 # G is the graph, m is the PyTorch hyperbolic model
