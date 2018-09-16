@@ -13,6 +13,8 @@ import matplotlib.animation as animation
 from matplotlib.patches import Circle, Wedge, Polygon
 from matplotlib.collections import PatchCollection
 from matplotlib import patches
+matplotlib.verbose.set_level("helpful")
+
 
 # collinearity check. if collinear, draw a line and don't attempt curve
 def collinear(a,b,c):
@@ -66,7 +68,7 @@ def get_angles(center, a):
     return theta
 
 # draw hyperbolic line:
-def draw_geodesic(a, b, c, ax, verbose=False):
+def draw_geodesic(a, b, c, ax, node1=None, node2=None, verbose=False):
     if verbose:
         print("Geodesic points are ", a, "\n", b, "\n", c, "\n")    
 
@@ -105,6 +107,9 @@ def draw_geodesic(a, b, c, ax, verbose=False):
     ax.plot(a[0], a[1], "o")
     ax.plot(b[0], b[1], "o")
 
+    if node1 is not None: ax.text(a[0] * (1 + 0.05), a[1] * (1 + 0.05) , node1, fontsize=12)
+    if node2 is not None: ax.text(b[0] * (1 + 0.05), b[1] * (1 + 0.05) , node2, fontsize=12)
+
 # to draw geodesic between a,b, we need
 # a third point. easy with inversion
 def get_third_point(a,b):
@@ -115,8 +120,9 @@ def get_third_point(a,b):
     return c
 
 # for circle stuff let's just draw the points
-def draw_points_on_circle(a, ax):
+def draw_points_on_circle(a, node, ax):
     ax.plot(a[0], a[1], "o", markersize=16)
+    ax.text(a[0] * (1 + 0.01), a[1] * (1 + 0.05) , node, fontsize=12)
 
 # draw the embedding for a graph 
 # G is the graph, m is the PyTorch hyperbolic model
@@ -131,16 +137,17 @@ def draw_graph(G, m, fig, ax):
         a = ((torch.index_select(m.H[0].w, 0, idx[0])).clone()).detach().numpy()[0]
         b = ((torch.index_select(m.H[0].w, 0, idx[1])).clone()).detach().numpy()[0]
         c = get_third_point(a,b)
-        draw_geodesic(a,b,c,ax[0])
+        draw_geodesic(a,b,c,ax[0], edge[0], edge[1])
 
     for node in Gr.nodes():
         idx = torch.LongTensor([int(node)])
         v = ((torch.index_select(m.S[0].w, 0, idx)).clone()).detach().numpy()[0]
-        draw_points_on_circle(v, ax[1])
+        draw_points_on_circle(v, node, ax[1])
+        
 
-def setup_plot(draw_circle=False):
+def setup_plot(name=None, draw_circle=False):
     # create plot
-    fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(20,10))
+    fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(30,15))
 
     #fig = plt.figure(figsize=(10,3))
     #ax1 = fig.add_subplot(121)
@@ -148,8 +155,14 @@ def setup_plot(draw_circle=False):
 
     #fig.set_size_inches(20.0, 10.0, forward=True)
     ax = (ax1, ax2)
-    writer = animation.ImageMagickFileWriter(fps=10, metadata=dict(artist='HazyResearch'), bitrate=1800)
-    writer.setup(fig, 'HypDistances.gif', dpi=100)
+    matplotlib.rcParams['animation.ffmpeg_args'] = '-report'
+    writer = animation.FFMpegFileWriter(fps=10, metadata=dict(artist='HazyResearch'))#, bitrate=1800)
+    if name is None:
+        name = 'HypDistances.mp4'
+    else:
+        name += '.mp4'
+
+    writer.setup(fig, name, dpi=108)
 
     if draw_circle:
         hyperbolic_setup(fig, ax[0])

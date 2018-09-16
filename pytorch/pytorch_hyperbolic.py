@@ -232,7 +232,7 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsa
         plt.text(0.70, 1.1, "Epoch "+str(m.epoch), fontsize=20)
         plt.text(0.70, 1.0, "MAP "+str(mapscore)[0:5], fontsize=20)
         #plt.pause(0.1)
-        fig.set_size_inches(20.0, 10.0, forward=True)
+        fig.set_size_inches(30.0, 15.0, forward=True)
         writer.grab_frame()
 
     logging.info(f"Distortion avg={avg_dist} wc={wc_dist} me={me} mc={mc} nan_elements={nan_elements}")
@@ -307,7 +307,8 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
     GM = nx.to_scipy_sparse_matrix(G)
 
     if visualize:
-        fig, ax, writer = vis.setup_plot(draw_circle=True)
+        name = 'animations/' + f"{os.path.split(os.path.splitext(dataset)[0])[1]}.H{dim}-{hyp}.E{edim}-{euc}.S{sdim}-{sph}.lr{learning_rate}"
+        fig, ax, writer = vis.setup_plot(name=name, draw_circle=True)
     else:
         fig = None
         ax = None
