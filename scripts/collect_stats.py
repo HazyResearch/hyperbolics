@@ -13,10 +13,10 @@ if __name__ == '__main__':
         row = pd.read_csv(f, delim_whitespace=True)
         row.index = [name]
         rows.append(row)
-        print(row)
+        # print(row)
         # os.remove(f)
     table = pd.concat(rows)
-    print(table)
+    # print(table)
     print(table.to_string())
     # .to_csv(f"{run_name}/{run_name}.stats", )
     with open(f"{run_name}/{run_name}.stats", "w") as f:
