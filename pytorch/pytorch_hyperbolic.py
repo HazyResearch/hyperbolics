@@ -265,6 +265,8 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsa
 @argh.arg("-T", help="SVRG T parameter")
 @argh.arg("--use-hmds", help="Use MDS warmstart")
 @argh.arg("-l", "--learning-rate", help="Learning rate")
+@argh.arg("--decay-length", help="Number of epochs per lr decay")
+@argh.arg("--decay-step", help="Size of lr decay")
 @argh.arg("--momentum", help="Momentum")
 @argh.arg("--epochs", help="number of steps in optimization")
 @argh.arg("-x", "--extra-steps", type=int, help="Steps per batch")
@@ -289,7 +291,7 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsa
 @argh.arg("--distortion")
 @argh.arg("-e", "--exponential-rescale", type=float, help="Exponential Rescale")
 @argh.arg("--visualize", help="Produce an animation (dimension 2 only)")
-def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann=False, learning_rate=1e-1, momentum=0.0, tol=1e-8, epochs=100,
+def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann=False, learning_rate=1e-1, decay_length=1000, decay_step=1.0, momentum=0.0, tol=1e-8, epochs=100,
           use_yellowfin=False, use_adagrad=False, resample_freq=100, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
           num_workers=None, lazy_generation=False, log_name=None, log=False, warm_start=None, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None,
           logloss=False, distortion=False, exponential_rescale=None, extra_steps=1, use_svrg=False, T=10, use_hmds=False, visualize=False):
@@ -361,6 +363,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
     model_params = [{'params': m.embed_params}, {'params': m.scale_params, 'lr': 1e-4*learning_rate}]
 
     opt = torch.optim.SGD(model_params, lr=learning_rate, momentum=momentum)
+    lr_decay = torch.optim.lr_scheduler.StepLR(opt, decay_length, decay_step)
     if use_yellowfin:
         from yellowfin import YFOptimizer
         opt = YFOptimizer(model_params)
@@ -388,6 +391,8 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
     best_wcdist = 1.0e10
     best_map    = 0.0
     for i in range(m.epoch+1, m.epoch+epochs+1):
+        lr_decay.step()
+
         l, n_edges = 0.0, 0 # track average loss per edge
         m.train(True)
         if use_svrg:
