@@ -3,7 +3,7 @@ import networkx as nx
 import itertools
 import argh
 
-cycle_nodes = 20
+cycle_nodes = 10
 
 tree = nx.balanced_tree(2, 2)
 nx.relabel_nodes(tree, {n : n+1 for n in tree.nodes}, copy=False)
