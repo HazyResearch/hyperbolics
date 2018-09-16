@@ -12,24 +12,40 @@ datasets = [
     # "synthetic/sierp-K3-8"
     "synthetic/tree-20-3"
     # "smalltree"
+    # "grqc"
 ]
 
-# models = [
-#     {'dim': 20, 'hyp': 1, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
-#     {'dim': 0, 'hyp': 0, 'edim': 20, 'euc': 1, 'sdim': 0, 'sph': 0},
-#     {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 20, 'sph': 1},
-#     {'dim': 10, 'hyp': 2, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
-#     {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 10, 'sph': 2},
-#     {'dim': 2, 'hyp': 10, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
-#     {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 2, 'sph': 10},
-#     {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 1, 'sph': 20},
-#     {'dim': 10, 'hyp': 1, 'edim': 0, 'euc': 0, 'sdim': 10, 'sph': 1},
-#     {'dim': 2, 'hyp': 5, 'edim': 0, 'euc': 0, 'sdim': 2, 'sph': 5},
-#     {'dim': 4, 'hyp': 2, 'edim': 4, 'euc': 1, 'sdim': 4, 'sph': 2},
-#     {'dim': 2, 'hyp': 4, 'edim': 4, 'euc': 1, 'sdim': 2, 'sph': 4},
-# ]
+# 100 dimensions
+models100 = [
+    {'dim': 100, 'hyp': 1, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
+    {'dim': 0, 'hyp': 0, 'edim': 100, 'euc': 1, 'sdim': 0, 'sph': 0},
+    {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 100, 'sph': 1},
+    {'dim': 10, 'hyp': 10, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
+    {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 10, 'sph': 10},
+    # {'dim': 5, 'hyp': 20, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
+    {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 5, 'sph': 20},
+    {'dim': 2, 'hyp': 50, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
+    {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 2, 'sph': 50},
+    {'dim': 50, 'hyp': 1, 'edim': 0, 'euc': 0, 'sdim': 50, 'sph': 1},
+    {'dim': 5, 'hyp': 10, 'edim': 0, 'euc': 0, 'sdim': 5, 'sph': 10},
+]
+# 20 dimensions
+models20 = [
+    {'dim': 20, 'hyp': 1, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
+    {'dim': 0, 'hyp': 0, 'edim': 20, 'euc': 1, 'sdim': 0, 'sph': 0},
+    {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 20, 'sph': 1},
+    {'dim': 10, 'hyp': 2, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
+    {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 10, 'sph': 2},
+    {'dim': 2, 'hyp': 10, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
+    {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 2, 'sph': 10},
+    {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 1, 'sph': 20},
+    {'dim': 10, 'hyp': 1, 'edim': 0, 'euc': 0, 'sdim': 10, 'sph': 1},
+    {'dim': 2, 'hyp': 5, 'edim': 0, 'euc': 0, 'sdim': 2, 'sph': 5},
+    {'dim': 4, 'hyp': 2, 'edim': 4, 'euc': 1, 'sdim': 4, 'sph': 2},
+    {'dim': 2, 'hyp': 4, 'edim': 4, 'euc': 1, 'sdim': 2, 'sph': 4},
+]
 # 10 dimensions
-models = [
+models10 = [
     {'dim': 10, 'hyp': 1, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
     {'dim': 0, 'hyp': 0, 'edim': 10, 'euc': 1, 'sdim': 0, 'sph': 0},
     {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 10, 'sph': 1},
@@ -41,8 +57,10 @@ models = [
     {'dim': 5, 'hyp': 1, 'edim': 0, 'euc': 0, 'sdim': 5, 'sph': 1},
     {'dim': 2, 'hyp': 2, 'edim': 3, 'euc': 1, 'sdim': 2, 'sph': 2}
 ]
+models = models10
 
-lrs = [30, 100, 300]
+# lrs = [30, 100, 300]
+lrs = [100]
 
 # CUDA_VISIBLE_DEVICES=1 python pytorch/pytorch_hyperbolic.py learn data/edges/synthetic/sierp-C50-2.edges --batch-size 65536 -d 50 --hyp 0 --euc 0 --edim 50 --sph 1 --sdim 51 -l 100.0 --epochs 1000 --checkpoint-freq 100 --resample-freq 500 -g --subsample 1024 --riemann --log-name C50-2.S50.log
 
