@@ -13,7 +13,8 @@ def build_distance(G, scale, num_workers=None):
     n = G.order()
     p = Pool() if num_workers is None else Pool(num_workers)
     
-    adj_mat_original = nx.to_scipy_sparse_matrix(G)
+    #adj_mat_original = nx.to_scipy_sparse_matrix(G)
+    adj_mat_original = nx.to_scipy_sparse_matrix(G, nodelist=list(range(G.order())))
 
     # Simple chunking
     nChunks     = 128 if num_workers is not None and num_workers > 1 else n

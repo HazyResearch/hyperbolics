@@ -104,11 +104,11 @@ def draw_geodesic(a, b, c, ax, node1=None, node2=None, verbose=False):
             e = patches.Arc((cent[0], cent[1]), 2*radius, 2*radius,
                      theta1=t2, theta2=t1, linewidth=2, fill=False, zorder=2)
     ax.add_patch(e)
-    ax.plot(a[0], a[1], "o")
-    ax.plot(b[0], b[1], "o")
+    #ax.plot(a[0], a[1], "o")
+    #ax.plot(b[0], b[1], "o")
 
-    if node1 is not None: ax.text(a[0] * (1 + 0.05), a[1] * (1 + 0.05) , node1, fontsize=12)
-    if node2 is not None: ax.text(b[0] * (1 + 0.05), b[1] * (1 + 0.05) , node2, fontsize=12)
+    #if node1 is not None: ax.text(a[0] * (1 + 0.05), a[1] * (1 + 0.05) , node1, fontsize=12)
+    #if node2 is not None: ax.text(b[0] * (1 + 0.05), b[1] * (1 + 0.05) , node2, fontsize=12)
 
 # to draw geodesic between a,b, we need
 # a third point. easy with inversion
@@ -122,7 +122,12 @@ def get_third_point(a,b):
 # for circle stuff let's just draw the points
 def draw_points_on_circle(a, node, ax):
     ax.plot(a[0], a[1], "o", markersize=16)
-    ax.text(a[0] * (1 + 0.01), a[1] * (1 + 0.05) , node, fontsize=12)
+    ax.text(a[0] * (1 + 0.05), a[1] * (1 + 0.05) , node, fontsize=12)
+
+def draw_points_hyperbolic(a, node, ax):
+    ax.plot(a[0], a[1], "o")
+    ax.text(a[0] * (1 + 0.05), a[1] * (1 + 0.05) , node, fontsize=12)
+
 
 # draw the embedding for a graph 
 # G is the graph, m is the PyTorch hyperbolic model
@@ -142,7 +147,9 @@ def draw_graph(G, m, fig, ax):
     for node in Gr.nodes():
         idx = torch.LongTensor([int(node)])
         v = ((torch.index_select(m.S[0].w, 0, idx)).clone()).detach().numpy()[0]
+        a = ((torch.index_select(m.H[0].w, 0, idx)).clone()).detach().numpy()[0]
         draw_points_on_circle(v, node, ax[1])
+        draw_points_hyperbolic(a, node, ax[0])
         
 
 def setup_plot(name=None, draw_circle=False):
