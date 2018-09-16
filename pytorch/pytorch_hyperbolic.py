@@ -312,7 +312,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
     logging.info(f"Commandline {sys.argv}")
     if model_save_file is None: logging.warn("No Model Save selected!")
     G  = load_graph.load_graph(dataset)
-    GM = nx.to_scipy_sparse_matrix(G)
+    GM = nx.to_scipy_sparse_matrix(G, nodelist=list(range(G.order())))
 
     if visualize:
         name = 'animations/' + f"{os.path.split(os.path.splitext(dataset)[0])[1]}.H{dim}-{hyp}.E{edim}-{euc}.S{sdim}-{sph}.lr{learning_rate}"
