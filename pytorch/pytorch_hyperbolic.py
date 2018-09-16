@@ -1,17 +1,22 @@
 import logging, argh
 import os, sys
 import networkx as nx
-import scipy
-import scipy.sparse.csgraph as csg
-import pandas
-import numpy as np, math
-import matplotlib.pyplot as plt
 import random
 
 import torch
 from torch import nn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader, TensorDataset
+
+
+import matplotlib as mpl
+if torch.cuda.is_available(): mpl.use('Agg')
+import matplotlib.pyplot as plt
+if torch.cuda.is_available(): plt.ioff()
+import scipy
+import scipy.sparse.csgraph as csg
+import pandas
+import numpy as np, math
 
 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, root_dir)
