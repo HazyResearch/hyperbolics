@@ -2,7 +2,7 @@
 Hyperbolic embedding implementations of [Representation Tradeoffs for Hyperbolic Embeddings](https://arxiv.org/pdf/1804.03329.pdf).
 
 <p align="center">
-  <img src="binary_tree.png" alt="Hyperbolic embedding of binary tree" width="400"/>
+  <img src="assets/binary_tree.png" alt="Hyperbolic embedding of binary tree" width="400"/>
 </p>
 
 ## Setup
