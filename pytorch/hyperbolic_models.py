@@ -84,7 +84,7 @@ def line_dist_sq(_x,y):
     return torch.norm(y - torch.diag(dot(x,y)*norm_x)@x,2,1)**2
 
 class ProductEmbedding(nn.Module):
-    def __init__(self, n, hyp_d, hyp_copies=1, euc_d=1, euc_copies=0, sph_d=1, sph_copies=0, project=True, initialize=None, learn_scale=False, absolute_loss=False, logrel_loss=False, dist_loss=False, exponential_rescale=None, riemann=False):
+    def __init__(self, n, hyp_d, hyp_copies=1, euc_d=1, euc_copies=0, sph_d=1, sph_copies=0, project=True, initialize=None, learn_scale=False, absolute_loss=False, logrel_loss=False, dist_loss=False, square_loss=False, sym_loss=False, exponential_rescale=None, riemann=False):
         super().__init__()
         self.n = n
         self.riemann = riemann
@@ -105,6 +105,8 @@ class ProductEmbedding(nn.Module):
         self.absolute_loss = absolute_loss
         self.logrel_loss = logrel_loss
         self.dist_loss = dist_loss
+        self.square_loss = square_loss
+        self.sym_loss = sym_loss
         abs_str = "absolute" if self.absolute_loss else "relative"
 
         self.exponential_rescale = exponential_rescale
@@ -168,12 +170,12 @@ class ProductEmbedding(nn.Module):
             return torch.sum( torch.log((d/values)**2)**2 ) / values.size(0)
         elif self.dist_loss:
             return torch.sum( torch.abs(term_rescale*((d/values) - 1)) ) / values.size(0)
+        elif self.square_loss:
+            return torch.sum( term_rescale*torch.abs((d/values)**2 - 1) ) / values.size(0)
         else:
             l1 = torch.sum( term_rescale*((d/values) - 1)**2 ) / values.size(0)
-            l2 = 0
-            # l2 = torch.sum( term_rescale*((values/d) - 1)**2 ) / values.size(0)
+            l2 = torch.sum( term_rescale*((values/d) - 1)**2 ) / values.size(0) if self.sym_loss else 0
             return l1 + l2
-            # perhaps another metric targets (worst-case) distortion better, e.g. log^2 d^2
 
     def normalize(self):
         for H in self.H:

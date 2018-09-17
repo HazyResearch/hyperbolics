@@ -291,13 +291,15 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsa
 # misc
 @argh.arg("--learn-scale", help="Learn scale")
 @argh.arg("--logloss")
-@argh.arg("--distortion")
+@argh.arg("--distloss")
+@argh.arg("--squareloss")
+@argh.arg("--symloss")
 @argh.arg("-e", "--exponential-rescale", type=float, help="Exponential Rescale")
 @argh.arg("--visualize", help="Produce an animation (dimension 2 only)")
 def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann=False, learning_rate=1e-1, decay_length=1000, decay_step=1.0, momentum=0.0, tol=1e-8, epochs=100,
           use_yellowfin=False, use_adagrad=False, resample_freq=100, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
           num_workers=None, lazy_generation=False, log_name=None, log=False, warm_start=None, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None,
-          logloss=False, distortion=False, exponential_rescale=None, extra_steps=1, use_svrg=False, T=10, use_hmds=False, visualize=False):
+          logloss=False, distloss=False, squareloss=False, symloss=False, exponential_rescale=None, extra_steps=1, use_svrg=False, T=10, use_hmds=False, visualize=False):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
@@ -352,7 +354,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
             m_init = torch.DoubleTensor(mds_warmstart.get_model(dataset,dim,scale)[1])
 
         logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
-        m       = ProductEmbedding(G.order(), dim, hyp, edim, euc, sdim, sph, initialize=m_init, learn_scale=learn_scale, logrel_loss=logloss, dist_loss=distortion, exponential_rescale=exponential_rescale, riemann=riemann).to(device)
+        m       = ProductEmbedding(G.order(), dim, hyp, edim, euc, sdim, sph, initialize=m_init, learn_scale=learn_scale, logrel_loss=logloss, dist_loss=distloss, square_loss=squareloss, sym_loss=symloss, exponential_rescale=exponential_rescale, riemann=riemann).to(device)
         m.normalize()
         m.epoch = 0
     logging.info(f"Constructed model with dim={dim} and epochs={m.epoch} isnan={np.any(np.isnan(m.embedding().cpu().data.numpy()))}")
