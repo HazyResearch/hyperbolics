@@ -320,7 +320,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
     GM = nx.to_scipy_sparse_matrix(G, nodelist=list(range(G.order())))
 
     if visualize:
-        name = 'animations/' + f"{os.path.split(os.path.splitext(dataset)[0])[1]}.H{dim}-{hyp}.E{edim}-{euc}.S{sdim}-{sph}.lr{learning_rate}"
+        name = 'animations/' + f"{os.path.split(os.path.splitext(dataset)[0])[1]}.H{dim}-{hyp}.E{edim}-{euc}.S{sdim}-{sph}.lr{learning_rate}.ep{epochs}.seed{seed}"
         fig, ax, writer = vis.setup_plot(name=name, draw_circle=True)
     else:
         fig = None

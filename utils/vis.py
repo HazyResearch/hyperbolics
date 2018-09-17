@@ -15,6 +15,7 @@ from matplotlib.collections import PatchCollection
 from matplotlib import patches
 matplotlib.verbose.set_level("helpful")
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # collinearity check. if collinear, draw a line and don't attempt curve
 def collinear(a,b,c):
@@ -138,16 +139,16 @@ def draw_graph(G, m, fig, ax):
     # todo: directly read edge list from csr format
     Gr = nx.from_scipy_sparse_matrix(G)
     for edge in Gr.edges():
-        idx = torch.LongTensor([edge[0], edge[1]])
-        a = ((torch.index_select(m.H[0].w, 0, idx[0])).clone()).detach().numpy()[0]
-        b = ((torch.index_select(m.H[0].w, 0, idx[1])).clone()).detach().numpy()[0]
+        idx = torch.LongTensor([edge[0], edge[1]]).to(device)
+        a = ((torch.index_select(m.H[0].w, 0, idx[0])).clone()).detach().cpu().numpy()[0]
+        b = ((torch.index_select(m.H[0].w, 0, idx[1])).clone()).detach().cpu().numpy()[0]
         c = get_third_point(a,b)
         draw_geodesic(a,b,c,ax[0], edge[0], edge[1])
 
     for node in Gr.nodes():
-        idx = torch.LongTensor([int(node)])
-        v = ((torch.index_select(m.S[0].w, 0, idx)).clone()).detach().numpy()[0]
-        a = ((torch.index_select(m.H[0].w, 0, idx)).clone()).detach().numpy()[0]
+        idx = torch.LongTensor([int(node)]).to(device)
+        v = ((torch.index_select(m.S[0].w, 0, idx)).clone()).detach().cpu().numpy()[0]
+        a = ((torch.index_select(m.H[0].w, 0, idx)).clone()).detach().cpu().numpy()[0]
         draw_points_on_circle(v, node, ax[1])
         draw_points_hyperbolic(a, node, ax[0])
         
