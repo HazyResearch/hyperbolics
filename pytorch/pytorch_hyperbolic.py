@@ -45,6 +45,9 @@ from hyperbolic_parameter import HyperbolicParameter
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+seed = 0
+np.random.seed(seed)
+torch.manual_seed(seed)
 
 def cu_var(x):
     if isinstance(x, list) : return [cu_var(u) for u in x]
