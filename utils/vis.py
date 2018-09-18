@@ -2,6 +2,7 @@
 import numpy as np
 import networkx as nx
 import os, sys
+from itertools import product, combinations
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
 import utils.hyp_functions as hf
@@ -13,6 +14,8 @@ import matplotlib.animation as animation
 from matplotlib.patches import Circle, Wedge, Polygon
 from matplotlib.collections import PatchCollection
 from matplotlib import patches
+from mpl_toolkits.mplot3d import Axes3D
+
 matplotlib.verbose.set_level("helpful")
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -125,6 +128,10 @@ def draw_points_on_circle(a, node, ax):
     ax.plot(a[0], a[1], "o", markersize=16)
     ax.text(a[0] * (1 + 0.05), a[1] * (1 + 0.05) , node, fontsize=12)
 
+def draw_points_on_sphere(a, node, ax):
+    ax.scatter(a[0], a[1], a[2], c='b', marker='o', s=32)
+    ax.text(a[0] * (1 + 0.05), a[1] * (1 + 0.05) , a[2] * (1 + 0.05),  node, fontsize=12)
+
 def draw_points_hyperbolic(a, node, ax):
     ax.plot(a[0], a[1], "o")
     ax.text(a[0] * (1 + 0.05), a[1] * (1 + 0.05) , node, fontsize=12)
@@ -135,8 +142,14 @@ def draw_points_hyperbolic(a, node, ax):
 def draw_graph(G, m, fig, ax):
     num_spheres = np.minimum(len(m.S), 5)
     num_hypers  = np.minimum(len(m.H), 5)
+
+    sdim = 0 if len(m.S) == 0 else len((m.S[0]).w[0])
     for emb in range(num_spheres):
-        spherical_setup(fig, ax[1, emb])
+        if sdim == 3:
+            spherical_setup_3d(fig, ax[1, emb])
+        else:
+            spherical_setup(fig, ax[1, emb])
+
     for emb in range(num_hypers):
         hyperbolic_setup(fig, ax[0, emb])
 
@@ -155,7 +168,11 @@ def draw_graph(G, m, fig, ax):
         idx = torch.LongTensor([int(node)]).to(device)
         for emb in range(num_spheres):
             v = ((torch.index_select(m.S[emb].w, 0, idx)).clone()).detach().cpu().numpy()[0]
-            draw_points_on_circle(v, node, ax[1, emb])
+            
+            if sdim == 3:
+                draw_points_on_sphere(v, node, ax[1, emb])                        
+            else:
+                draw_points_on_circle(v, node, ax[1, emb])
 
         for emb in range(num_hypers):
             a = ((torch.index_select(m.H[emb].w, 0, idx)).clone()).detach().cpu().numpy()[0]
@@ -170,11 +187,6 @@ def setup_plot(m, name=None, draw_circle=False):
 
     fig, axes = plt.subplots(2, wid, sharey=True, figsize=(wid*10, 20))
 
-    #fig = plt.figure(figsize=(10,3))
-    #ax1 = fig.add_subplot(121)
-    #ax2 = fig.add_subplot(122)
-
-    #fig.set_size_inches(20.0, 10.0, forward=True)
     ax = axes
     matplotlib.rcParams['animation.ffmpeg_args'] = '-report'
     writer = animation.FFMpegFileWriter(fps=10, metadata=dict(artist='HazyResearch'))#, bitrate=1800)
@@ -185,9 +197,20 @@ def setup_plot(m, name=None, draw_circle=False):
 
     writer.setup(fig, name, dpi=108)
 
+    sdim = 0 if len(m.S) == 0 else len((m.S[0]).w[0])
+    # need these to all be 3D
+    if sdim == 3:
+        for emb in range(num_spheres):
+            ax[1, emb].remove()
+            #ax[1, emb] = fig.add_subplot(111, projection='3d')
+            ax[1, emb] = fig.add_subplot(2, wid, wid+emb+1, projection='3d')
+
     if draw_circle:
         for emb in range(num_spheres):
-            spherical_setup(fig, ax[1, emb])
+            if sdim == 3:
+                spherical_setup_3d(fig, ax[1, emb])
+            else:
+                spherical_setup(fig, ax[1, emb])
         for emb in range(num_hypers):
             hyperbolic_setup(fig, ax[0, emb])
 
@@ -217,6 +240,17 @@ def spherical_setup(fig, ax):
     e = patches.Arc((0,0), 2.0, 2.0,
                      linewidth=1, fill=False, zorder=2)
     ax.add_patch(e)
+
+def spherical_setup_3d(fig, ax):
+    ax.set_ylim([-1.2, 1.2])
+    ax.set_xlim([-1.2, 1.2])
+
+    # draw sphere
+    u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
+    x = np.cos(u)*np.sin(v)
+    y = np.sin(u)*np.sin(v)
+    z = np.cos(v)
+    ax.plot_wireframe(x, y, z, color="y")
 
 def draw_plot():
     plt.show()
