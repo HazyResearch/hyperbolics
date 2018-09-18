@@ -133,36 +133,49 @@ def draw_points_hyperbolic(a, node, ax):
 # draw the embedding for a graph 
 # G is the graph, m is the PyTorch hyperbolic model
 def draw_graph(G, m, fig, ax):
-    hyperbolic_setup(fig, ax[0])
-    spherical_setup(fig, ax[1])
+    num_spheres = np.minimum(len(m.S), 5)
+    num_hypers  = np.minimum(len(m.H), 5)
+    for emb in range(num_spheres):
+        spherical_setup(fig, ax[1, emb])
+    for emb in range(num_hypers):
+        hyperbolic_setup(fig, ax[0, emb])
 
     # todo: directly read edge list from csr format
     Gr = nx.from_scipy_sparse_matrix(G)
     for edge in Gr.edges():
         idx = torch.LongTensor([edge[0], edge[1]]).to(device)
-        a = ((torch.index_select(m.H[0].w, 0, idx[0])).clone()).detach().cpu().numpy()[0]
-        b = ((torch.index_select(m.H[0].w, 0, idx[1])).clone()).detach().cpu().numpy()[0]
-        c = get_third_point(a,b)
-        draw_geodesic(a,b,c,ax[0], edge[0], edge[1])
+
+        for emb in range(num_hypers):
+            a = ((torch.index_select(m.H[emb].w, 0, idx[0])).clone()).detach().cpu().numpy()[0]
+            b = ((torch.index_select(m.H[emb].w, 0, idx[1])).clone()).detach().cpu().numpy()[0]
+            c = get_third_point(a,b)
+            draw_geodesic(a,b,c,ax[0, emb], edge[0], edge[1])
 
     for node in Gr.nodes():
         idx = torch.LongTensor([int(node)]).to(device)
-        v = ((torch.index_select(m.S[0].w, 0, idx)).clone()).detach().cpu().numpy()[0]
-        a = ((torch.index_select(m.H[0].w, 0, idx)).clone()).detach().cpu().numpy()[0]
-        draw_points_on_circle(v, node, ax[1])
-        draw_points_hyperbolic(a, node, ax[0])
+        for emb in range(num_spheres):
+            v = ((torch.index_select(m.S[emb].w, 0, idx)).clone()).detach().cpu().numpy()[0]
+            draw_points_on_circle(v, node, ax[1, emb])
+
+        for emb in range(num_hypers):
+            a = ((torch.index_select(m.H[emb].w, 0, idx)).clone()).detach().cpu().numpy()[0]
+            draw_points_hyperbolic(a, node, ax[0, emb])
         
 
-def setup_plot(name=None, draw_circle=False):
+def setup_plot(m, name=None, draw_circle=False):
     # create plot
-    fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(30,15))
+    num_spheres = np.minimum(len(m.S), 5)
+    num_hypers  = np.minimum(len(m.H), 5)
+    wid = np.maximum(np.minimum(num_spheres, num_hypers), 2)
+
+    fig, axes = plt.subplots(2, wid, sharey=True, figsize=(wid*10, 20))
 
     #fig = plt.figure(figsize=(10,3))
     #ax1 = fig.add_subplot(121)
     #ax2 = fig.add_subplot(122)
 
     #fig.set_size_inches(20.0, 10.0, forward=True)
-    ax = (ax1, ax2)
+    ax = axes
     matplotlib.rcParams['animation.ffmpeg_args'] = '-report'
     writer = animation.FFMpegFileWriter(fps=10, metadata=dict(artist='HazyResearch'))#, bitrate=1800)
     if name is None:
@@ -173,8 +186,11 @@ def setup_plot(name=None, draw_circle=False):
     writer.setup(fig, name, dpi=108)
 
     if draw_circle:
-        hyperbolic_setup(fig, ax[0])
-        spherical_setup(fig, ax[1])
+        for emb in range(num_spheres):
+            spherical_setup(fig, ax[1, emb])
+        for emb in range(num_hypers):
+            hyperbolic_setup(fig, ax[0, emb])
+
     return fig, ax, writer
 
 

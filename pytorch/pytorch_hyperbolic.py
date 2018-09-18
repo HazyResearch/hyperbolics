@@ -232,15 +232,21 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsa
         mapscore = dis.map_score(scipy.sparse.csr_matrix.todense(G).A, Hrec, n, num_workers)
 
     if visualize:
-        #plt.cla()
-        ax[0].cla()
-        ax[1].cla()
+        num_spheres = np.minimum(len(m.S), 5)
+        num_hypers  = np.minimum(len(m.H), 5)
+        for emb in range(num_spheres):
+            ax[1, emb].cla()
+        for emb in range(num_hypers):
+            ax[0, emb].cla()
+    
+        #ax[0].cla()
+        #ax[1].cla()
         #vis.clear_plot()
         vis.draw_graph(G,m,fig, ax)
-        plt.text(0.70, 1.1, "Epoch "+str(m.epoch), fontsize=20)
-        plt.text(0.70, 1.0, "MAP "+str(mapscore)[0:5], fontsize=20)
+        ax[0,0].text(0.70, 1.1, "Epoch "+str(m.epoch), fontsize=20)
+        ax[0,0].text(0.70, 1.0, "MAP "+str(mapscore)[0:5], fontsize=20)
         #plt.pause(0.1)
-        fig.set_size_inches(30.0, 15.0, forward=True)
+        #fig.set_size_inches(30.0, 15.0, forward=True)
         writer.grab_frame()
 
     logging.info(f"Distortion avg={avg_dist} wc={wc_dist} me={me} mc={mc} nan_elements={nan_elements}")
@@ -319,14 +325,6 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
     G  = load_graph.load_graph(dataset)
     GM = nx.to_scipy_sparse_matrix(G, nodelist=list(range(G.order())))
 
-    if visualize:
-        name = 'animations/' + f"{os.path.split(os.path.splitext(dataset)[0])[1]}.H{dim}-{hyp}.E{edim}-{euc}.S{sdim}-{sph}.lr{learning_rate}.ep{epochs}.seed{seed}"
-        fig, ax, writer = vis.setup_plot(name=name, draw_circle=True)
-    else:
-        fig = None
-        ax = None
-        writer = None
-
     # grab scale if warm starting:
     if warm_start:
         scale = pandas.read_csv(warm_start, index_col=0).as_matrix()[0, -1]
@@ -358,6 +356,14 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
         m.normalize()
         m.epoch = 0
     logging.info(f"Constructed model with dim={dim} and epochs={m.epoch} isnan={np.any(np.isnan(m.embedding().cpu().data.numpy()))}")
+
+    if visualize:
+        name = 'animations/' + f"{os.path.split(os.path.splitext(dataset)[0])[1]}.H{dim}-{hyp}.E{edim}-{euc}.S{sdim}-{sph}.lr{learning_rate}.ep{epochs}.seed{seed}"
+        fig, ax, writer = vis.setup_plot(m=m, name=name, draw_circle=True)
+    else:
+        fig = None
+        ax = None
+        writer = None
 
     #
     # Build the Optimizer
