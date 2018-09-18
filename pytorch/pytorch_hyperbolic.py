@@ -67,7 +67,7 @@ def unwrap(x):
 class GraphRowSubSampler(torch.utils.data.Dataset):
     def __init__(self, G, scale, subsample, Z=None):
         super(GraphRowSubSampler, self).__init__()
-        self.graph     = nx.to_scipy_sparse_matrix(G)
+        self.graph     = nx.to_scipy_sparse_matrix(G, nodelist=list(range(G.order())))
         self.n         = G.order()
         self.scale     = scale
         self.subsample = subsample if subsample > 0 else self.n-1
@@ -121,7 +121,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
 
 class GraphRowSampler(torch.utils.data.Dataset):
     def __init__(self, G, scale, use_cache=True):
-        self.graph = nx.to_scipy_sparse_matrix(G)
+        self.graph = nx.to_scipy_sparse_matrix(G, nodelist=list(range(G.order())))
         self.n     = G.order()
         self.scale = scale
         self.cache = dict() if use_cache else None

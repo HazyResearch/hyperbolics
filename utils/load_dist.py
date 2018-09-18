@@ -14,7 +14,7 @@ def compute_row(i, adj_mat):
 def save_dist_mat(G, file):
     n = G.order()
     print("Number of nodes is ", n)
-    adj_mat = nx.to_scipy_sparse_matrix(G)
+    adj_mat = nx.to_scipy_sparse_matrix(G, nodelist=list(range(G.order())))
     t = time.time()
     
     num_cores = multiprocessing.cpu_count()
@@ -29,7 +29,7 @@ def load_dist_mat(file):
 def get_dist_mat(G):
     n = G.order()
     print("Number of nodes is ", n)
-    adj_mat = nx.to_scipy_sparse_matrix(G)
+    adj_mat = nx.to_scipy_sparse_matrix(G, nodelist=list(range(G.order())))
     t = time.time()
     
     num_cores = multiprocessing.cpu_count()
