@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from hyperbolic_parameter import HyperbolicParameter, SphericalParameter
+from hyperbolic_parameter import HyperbolicParameter, EuclideanParameter, SphericalParameter
 import logging
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -13,7 +13,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class Hyperbolic_Mean(nn.Module):
     def __init__(self, d):
         super(Hyperbolic_Mean, self).__init__()
-        self.w = Hyperbolic_Parameter( (torch.rand(d) * 1e-3).double() )
+        self.w = Hyperbolic_Parameter(sizes=d)
 
     def loss(self, y_data):
         return torch.sum(dist(self.w.repeat(y_data.size(0),1),y_data)**2)
@@ -24,7 +24,7 @@ class Hyperbolic_Mean(nn.Module):
 class Hyperbolic_Lines(nn.Module):
     def __init__(self, d):
         super(Hyperbolic_Lines, self).__init__()
-        self.w = Hyperbolic_Parameter(h_proj(torch.rand(d) * 1e-3).double())
+        self.w = Hyperbolic_Parameter(sizes=d)
 
     # $$\min_{v} \sum_{j=1}^{n} \mathrm{acosh}\left(1 + d^2_E(L(v), w_j)\right)^2$$
     # learn the lines in a zero centered way.
@@ -56,14 +56,14 @@ def dist_h(u,v):
     # return acosh(torch.clamp(uu, min=1+machine_eps))
     return acosh(uu)
 
-def h_proj(x, eps=1e-9):
-    current_norms = torch.norm(x,2,x.dim() - 1)
-    mask_idx      = current_norms < 1.0
-    modified      = 1./((1+eps)*current_norms)
-    modified[mask_idx] = 1.0
-    new_size      = [1]*current_norms.dim() + [x.size(x.dim()-1)]
-    modified      = modified.unsqueeze(modified.dim()).repeat(*new_size)
-    return x * modified
+# def h_proj(x, eps=1e-9):
+#     current_norms = torch.norm(x,2,x.dim() - 1)
+#     mask_idx      = current_norms < 1.0
+#     modified      = 1./((1+eps)*current_norms)
+#     modified[mask_idx] = 1.0
+#     new_size      = [1]*current_norms.dim() + [x.size(x.dim()-1)]
+#     modified      = modified.unsqueeze(modified.dim()).repeat(*new_size)
+#     return x * modified
 
 def dot(x,y): return torch.sum(x * y, 1)
 
@@ -90,9 +90,9 @@ class ProductEmbedding(nn.Module):
         self.riemann = riemann
 
         self.H = nn.ModuleList([Embedding(dist_h, HyperbolicParameter, n, hyp_d, project, initialize, learn_scale) for _ in range(hyp_copies)])
-        self.E = nn.ModuleList([Embedding(dist_e, nn.Parameter, n, euc_d, False, initialize, learn_scale) for _ in range(euc_copies)])
+        self.E = nn.ModuleList([Embedding(dist_e, EuclideanParameter, n, euc_d, False, initialize, learn_scale) for _ in range(euc_copies)])
         # raise the dimension of spherical. TODO this should be done in the appropriate Parameter
-        self.S = nn.ModuleList([Embedding(dist_s, SphericalParameter, n, sph_d+1, project, initialize, learn_scale) for _ in range(sph_copies)])
+        self.S = nn.ModuleList([Embedding(dist_s, SphericalParameter, n, sph_d, project, initialize, learn_scale) for _ in range(sph_copies)])
 
         self.scale_params = [H.scale_log for H in self.H] \
                           + [E.scale_log for E in self.E] \
@@ -163,7 +163,7 @@ class ProductEmbedding(nn.Module):
         d = self.dist_idx(idx)
 
         #term_rescale = torch.exp( 2*(1.-values) ) if self.exponential_rescale else self.step_rescale(values)
-        term_rescale  = torch.exp( self.exponential_rescale*(1.-values) ) if self.exponential_rescale is not None else 1.0
+        term_rescale  = torch.exp( self.exponential_rescale*(-values) ) if self.exponential_rescale is not None else 1.0
         if self.absolute_loss:
             return torch.sum( term_rescale*( d - values)**2) / values.size(0)
         elif self.logrel_loss:
@@ -191,9 +191,10 @@ class Embedding(nn.Module):
         self.n, self.d = n, d
         self.project   = project
         if initialize is not None: logging.info(f"Initializing {np.any(np.isnan(initialize.numpy()))} {initialize.size()} {(n,d)}")
-        x      = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None  else torch.DoubleTensor(initialize[0:n,0:d])
+        # x      = h_proj( 1e-3 * torch.rand(n, d).double() ) if initialize is None  else torch.DoubleTensor(initialize[0:n,0:d])
         # self.w = Hyperbolic_Parameter(x)
-        self.w = param_cls(x)
+        # self.w = param_cls(x)
+        self.w = param_cls(data=initialize, sizes=(n,d))
         z =  torch.tensor([0.0], dtype=torch.double)
         if learn_scale:
             self.scale_log       = nn.Parameter(torch.tensor([0.0], dtype=torch.double))
@@ -202,7 +203,8 @@ class Embedding(nn.Module):
             self.scale_log       = torch.tensor([0.0], dtype=torch.double, device=device)
         self.learn_scale = learn_scale
         self.scale_clamp       = 3.0
-        logging.info(f"{self} {torch.norm(self.w.data - x)} {x.size()}")
+        # logging.info(f"{self} {torch.norm(self.w.data - x)} {x.size()}")
+        logging.info(f"{self} {self.w.size()}")
 
     def scale(self):
         # print(self.scale_log.type(), self.lo_scale.type(), self.hi_scale.type())
@@ -234,8 +236,9 @@ class Embedding(nn.Module):
         return rets
 
     def normalize(self):
-        if self.project:
-            self.w.proj()
+        self.w.proj()
+        # if self.project:
+        #     self.w.proj()
             # print("normalize: scale ", self.scale.data)
             # print(type(self.scale_log), self.scale_log.type())
             # self.scale_log = torch.clamp(self.scale_log, self.lo_scale, self.hi_scale)
