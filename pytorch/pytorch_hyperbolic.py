@@ -205,7 +205,8 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsa
                     bad         += 1
             _count += len(v)
             # if n_rows_sampled*(n-1) <= _count:
-            if subsample is not None and n_rows_sampled*subsample <= _count:
+            ss = subsample if subsample is not None else n-1
+            if _count >= n_rows_sampled*ss:
                 break
         logging.info(f"\t\t Completed edges={_count} good={good} bad={bad}")
 
