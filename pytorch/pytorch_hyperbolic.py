@@ -103,6 +103,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
                 if v != index and v not in neighbors:
                     self.idx_cache[index,cur,1] = int(v)
                     self.val_cache[index,cur]   = self.scale*h[v]
+                    # self.val_cache[index,cur]   = 0
                     cur += 1
                 i += 1
             if self.verbose: logging.info(f"\t neighbors={neighbors} {self.idx_cache[index,:,1].numpy().T}")
@@ -445,9 +446,9 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
         m.epoch += 1
 
         # Logging code
-        if l < tol:
-                logging.info("Found a {l} solution. Done at iteration {i}!")
-                break
+        # if l < tol:
+        #         logging.info("Found a {l} solution. Done at iteration {i}!")
+        #         break
         if i % print_freq == 0:
             logging.info(f"{i} loss={l}")
         if (i <= burn_in and i % (checkpoint_freq/5) == 0) or i % checkpoint_freq == 0:

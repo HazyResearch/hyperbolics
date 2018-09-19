@@ -168,6 +168,17 @@ class ProductEmbedding(nn.Module):
         term_rescale[values <= 4.0] = 1.0
         term_rescale[values <= 2.0] = 5.0
 
+        if False: # Nickel network loss
+            r = 1.0
+            t = .1
+            base = (r-d)/t
+            sigm = torch.sigmoid(base)
+            # print(idx.size(), values.size())
+            nbr = values <= 1 + 1e-7
+            sigm_ = torch.tensor(sigm)
+            sigm_[nbr] = 1 - sigm[nbr]
+            return -torch.sum(torch.log(sigm_))
+        # torch.log(torch.)
         if self.absolute_loss:
             return torch.sum( term_rescale*( d - values)**2) / values.size(0)
         elif self.logrel_loss:

@@ -9,7 +9,7 @@ class RParameter(nn.Parameter):
     def __new__(cls, data=None, requires_grad=True, sizes=None):
         if data is None:
             assert sizes is not None
-            data = 1e-3 * torch.randn(sizes, dtype=torch.double)
+            data = (1e-3 * torch.randn(sizes, dtype=torch.double)).clamp_(min=-3e-3,max=3e-3)
         #TODO get partial data if too big i.e. data[0:n,0:d]
         ret =  super().__new__(cls, data, requires_grad=requires_grad)
         # ret.data    = data
@@ -111,6 +111,9 @@ class SphericalParameter(RParameter):
     # def proj(self):
     #     x = self.data.detach()
     #     self.data = SphericalParameter._proj(x)
+    def initial_proj(self):
+        # pass
+        self.data[...,0] = torch.sqrt(1 - torch.norm(self.data[...,1:],2,-1)**2)
 
 class EuclideanParameter(RParameter):
     @staticmethod
