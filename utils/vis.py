@@ -209,7 +209,7 @@ def setup_plot(m, name=None, draw_circle=False):
     # create plot
     num_spheres = np.minimum(len(m.S), 5)
     num_hypers  = np.minimum(len(m.H), 5)
-    wid = np.maximum(np.minimum(num_spheres, num_hypers), 2)
+    wid = np.maximum(np.maximum(num_spheres, num_hypers), 2)
 
     fig, axes = plt.subplots(2, wid, sharey=True, figsize=(wid*10, 20))
 
