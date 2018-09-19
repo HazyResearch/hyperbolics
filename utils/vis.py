@@ -123,6 +123,25 @@ def get_third_point(a,b):
 
     return c
 
+def draw_geodesic_on_circle(a, b, ax):
+    lp = 5 # number of points for the mesh
+    d = np.array(b) - np.array(a)
+
+    vals = np.zeros([3, lp])
+    for i in range(lp):
+        for j in range(3):
+            vals[j,i] = a[j] + d[j]*(i/(lp-1)) 
+        
+        # let's project back to sphere:
+        nrm = vals[0,i]**2 + vals[1,i]**2 + vals[2,i]**2
+        for j in range(3):
+            vals[j,i] /= np.sqrt(nrm)
+        
+    # draw the geodesic:
+    for i in range(lp-1):
+        ax.plot([vals[0,i], vals[0,i+1]], [vals[1,i], vals[1,i+1]], zs=[vals[2,i], vals[2,i+1]], color='r')
+
+
 # for circle stuff let's just draw the points
 def draw_points_on_circle(a, node, ax):
     ax.plot(a[0], a[1], "o", markersize=16)
@@ -163,6 +182,13 @@ def draw_graph(G, m, fig, ax):
             b = ((torch.index_select(m.H[emb].w, 0, idx[1])).clone()).detach().cpu().numpy()[0]
             c = get_third_point(a,b)
             draw_geodesic(a,b,c,ax[0, emb], edge[0], edge[1])
+
+        # let's draw the edges on the sphere; these are geodesics    
+        if sdim == 3:
+            for emb in range(num_spheres):
+                a = ((torch.index_select(m.S[emb].w, 0, idx[0])).clone()).detach().cpu().numpy()[0]
+                b = ((torch.index_select(m.S[emb].w, 0, idx[1])).clone()).detach().cpu().numpy()[0]
+                draw_geodesic_on_circle(a, b, ax[1, emb])
 
     for node in Gr.nodes():
         idx = torch.LongTensor([int(node)]).to(device)
