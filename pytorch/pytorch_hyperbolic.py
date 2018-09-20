@@ -26,7 +26,7 @@ import utils.distortions as dis
 import graph_helpers as gh
 import mds_warmstart
 from hyperbolic_models import ProductEmbedding
-from hyperbolic_parameter import HyperbolicParameter
+from hyperbolic_parameter import RParameter
 
 
 # This describes a hyperbolic optimizer in Pytorch. It requires two modifications:
@@ -178,6 +178,7 @@ def build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, num_
             Z_sampled = gh.dist_sample_rebuild_pos_neg(Z, sample) if sample < 1 else Z
             vals      = torch.DoubleTensor([Z_sampled[i,j] for i in range(n) for j in range(i+1, n)])
             z         = DataLoader(TensorDataset(idx,vals), batch_size=batch_size, shuffle=True, pin_memory=torch.cuda.is_available())
+            # TODO does this not shuffle immediately?
         logging.info("Built data loader")
 
     return Z, z
@@ -306,8 +307,8 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsa
 @argh.arg("-e", "--exponential-rescale", type=float, help="Exponential Rescale")
 @argh.arg("--visualize", help="Produce an animation (dimension 2 only)")
 def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann=False, learning_rate=1e-1, decay_length=1000, decay_step=1.0, momentum=0.0, tol=1e-8, epochs=100, burn_in=0,
-          use_yellowfin=False, use_adagrad=False, resample_freq=100, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
-          num_workers=None, lazy_generation=False, log_name=None, log=False, warm_start=None, learn_scale=False, checkpoint_freq=1000, sample=1., subsample=None,
+          use_yellowfin=False, use_adagrad=False, resample_freq=1000, print_freq=1, model_save_file=None, model_load_file=None, batch_size=16,
+          num_workers=None, lazy_generation=False, log_name=None, log=False, warm_start=None, learn_scale=False, checkpoint_freq=100, sample=1., subsample=None,
           logloss=False, distloss=False, squareloss=False, symloss=False, exponential_rescale=None, extra_steps=1, use_svrg=False, T=10, use_hmds=False, visualize=False):
     # Log configuration
     formatter = logging.Formatter('%(asctime)s %(message)s')
@@ -374,9 +375,18 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
     # TODO: Redo this in a sensible way!!
 
     # per-parameter learning rates
-    model_params = [{'params': m.embed_params}, {'params': m.scale_params, 'lr': 1e-4*learning_rate}]
+    exp_params = [p for p in m.embed_params if p.use_exp]
+    learn_params = [p for p in m.embed_params if not p.use_exp]
+    # model_params = [{'params': m.embed_params}, {'params': m.scale_params, 'lr': 1e-4*learning_rate}]
+    model_params = [{'params': learn_params}, {'params': m.scale_params, 'lr': 1e-4*learning_rate}]
 
-    opt = torch.optim.SGD(model_params, lr=learning_rate/10, momentum=momentum)
+    # opt = None
+    if len(model_params) > 0:
+        opt = torch.optim.SGD(model_params, lr=learning_rate/10, momentum=momentum)
+    # opt = torch.optim.SGD(model_params, lr=learning_rate/10, momentum=momentum)
+    # exp = None
+    # if len(exp_params) > 0:
+    #     exp = torch.optim.SGD(exp_params, lr=1.0) # dummy for zeroing
     lr_burn_in = torch.optim.lr_scheduler.MultiStepLR(opt, milestones=[burn_in], gamma=10)
     # lr_decay = torch.optim.lr_scheduler.StepLR(opt, decay_length, decay_step) #TODO reconcile multiple LR schedulers
     if use_yellowfin:
@@ -410,6 +420,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
         # lr_decay.step()
         # for param_group in opt.param_groups:
         #     print(param_group['lr'])
+        # print(type(opt.param_groups), opt.param_groups)
 
         l, n_edges = 0.0, 0 # track average loss per edge
         m.train(True)
@@ -429,13 +440,26 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
             for the_step in range(extra_steps):
                 # Accumulate the gradient
                 for u in z:
-                    opt.zero_grad() # This is handled by the SVRG.
+                    # Zero out the gradients
+                    # if opt is not None: opt.zero_grad() # This is handled by the SVRG.
+                    # if exp is not None: exp.zero_grad()
+                    opt.zero_grad()
+                    for p in exp_params:
+                        if p.grad is not None:
+                            p.grad.detach_()
+                            p.grad.zero_()
+                    # Compute loss
                     _loss = m.loss(cu_var(u))
                     _loss.backward()
                     l += _loss.item() * u[0].size(0)
                     n_edges += u[0].size(0)
-                    HyperbolicParameter.correct_metric(m.parameters()) # NB: THIS IS THE NEW CALL
+                    # modify gradients if necessary
+                    RParameter.correct_metric(m.parameters())
+                    # step
                     opt.step()
+                    for p in exp_params:
+                        lr = opt.param_groups[0]['lr']
+                        p.exp(lr)
                     # Projection
                     m.normalize()
 

@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from hyperbolic_parameter import HyperbolicParameter, EuclideanParameter, SphericalParameter
+from hyperbolic_parameter import PoincareParameter, EuclideanParameter, SphericalParameter, HyperboloidParameter
 import logging
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -49,7 +49,7 @@ def acosh(x):
     return torch.log(x + torch.sqrt(x**2-1))
 
 # TODO: probably makes sense to move distance function into the corresponding Parameter type
-def dist_h(u,v):
+def dist_p(u,v):
     z  = 2*torch.norm(u-v,2,1)**2
     uu = 1. + torch.div(z,((1-torch.norm(u,2,1)**2)*(1-torch.norm(v,2,1)**2)))
     # machine_eps = np.finfo(uu.data.numpy().dtype).eps  # problem with cuda tensor
@@ -65,7 +65,7 @@ def dist_h(u,v):
 #     modified      = modified.unsqueeze(modified.dim()).repeat(*new_size)
 #     return x * modified
 
-def dot(x,y): return torch.sum(x * y, 1)
+def dot(x,y): return torch.sum(x * y, -1)
 
 def dist_e(u, v):
     """ Input shape (n, d) """
@@ -89,7 +89,8 @@ class ProductEmbedding(nn.Module):
         self.n = n
         self.riemann = riemann
 
-        self.H = nn.ModuleList([Embedding(dist_h, HyperbolicParameter, n, hyp_d, project, initialize, learn_scale) for _ in range(hyp_copies)])
+        self.H = nn.ModuleList([Embedding(dist_p, PoincareParameter, n, hyp_d, project, initialize, learn_scale) for _ in range(hyp_copies)])
+        # self.H = nn.ModuleList([Embedding(HyperboloidParameter.dist_h, HyperboloidParameter, n, hyp_d, project, initialize, learn_scale) for _ in range(hyp_copies)])
         self.E = nn.ModuleList([Embedding(dist_e, EuclideanParameter, n, euc_d, False, initialize, learn_scale) for _ in range(euc_copies)])
         # raise the dimension of spherical. TODO this should be done in the appropriate Parameter
         self.S = nn.ModuleList([Embedding(dist_s, SphericalParameter, n, sph_d, project, initialize, learn_scale) for _ in range(sph_copies)])
