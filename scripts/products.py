@@ -99,6 +99,7 @@ def run_pytorch(run_name, gpus, epochs, batch_size):
             # '--distloss',
             # '--squareloss',
             # '--symloss',
+            # '--burn-in', '100',
             '--momentum', '0.9',
             '--learning-rate', str(lr)]
         params.append(" ".join(param))
