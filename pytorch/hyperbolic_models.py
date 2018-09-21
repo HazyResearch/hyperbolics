@@ -84,16 +84,16 @@ def line_dist_sq(_x,y):
     return torch.norm(y - torch.diag(dot(x,y)*norm_x)@x,2,1)**2
 
 class ProductEmbedding(nn.Module):
-    def __init__(self, n, hyp_d, hyp_copies=1, euc_d=1, euc_copies=0, sph_d=1, sph_copies=0, project=True, initialize=None, learn_scale=False, absolute_loss=False, logrel_loss=False, dist_loss=False, square_loss=False, sym_loss=False, exponential_rescale=None, riemann=False):
+    def __init__(self, n, hyp_d, hyp_copies=1, euc_d=1, euc_copies=0, sph_d=1, sph_copies=0, project=True, initialize=None, learn_scale=False, initial_scale=0.0, absolute_loss=False, logrel_loss=False, dist_loss=False, square_loss=False, sym_loss=False, exponential_rescale=None, riemann=False):
         super().__init__()
         self.n = n
         self.riemann = riemann
 
-        self.H = nn.ModuleList([Embedding(dist_p, PoincareParameter, n, hyp_d, project, initialize, learn_scale) for _ in range(hyp_copies)])
-        # self.H = nn.ModuleList([Embedding(HyperboloidParameter.dist_h, HyperboloidParameter, n, hyp_d, project, initialize, learn_scale) for _ in range(hyp_copies)])
-        self.E = nn.ModuleList([Embedding(dist_e, EuclideanParameter, n, euc_d, False, initialize, learn_scale) for _ in range(euc_copies)])
+        # self.H = nn.ModuleList([Embedding(dist_p, PoincareParameter, n, hyp_d, project, initialize, learn_scale, initial_scale) for _ in range(hyp_copies)])
+        self.H = nn.ModuleList([Embedding(HyperboloidParameter.dist_h, HyperboloidParameter, n, hyp_d, project, initialize, learn_scale, initial_scale) for _ in range(hyp_copies)])
+        self.E = nn.ModuleList([Embedding(dist_e, EuclideanParameter, n, euc_d, False, initialize, learn_scale, initial_scale) for _ in range(euc_copies)])
         # raise the dimension of spherical. TODO this should be done in the appropriate Parameter
-        self.S = nn.ModuleList([Embedding(dist_s, SphericalParameter, n, sph_d, project, initialize, learn_scale) for _ in range(sph_copies)])
+        self.S = nn.ModuleList([Embedding(dist_s, SphericalParameter, n, sph_d, project, initialize, learn_scale, initial_scale) for _ in range(sph_copies)])
 
         self.scale_params = [H.scale_log for H in self.H] \
                           + [E.scale_log for E in self.E] \
@@ -217,7 +217,7 @@ class ProductEmbedding(nn.Module):
 
 
 class Embedding(nn.Module):
-    def __init__(self, dist_fn, param_cls, n, d, project=True, initialize=None, learn_scale=False):
+    def __init__(self, dist_fn, param_cls, n, d, project=True, initialize=None, learn_scale=False, initial_scale=0.0):
         super().__init__()
         self.dist_fn = dist_fn
         self.n, self.d = n, d
@@ -228,13 +228,14 @@ class Embedding(nn.Module):
         # self.w = param_cls(x)
         self.w = param_cls(data=initialize, sizes=(n,d))
         z =  torch.tensor([0.0], dtype=torch.double)
+        # init_scale = 1.0
         if learn_scale:
-            self.scale_log       = nn.Parameter(torch.tensor([0.0], dtype=torch.double))
-            self.scale_log.register_hook(lambda grad: torch.clamp(grad, -1.0, 1.0))
+            self.scale_log       = nn.Parameter(torch.tensor([initial_scale], dtype=torch.double))
+            # self.scale_log.register_hook(lambda grad: torch.clamp(grad, -1.0, 1.0))
         else:
-            self.scale_log       = torch.tensor([0.0], dtype=torch.double, device=device)
+            self.scale_log       = torch.tensor([initial_scale], dtype=torch.double, device=device)
         self.learn_scale = learn_scale
-        self.scale_clamp       = 3.0
+        # self.scale_clamp       = 3.0
         # logging.info(f"{self} {torch.norm(self.w.data - x)} {x.size()}")
         logging.info(f"{self} {self.w.size()}")
 
@@ -242,7 +243,9 @@ class Embedding(nn.Module):
         # print(self.scale_log.type(), self.lo_scale.type(), self.hi_scale.type())
         # scale = torch.exp(torch.clamp(self.scale_log, -self.thres, self.thres))
         # scale = torch.exp(self.scale_log.tanh()*self.scale_clamp)
+        # return torch.sqrt(self.scale_log)
         scale = torch.exp(self.scale_log)
+        # scale = self.scale_log
         # scale = scale if self.learn_scale else 1.0
         return scale
 
@@ -252,12 +255,12 @@ class Embedding(nn.Module):
         wj = torch.index_select(self.w, 0, idx[:,1])
         d = self.dist_fn(wi,wj)
         # print("loss: scale ", self.scale.data)
-        return d / self.scale() # rescale to the size of the true distances matrix
+        return d * self.scale() # rescale to the size of the true distances matrix
         # return self.dist_fn(wi,wj)*(1+self.scale)
 
     def dist_row(self, i):
         m = self.w.size(0)
-        return self.dist_fn(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w) / self.scale()
+        return self.dist_fn(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w) * self.scale()
         # return (1+self.scale)*self.dist_fn(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w)
 
     def dist_matrix(self):

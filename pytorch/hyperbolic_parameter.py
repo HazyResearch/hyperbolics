@@ -120,7 +120,7 @@ class HyperboloidParameter(RParameter):
             # n = torch.norm(v, dim=-1).unsqueeze(-1)
             # print("fat")
             assert torch.all(1 - torch.isnan(n))
-            # n.clamp_(min=-10.0, max=10.0)
+            n.clamp_(max=3.0)
             # print("n norm", n)
             # print("n",  n)
             # e = torch.cosh(n)*x + torch.sinh(n)*v/n

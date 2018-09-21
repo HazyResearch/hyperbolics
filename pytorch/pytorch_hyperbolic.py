@@ -87,6 +87,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
             self.__getitem__(i)
         ## store total weight
         self.total_w = torch.sum(self.w_cache)
+        self.max_dist = torch.max(self.val_cache)
 
 
     def __getitem__(self, index):
@@ -380,7 +381,11 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
             m_init = torch.DoubleTensor(mds_warmstart.get_model(dataset,dim,scale)[1])
 
         logging.info(f"\t Warmstarting? {warm_start} {m_init.size() if warm_start else None} {G.order()}")
-        m       = ProductEmbedding(G.order(), dim, hyp, edim, euc, sdim, sph, initialize=m_init, learn_scale=learn_scale, logrel_loss=logloss, dist_loss=distloss, square_loss=squareloss, sym_loss=symloss, exponential_rescale=exponential_rescale, riemann=riemann).to(device)
+        initial_scale = z.dataset.max_dist / 3.0
+        print("MAX DISTANCE", z.dataset.max_dist)
+        print("AVG DISTANCE", torch.mean(z.dataset.val_cache))
+        initial_scale=0.0
+        m       = ProductEmbedding(G.order(), dim, hyp, edim, euc, sdim, sph, initialize=m_init, learn_scale=learn_scale, initial_scale=initial_scale, logrel_loss=logloss, dist_loss=distloss, square_loss=squareloss, sym_loss=symloss, exponential_rescale=exponential_rescale, riemann=riemann).to(device)
         m.normalize()
         m.epoch = 0
     logging.info(f"Constructed model with dim={dim} and epochs={m.epoch} isnan={np.any(np.isnan(m.embedding().cpu().data.numpy()))}")
@@ -401,18 +406,22 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
     # per-parameter learning rates
     exp_params = [p for p in m.embed_params if p.use_exp]
     learn_params = [p for p in m.embed_params if not p.use_exp]
+    scale_params = m.scale_params
     # model_params = [{'params': m.embed_params}, {'params': m.scale_params, 'lr': 1e-4*learning_rate}]
     model_params = [{'params': learn_params}, {'params': m.scale_params, 'lr': 1e-4*learning_rate}]
 
     # opt = None
     if len(model_params) > 0:
         opt = torch.optim.SGD(model_params, lr=learning_rate/10, momentum=momentum)
+        # opt = torch.optim.SGD(learn_params, lr=learning_rate/10, momentum=momentum)
     # opt = torch.optim.SGD(model_params, lr=learning_rate/10, momentum=momentum)
     # exp = None
     # if len(exp_params) > 0:
     #     exp = torch.optim.SGD(exp_params, lr=1.0) # dummy for zeroing
+    scale_opt = torch.optim.SGD(scale_params, lr=1e-3*learning_rate)
     lr_burn_in = torch.optim.lr_scheduler.MultiStepLR(opt, milestones=[burn_in], gamma=10)
     # lr_decay = torch.optim.lr_scheduler.StepLR(opt, decay_length, decay_step) #TODO reconcile multiple LR schedulers
+    scale_decay = torch.optim.lr_scheduler.StepLR(scale_opt, step_size=1, gamma=.99)
     if use_yellowfin:
         from yellowfin import YFOptimizer
         opt = YFOptimizer(model_params)
@@ -442,6 +451,8 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
     for i in range(m.epoch+1, m.epoch+epochs+1):
         lr_burn_in.step()
         # lr_decay.step()
+        # scale_decay.step()
+        # print(scale_opt.param_groups[0]['lr'])
         # for param_group in opt.param_groups:
         #     print(param_group['lr'])
         # print(type(opt.param_groups), opt.param_groups)
@@ -468,6 +479,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
                     # if opt is not None: opt.zero_grad() # This is handled by the SVRG.
                     # if exp is not None: exp.zero_grad()
                     opt.zero_grad()
+                    # scale_opt.zero_grad()
                     for p in exp_params:
                         if p.grad is not None:
                             p.grad.detach_()
@@ -482,6 +494,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
                     RParameter.correct_metric(m.parameters())
                     # step
                     opt.step()
+                    # scale_opt.step()
                     for p in exp_params:
                         lr = opt.param_groups[0]['lr']
                         p.exp(lr)
