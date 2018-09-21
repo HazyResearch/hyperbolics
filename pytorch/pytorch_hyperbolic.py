@@ -256,6 +256,22 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsa
 
     return avg_dist, wc_dist, me, mc, mapscore
 
+def estimate_curvature(Z, n):
+    avg_sec_curv = 0
+    for m in range(n):
+        for b in range(m,n):
+            for c in range(b,n):
+                local_curv = 0
+                for a in range(n):
+                    tt = Z[a,m]**2 + 1.0/4.0*Z[b,c]**2 - 1.0/2.0*(Z[a,b]**2 + Z[a,c]**2)
+
+                    if a != m:
+                        local_curv += tt / Z[a,m]
+
+                local_curv /= (n-1)
+                avg_sec_curv += local_curv
+
+    return avg_sec_curv / (n*(n-1)*(n-2)/6.0)
 
 @argh.arg("dataset", help="dataset number")
 # model params
@@ -335,6 +351,10 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
     logging.info(f"Loaded Graph {dataset} with {n} nodes scale={scale}")
 
     Z, z = build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, num_workers)
+
+    # estimate curvature:
+    avg_sec_curv = estimate_curvature(Z, n)
+    logging.info(f"Estimated mean sectional curvature {avg_sec_curv}")
 
     if model_load_file is not None:
         logging.info(f"Loading {model_load_file}...")
