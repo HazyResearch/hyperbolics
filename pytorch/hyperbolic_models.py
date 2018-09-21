@@ -164,9 +164,10 @@ class ProductEmbedding(nn.Module):
 
         #term_rescale = torch.exp( 2*(1.-values) ) if self.exponential_rescale else self.step_rescale(values)
         term_rescale  = torch.exp( self.exponential_rescale*(-values) ) if self.exponential_rescale is not None else 1.0
-        term_rescale[values > 4.0] = 0.0
-        term_rescale[values <= 4.0] = 1.0
-        term_rescale[values <= 2.0] = 5.0
+        if self.exponential_rescale is not None:
+            term_rescale[values > 4.0] = 0.01
+            term_rescale[values <= 4.0] = 1.0
+            term_rescale[values <= 2.0] = 5.0
 
         if self.absolute_loss:
             return torch.sum( term_rescale*( d - values)**2) / values.size(0)
@@ -178,8 +179,9 @@ class ProductEmbedding(nn.Module):
             return torch.sum( term_rescale*torch.abs((d/values)**2 - 1) ) / values.size(0)
         else:
             l1 = torch.sum( term_rescale*((d/values) - 1)**2 ) / values.size(0)
-            l2 = torch.sum( term_rescale*((values/d) - 1)**2 ) / values.size(0) if self.sym_loss else 0
-            return l1 + l2
+            l2 = torch.sum( term_rescale*((values/d) - 1)**2 ) / values.size(0) #if self.sym_loss else 0
+            return l1
+            #return torch.max(l1, l2)
 
     def normalize(self):
         for H in self.H:
