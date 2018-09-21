@@ -380,8 +380,8 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
     Z, z = build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, weight_fn, num_workers)
 
     # estimate curvature:
-    avg_sec_curv = estimate_curvature(Z, n)
-    logging.info(f"Estimated mean sectional curvature {avg_sec_curv}")
+    # avg_sec_curv = estimate_curvature(Z, n)
+    # logging.info(f"Estimated mean sectional curvature {avg_sec_curv}")
 
     if model_load_file is not None:
         logging.info(f"Loading {model_load_file}...")
@@ -438,10 +438,14 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
     # exp = None
     # if len(exp_params) > 0:
     #     exp = torch.optim.SGD(exp_params, lr=1.0) # dummy for zeroing
-    scale_opt = torch.optim.SGD(scale_params, lr=1e-3*learning_rate)
+    if len(scale_params) > 0:
+        scale_opt = torch.optim.SGD(scale_params, lr=1e-3*learning_rate)
+        scale_decay = torch.optim.lr_scheduler.StepLR(scale_opt, step_size=1, gamma=.99)
+    else:
+        scale_opt = None
+        scale_decay = None
     lr_burn_in = torch.optim.lr_scheduler.MultiStepLR(opt, milestones=[burn_in], gamma=10)
     # lr_decay = torch.optim.lr_scheduler.StepLR(opt, decay_length, decay_step) #TODO reconcile multiple LR schedulers
-    scale_decay = torch.optim.lr_scheduler.StepLR(scale_opt, step_size=1, gamma=.99)
     if use_yellowfin:
         from yellowfin import YFOptimizer
         opt = YFOptimizer(model_params)
@@ -492,6 +496,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
                 m.normalize()
 
         else:
+            # scale_opt.zero_grad()
             for the_step in range(extra_steps):
                 # Accumulate the gradient
                 for u in z:
@@ -499,7 +504,6 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
                     # if opt is not None: opt.zero_grad() # This is handled by the SVRG.
                     # if exp is not None: exp.zero_grad()
                     opt.zero_grad()
-                    # scale_opt.zero_grad()
                     for p in exp_params:
                         if p.grad is not None:
                             p.grad.detach_()
@@ -514,12 +518,12 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
                     RParameter.correct_metric(m.parameters())
                     # step
                     opt.step()
-                    # scale_opt.step()
                     for p in exp_params:
                         lr = opt.param_groups[0]['lr']
                         p.exp(lr)
                     # Projection
                     m.normalize()
+            # scale_opt.step()
 
                 #l += step(m, opt, u).data[0]
         l /= n_edges

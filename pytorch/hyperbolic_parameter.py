@@ -46,7 +46,7 @@ class RParameter(nn.Parameter):
 
 # TODO can use kwargs instead of pasting defaults
 class HyperboloidParameter(RParameter):
-    def __new__(cls, data=None, requires_grad=True, sizes=None, exp=False):
+    def __new__(cls, data=None, requires_grad=True, sizes=None, exp=True):
         if sizes is not None:
             sizes = list(sizes)
             sizes[-1] += 1
@@ -205,7 +205,7 @@ class PoincareParameter(RParameter):
         return 'Hyperbolic parameter containing:' + self.data.__repr__()
 
 class SphericalParameter(RParameter):
-    def __new__(cls, data=None, requires_grad=True, sizes=None, exp=False):
+    def __new__(cls, data=None, requires_grad=True, sizes=None, exp=True):
         if sizes is not None:
             sizes = list(sizes)
             sizes[-1] += 1
