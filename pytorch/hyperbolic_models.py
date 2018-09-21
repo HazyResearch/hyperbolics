@@ -160,16 +160,28 @@ class ProductEmbedding(nn.Module):
             return sum(d)
 
     def loss(self, _x):
-        idx, values = _x
+        idx, values, w = _x
         d = self.dist_idx(idx)
 
         #term_rescale = torch.exp( 2*(1.-values) ) if self.exponential_rescale else self.step_rescale(values)
-        term_rescale  = torch.exp( self.exponential_rescale*(-values) ) if self.exponential_rescale is not None else 1.0
-        term_rescale[values > 4.0] = 0.0
-        term_rescale[values <= 4.0] = 1.0
-        term_rescale[values <= 2.0] = 5.0
+        # if self.exponential_rescale is not None: # HACK
+        #     # term_rescale  = torch.exp( self.exponential_rescale*(-values) ) if self.exponential_rescale is not None else 1.0
+        #     term_rescale = torch.zeros_like(values)
+        #     term_rescale[values > 4.0] = 0.0
+        #     term_rescale[values <= 4.0] = 1.0
+        #     term_rescale[values <= 2.0] = 5.0
+        # else: term_rescale = torch.tensor(1.0, dtype=torch.double, device=device)
+        term_rescale = w
+        # print("w", w)
 
-        if False: # Nickel network loss
+
+        # print(values.size(), term_rescale.size())
+        # normalization = torch.sum(term_rescale.expand(values.size())) # values.size(0)
+        # normalization = values.size(0)
+        # print("normalization", normalization)
+        # loss = None
+
+        if False: # NK network loss
             r = 1.0
             t = .1
             base = (r-d)/t
@@ -181,17 +193,21 @@ class ProductEmbedding(nn.Module):
             return -torch.sum(torch.log(sigm_))
         # torch.log(torch.)
         if self.absolute_loss:
-            return torch.sum( term_rescale*( d - values)**2) / values.size(0)
+            loss = torch.sum( term_rescale*( d - values)**2)
         elif self.logrel_loss:
-            return torch.sum( torch.log((d/values)**2)**2 ) / values.size(0)
+            loss = torch.sum( torch.log((d/values)**2)**2 )
         elif self.dist_loss:
-            return torch.sum( torch.abs(term_rescale*((d/values) - 1)) ) / values.size(0)
+            loss = torch.sum( torch.abs(term_rescale*((d/values) - 1)) )
         elif self.square_loss:
-            return torch.sum( term_rescale*torch.abs((d/values)**2 - 1) ) / values.size(0)
+            loss = torch.sum( term_rescale*torch.abs((d/values)**2 - 1) )
         else:
-            l1 = torch.sum( term_rescale*((d/values) - 1)**2 ) / values.size(0)
-            l2 = torch.sum( term_rescale*((values/d) - 1)**2 ) / values.size(0) if self.sym_loss else 0
-            return l1 + l2
+            l1 = torch.sum( term_rescale*((d/values) - 1)**2 )
+            l2 = torch.sum( term_rescale*((values/d) - 1)**2 ) if self.sym_loss else 0
+            loss = l1 + l2
+        # if normalization <= 1e-5: return 0.0, 0.0
+        # else: return loss/normalization, normalization
+        # return loss, normalization
+        return loss / values.size(0)
 
     def normalize(self):
         for H in self.H:

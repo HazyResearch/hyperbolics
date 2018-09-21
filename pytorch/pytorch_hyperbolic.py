@@ -65,7 +65,7 @@ def unwrap(x):
 #
 
 class GraphRowSubSampler(torch.utils.data.Dataset):
-    def __init__(self, G, scale, subsample, Z=None):
+    def __init__(self, G, scale, subsample, weight_fn, Z=None):
         super(GraphRowSubSampler, self).__init__()
         self.graph     = nx.to_scipy_sparse_matrix(G, nodelist=list(range(G.order())))
         self.n         = G.order()
@@ -73,12 +73,21 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
         self.subsample = subsample if subsample > 0 else self.n-1
         self.val_cache = torch.zeros((self.n,self.subsample), dtype=torch.double)
         self.idx_cache = torch.LongTensor(self.n,self.subsample,2).zero_()
+        self.w_cache   = torch.zeros((self.n, self.subsample), dtype=torch.double)
         self.cache     = set()
         self.verbose   = False
         self.n_cached  = 0
         self.Z         = Z
         self.nbr_frac  = 0.9 # fill up this proportion of samples with neighbors
+        self.weight_fn = weight_fn
         logging.info(self)
+
+        ## initialize up front
+        for i in range(self.n):
+            self.__getitem__(i)
+        ## store total weight
+        self.total_w = torch.sum(self.w_cache)
+
 
     def __getitem__(self, index):
         if index not in self.cache:
@@ -91,6 +100,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
             for e in neighbors:
                 self.idx_cache[index,cur,1] = int(e)
                 self.val_cache[index,cur] = self.scale
+                self.w_cache[index,cur] = self.weight_fn(1.0)
                 cur += 1
                 if cur >= self.nbr_frac * self.subsample: break
 
@@ -104,6 +114,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
                     self.idx_cache[index,cur,1] = int(v)
                     self.val_cache[index,cur]   = self.scale*h[v]
                     # self.val_cache[index,cur]   = 0
+                    self.w_cache[index,cur] = self.weight_fn(h[v])
                     cur += 1
                 i += 1
             if self.verbose: logging.info(f"\t neighbors={neighbors} {self.idx_cache[index,:,1].numpy().T}")
@@ -112,7 +123,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
             # if self.n_cached % (max(self.n//20,1)) == 0: logging.info(f"\t Cached {self.n_cached} of {self.n}")
 
         # print("GraphRowSubSampler: idx shape ", self.idx_cache[index,:].size())
-        return (self.idx_cache[index,:], self.val_cache[index,:])
+        return (self.idx_cache[index,:], self.val_cache[index,:], self.w_cache[index,:])
 
     def __len__(self): return self.n
 
@@ -150,9 +161,13 @@ class GraphRowSampler(torch.utils.data.Dataset):
 
 def collate(ls):
     x, y = zip(*ls)
+    print("fat?")
     return torch.cat(x), torch.cat(y)
+def collate3(ls):
+    x, y, z = zip(*ls)
+    return torch.cat(x), torch.cat(y), torch.cat(z)
 
-def build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, num_workers):
+def build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, weight_fn, num_workers):
     n = G.order()
     Z = None
 
@@ -163,7 +178,7 @@ def build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, num_
 
     if lazy_generation:
         if subsample is not None:
-            z = DataLoader(GraphRowSubSampler(G, scale, subsample), batch_size//subsample, shuffle=True, collate_fn=collate)
+            z = DataLoader(GraphRowSubSampler(G, scale, subsample, weight_fn), batch_size//subsample, shuffle=True, collate_fn=collate3)
         else:
             z = DataLoader(GraphRowSampler(G, scale), batch_size//(n-1), shuffle=True, collate_fn=collate)
         logging.info("Built Data Sampler")
@@ -172,7 +187,7 @@ def build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, num_
         logging.info(f"Built distance matrix with {scale} factor")
 
         if subsample is not None:
-            z = DataLoader(GraphRowSubSampler(G, scale, subsample,Z=Z), batch_size//subsample, shuffle=True, collate_fn=collate)
+            z = DataLoader(GraphRowSubSampler(G, scale, subsample, weight_fn, Z=Z), batch_size//subsample, shuffle=True, collate_fn=collate3)
         else:
             idx       = torch.LongTensor([(i,j)  for i in range(n) for j in range(i+1,n)])
             Z_sampled = gh.dist_sample_rebuild_pos_neg(Z, sample) if sample < 1 else Z
@@ -195,7 +210,7 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsa
         good,bad    = 0,0
         _count      = 0
         for u in z:
-            index,vs = u
+            index,vs,_ = u
             v_rec  = unwrap(m.dist_idx(index.to(device)))
             v      = vs.cpu().numpy()
             for i in range(len(v)):
@@ -336,7 +351,16 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
     n = G.order()
     logging.info(f"Loaded Graph {dataset} with {n} nodes scale={scale}")
 
-    Z, z = build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, num_workers)
+    if exponential_rescale is not None:
+        # torch.exp(exponential_rescale * -d)
+        def weight_fn(d):
+            if d <= 2.0: return 5.0
+            elif d > 4.0: return 0.0
+            else: return 1.0
+    else:
+        def weight_fn(d):
+            return 1.0
+    Z, z = build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, weight_fn, num_workers)
 
     if model_load_file is not None:
         logging.info(f"Loading {model_load_file}...")
@@ -422,7 +446,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
         #     print(param_group['lr'])
         # print(type(opt.param_groups), opt.param_groups)
 
-        l, n_edges = 0.0, 0 # track average loss per edge
+        l, n_edges = 0.0, 0.0 # track average loss per edge
         m.train(True)
         if use_svrg:
             for data in z:
@@ -452,6 +476,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
                     _loss = m.loss(cu_var(u))
                     _loss.backward()
                     l += _loss.item() * u[0].size(0)
+                    # print(weight)
                     n_edges += u[0].size(0)
                     # modify gradients if necessary
                     RParameter.correct_metric(m.parameters())
@@ -489,7 +514,7 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
             logging.info("*** End Major Checkpoint\n")
         if i % resample_freq == 0:
             if sample < 1. or subsample is not None:
-                Z, z = build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, num_workers)
+                Z, z = build_dataset(G, lazy_generation, sample, subsample, scale, batch_size, weight_fn, num_workers)
 
     logging.info(f"final loss={l}")
     logging.info(f"best loss={best_loss}, distortion={best_dist}, map={best_map}, wc_dist={best_wcdist}")
