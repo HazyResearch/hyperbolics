@@ -73,7 +73,7 @@ class HyperboloidParameter(RParameter):
             print("bad dist", bad.item())
         # assert torch.all(-HyperboloidParameter.dot_h(x,y) >= 1.0 - 1e-4), torch.min(-HyperboloidParameter.dot_h(x,y) - 1.0)
 	# HACK we're dividing by dist_h somewhere so we can't have it be 0, force dp > 1
-        return acosh(torch.clamp(-HyperboloidParameter.dot_h(x,y), min=(1.0+1e-7)))
+        return acosh(torch.clamp(-HyperboloidParameter.dot_h(x,y), min=(1.0+1e-8)))
 
     @staticmethod
     def _proj(x):
