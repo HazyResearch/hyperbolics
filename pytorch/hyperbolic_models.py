@@ -100,6 +100,9 @@ class ProductEmbedding(nn.Module):
                           + [E.scale_log for E in self.E] \
                           + [S.scale_log for S in self.S] \
                           if learn_scale else []
+        self.hyp_params = [H.w for H in self.H]
+        self.euc_params = [E.w for E in self.E]
+        self.sph_params = [S.w for S in self.S]
         self.embed_params = [H.w for H in self.H] \
                           + [E.w for E in self.E] \
                           + [S.w for S in self.S]

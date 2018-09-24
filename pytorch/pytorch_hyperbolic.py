@@ -426,9 +426,13 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
     # per-parameter learning rates
     exp_params = [p for p in m.embed_params if p.use_exp]
     learn_params = [p for p in m.embed_params if not p.use_exp]
+    hyp_params = [p for p in m.hyp_params if not p.use_exp]
+    euc_params = [p for p in m.euc_params if not p.use_exp]
+    sph_params = [p for p in m.sph_params if not p.use_exp]
     scale_params = m.scale_params
     # model_params = [{'params': m.embed_params}, {'params': m.scale_params, 'lr': 1e-4*learning_rate}]
-    model_params = [{'params': learn_params}, {'params': m.scale_params, 'lr': 1e-4*learning_rate}]
+    # model_params = [{'params': learn_params}, {'params': m.scale_params, 'lr': 1e-4*learning_rate}]
+    model_params = [{'params': hyp_params}, {'params': euc_params}, {'params': sph_params, 'lr': 0.1*learning_rate}, {'params': m.scale_params, 'lr': 1e-4*learning_rate}]
 
     # opt = None
     if len(model_params) > 0:
