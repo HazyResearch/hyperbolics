@@ -7,7 +7,7 @@ import numpy as np
 
 def djikstra_wrapper( _x ):
     (mat, x) = _x
-    return csg.dijkstra(mat, indices=x, unweighted=True, directed=False)
+    return csg.dijkstra(mat, indices=x, unweighted=False, directed=False)
 
 def build_distance(G, scale, num_workers=None):
     n = G.order()
