@@ -1,7 +1,7 @@
 import numpy as np
 import os
 
-filename = 'usca312.txt'
+filename = 'ha30.txt'
 # fileout = 'usca312.edges'
 if __name__ == '__main__':
     base, ext = os.path.splitext(filename)

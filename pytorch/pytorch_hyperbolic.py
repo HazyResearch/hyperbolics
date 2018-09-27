@@ -78,7 +78,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
         self.verbose   = False
         self.n_cached  = 0
         self.Z         = Z
-        self.nbr_frac  = 0.9 # fill up this proportion of samples with neighbors
+        self.nbr_frac  = 1.0 # fill up this proportion of samples with neighbors
         self.weight_fn = weight_fn
         logging.info(self)
 
@@ -100,7 +100,7 @@ class GraphRowSubSampler(torch.utils.data.Dataset):
             neighbors = scipy.sparse.find(self.graph[index,:])[1]
             for e in neighbors:
                 self.idx_cache[index,cur,1] = int(e)
-                self.val_cache[index,cur] = self.scale
+                self.val_cache[index,cur] = self.scale*h[e]
                 self.w_cache[index,cur] = self.weight_fn(1.0)
                 cur += 1
                 if cur >= self.nbr_frac * self.subsample: break
