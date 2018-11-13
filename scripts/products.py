@@ -1,5 +1,5 @@
-import argh
 import os
+import argh
 import subprocess
 import itertools
 import random
@@ -12,12 +12,12 @@ datasets = [
     # "synthetic/diamond7"
     # "synthetic/sierp-K3-8"
     # "synthetic/tree-20-3"
-    # "smalltree"
-    "bio-yeast", # 1458
-    "web-edu", # 3031
-    "grqc", # 4158
-    "inf-power", # 4941
-    "california", # 5925
+    "smalltree",
+    #"bio-yeast", # 1458
+    #"web-edu", # 3031
+    #"grqc", # 4158
+    #"inf-power", # 4941
+    #"california", # 5925
     "bookend"
 ]
 datasets = datasets[:-1]
@@ -71,13 +71,13 @@ models10 = [
     # {'dim': 0, 'hyp': 0, 'edim': 2, 'euc': 1, 'sdim': 8, 'sph': 1},
     {'dim': 0, 'hyp': 0, 'edim': 2, 'euc': 1, 'sdim': 2, 'sph': 4}
 ]
-models = models10 + models100
+models = models10
 
 # lrs = [30, 100, 300]
 # lrs = [10, 20, 40]
 lrs = [5, 10, 20]
 
-burn_ins = [0, 100]
+burn_ins = [0]
 
 # CUDA_VISIBLE_DEVICES=1 python pytorch/pytorch_hyperbolic.py learn data/edges/synthetic/sierp-C50-2.edges --batch-size 65536 -d 50 --hyp 0 --euc 0 --edim 50 --sph 1 --sdim 51 -l 100.0 --epochs 1000 --checkpoint-freq 100 --resample-freq 500 -g --subsample 1024 --riemann --log-name C50-2.S50.log
 
@@ -95,9 +95,11 @@ def run_pytorch(run_name, gpus, gpc, epochs, batch_size):
         E_name = "" if model['euc' ]== 0 else f"E{model['edim']}-{model['euc']}."
         S_name = "" if model['sph' ]== 0 else f"S{model['sdim']}-{model['sph']}."
         log_name = f"{run_name}/{os.path.basename(dataset)}.{H_name}{E_name}{S_name}lr{lr}"
+        savefile = f"{run_name}/{os.path.basename(dataset)}.{H_name}{E_name}{S_name}lr{lr}"
         if burn_in > 0:
             log_name += f".burnin{burn_in}"
         log_name += ".log"
+        savefile += ".emb"
         param = [
             f"data/edges/{dataset}.edges",
             '--dim', str(model['dim']),
@@ -106,6 +108,7 @@ def run_pytorch(run_name, gpus, gpc, epochs, batch_size):
             '--euc', str(model['euc']),
             '--sdim', str(model['sdim']),
             '--sph', str(model['sph']),
+            '--model-save-file', savefile,
             # '--log',
             '--log-name', log_name,
             '--batch-size', str(batch_size),
