@@ -12,7 +12,7 @@ if module_path not in sys.path:
 import graph_helpers as gh
 from hyperbolic_models import ProductEmbedding
 from hyperbolic_parameter import RParameter  
-    
+
 def unwrap(x):
     if isinstance(x, list) : return [unwrap(u) for u in x]
     if isinstance(x, tuple): return tuple([unwrap(u) for u in list(x)])
@@ -24,10 +24,10 @@ def dist_e(u, v):
 def dist_row(x, i):
     m = x.shape[0]
     dx = np.zeros([m])
-    
+
     for j in range(m):
         dx[j] = dist_e(x[i,:], x[j,:])
-        
+    
     return dx
 
 def dist_matrix(x):
@@ -60,7 +60,7 @@ def run_isomap(emb_name, dataset, r):
     G = load_graph.load_graph(dataset)
     n = G.order()
     H = gh.build_distance(G, scale, num_workers=int(num_workers) if num_workers is not None else 16)
-    
+
     #Hrec = unwrap(m.dist_matrix())
     Hrec = dist_matrix(emb_transformed)
     mc, me, avg_dist, nan_elements = dis.distortion(H, Hrec, n, num_workers)

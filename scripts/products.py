@@ -12,11 +12,15 @@ datasets = [
     # "synthetic/diamond7"
     # "synthetic/sierp-K3-8"
     # "synthetic/tree-20-3"
-    "smalltree",
+    #"smalltree",
     #"bio-yeast", # 1458
     #"web-edu", # 3031
+    cities,
+    usca312,
+    ca-CSphd,
+    facebook_combined,
     #"grqc", # 4158
-    #"inf-power", # 4941
+    "inf-power", # 4941
     #"california", # 5925
     "bookend"
 ]
@@ -24,15 +28,15 @@ datasets = datasets[:-1]
 
 # 100 dimensions
 models100 = [
-    {'dim': 100, 'hyp': 1, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
+    #{'dim': 100, 'hyp': 1, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
     {'dim': 0, 'hyp': 0, 'edim': 100, 'euc': 1, 'sdim': 0, 'sph': 0},
-    {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 100, 'sph': 1},
+    #{'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 100, 'sph': 1},
     # {'dim': 10, 'hyp': 10, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
     # {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 10, 'sph': 10},
-    {'dim': 5, 'hyp': 20, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
-    {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 5, 'sph': 20},
-    {'dim': 2, 'hyp': 50, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
-    {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 2, 'sph': 50},
+    #{'dim': 5, 'hyp': 20, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
+    #{'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 5, 'sph': 20},
+    #{'dim': 2, 'hyp': 50, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
+    #{'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 2, 'sph': 50},
     # {'dim': 50, 'hyp': 1, 'edim': 0, 'euc': 0, 'sdim': 50, 'sph': 1},
     # {'dim': 5, 'hyp': 10, 'edim': 0, 'euc': 0, 'sdim': 5, 'sph': 10},
     # {'dim': 2, 'hyp': 50, 'edim': 0, 'euc': 0, 'sdim': 2, 'sph': 50},
@@ -71,11 +75,11 @@ models10 = [
     # {'dim': 0, 'hyp': 0, 'edim': 2, 'euc': 1, 'sdim': 8, 'sph': 1},
     {'dim': 0, 'hyp': 0, 'edim': 2, 'euc': 1, 'sdim': 2, 'sph': 4}
 ]
-models = models10
+models = models100
 
 # lrs = [30, 100, 300]
 # lrs = [10, 20, 40]
-lrs = [5, 10, 20]
+lrs = [5, 10, 20, 100]
 
 burn_ins = [0]
 
