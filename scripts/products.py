@@ -15,10 +15,9 @@ datasets = [
     #"smalltree",
     #"bio-yeast", # 1458
     #"web-edu", # 3031
-    cities,
-    usca312,
-    ca-CSphd,
-    facebook_combined,
+    "usca312",
+    "ca-CSphd",
+    "facebook_combined",
     #"grqc", # 4158
     "inf-power", # 4941
     #"california", # 5925
