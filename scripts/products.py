@@ -12,15 +12,15 @@ datasets = [
     # "synthetic/diamond7"
     # "synthetic/sierp-K3-8"
     # "synthetic/tree-20-3"
-    #"smalltree",
-    #"bio-yeast", # 1458
-    #"web-edu", # 3031
+    # "smalltree"
+    # "bio-yeast", # 1458
+    # "web-edu", # 3031
+    # "grqc", # 4158
+    # "ca-CSphd",
+    # "facebook_combined",
+    # "inf-power", # 4941
+    # "california", # 5925
     "usca312",
-    "ca-CSphd",
-    "facebook_combined",
-    #"grqc", # 4158
-    "inf-power", # 4941
-    #"california", # 5925
     "bookend"
 ]
 datasets = datasets[:-1]
@@ -65,20 +65,21 @@ models10 = [
     {'dim': 2, 'hyp': 5, 'edim': 0, 'euc': 0, 'sdim': 0, 'sph': 0},
     {'dim': 0, 'hyp': 0, 'edim': 0, 'euc': 0, 'sdim': 2, 'sph': 5},
     {'dim': 5, 'hyp': 1, 'edim': 0, 'euc': 0, 'sdim': 5, 'sph': 1},
+    {'dim': 2, 'hyp': 2, 'edim': 2, 'euc': 1, 'sdim': 2, 'sph': 2},
     # {'dim': 2, 'hyp': 2, 'edim': 0, 'euc': 0, 'sdim': 2, 'sph': 3},
     # {'dim': 2, 'hyp': 3, 'edim': 0, 'euc': 0, 'sdim': 2, 'sph': 2},
-    {'dim': 2, 'hyp': 2, 'edim': 3, 'euc': 1, 'sdim': 2, 'sph': 2},
     # {'dim': 2, 'hyp': 1, 'edim': 6, 'euc': 1, 'sdim': 2, 'sph': 1},
     # {'dim': 8, 'hyp': 1, 'edim': 2, 'euc': 1, 'sdim': 0, 'sph': 0},
-    {'dim': 2, 'hyp': 4, 'edim': 2, 'euc': 1, 'sdim': 0, 'sph': 0},
+    # {'dim': 2, 'hyp': 4, 'edim': 2, 'euc': 1, 'sdim': 0, 'sph': 0},
     # {'dim': 0, 'hyp': 0, 'edim': 2, 'euc': 1, 'sdim': 8, 'sph': 1},
-    {'dim': 0, 'hyp': 0, 'edim': 2, 'euc': 1, 'sdim': 2, 'sph': 4}
+    # {'dim': 0, 'hyp': 0, 'edim': 2, 'euc': 1, 'sdim': 2, 'sph': 4}
 ]
-models = models100
+models = models10 #+ models100
 
-# lrs = [30, 100, 300]
+# lrs = [30, 100, 300, 1000]
 # lrs = [10, 20, 40]
-lrs = [5, 10, 20, 100]
+# lrs = [5, 10, 20]
+lrs = [.001, .003, .01]
 
 burn_ins = [0]
 
@@ -117,7 +118,7 @@ def run_pytorch(run_name, gpus, gpc, epochs, batch_size):
             '--batch-size', str(batch_size),
             '--epochs', str(epochs),
             '--checkpoint-freq', '100',
-            '--resample-freq', '1000',
+            '--resample-freq', '5000',
             # '--use-svrg',
             # '-T 0',
             '-g', '--subsample 1024',
@@ -157,7 +158,7 @@ def run_pytorch(run_name, gpus, gpc, epochs, batch_size):
 # @argh.arg('-d', "--datasets", nargs='+', type=str, help = "Datasets")
 @argh.arg("--epochs", help="Number of epochs to run Pytorch optimizer")
 @argh.arg("--batch-size", help="Batch size")
-def run(run_name, gpus=1, gpc=1, epochs=2000, batch_size=65536):
+def run(run_name, gpus=1, gpc=1, epochs=1000, batch_size=65536):
     os.makedirs(run_name, exist_ok=True)
 
     run_pytorch(run_name, gpus=gpus, gpc=gpc, epochs=epochs, batch_size=batch_size)
