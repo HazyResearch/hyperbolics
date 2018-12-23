@@ -93,7 +93,6 @@ class ProductEmbedding(nn.Module):
         self.H = nn.ModuleList([Embedding(HyperboloidParameter.dist_h, HyperboloidParameter, n, hyp_d, project, initialize, learn_scale, initial_scale) for _ in range(hyp_copies)])
         self.E = nn.ModuleList([Embedding(dist_e, EuclideanParameter, n, euc_d, False, initialize, False, initial_scale) for _ in range(euc_copies)])
         # self.E = nn.ModuleList([Embedding(dist_e, EuclideanParameter, n, euc_d, False, initialize, learn_scale, initial_scale) for _ in range(euc_copies)])
-        # raise the dimension of spherical. TODO this should be done in the appropriate Parameter
         self.S = nn.ModuleList([Embedding(dist_s, SphericalParameter, n, sph_d, project, initialize, learn_scale, initial_scale) for _ in range(sph_copies)])
 
         self.scale_params = [H.scale_log for H in self.H] \
@@ -168,34 +167,8 @@ class ProductEmbedding(nn.Module):
         d = self.dist_idx(idx)
 
         #term_rescale = torch.exp( 2*(1.-values) ) if self.exponential_rescale else self.step_rescale(values)
-        # if self.exponential_rescale is not None: # HACK
-        #     # term_rescale  = torch.exp( self.exponential_rescale*(-values) ) if self.exponential_rescale is not None else 1.0
-        #     term_rescale = torch.zeros_like(values)
-        #     term_rescale[values > 4.0] = 0.0
-        #     term_rescale[values <= 4.0] = 1.0
-        #     term_rescale[values <= 2.0] = 5.0
-        # else: term_rescale = torch.tensor(1.0, dtype=torch.double, device=device)
         term_rescale = w
-        # print("w", w)
 
-
-        # print(values.size(), term_rescale.size())
-        # normalization = torch.sum(term_rescale.expand(values.size())) # values.size(0)
-        # normalization = values.size(0)
-        # print("normalization", normalization)
-        # loss = None
-
-        if False: # NK network loss
-            r = 1.0
-            t = .1
-            base = (r-d)/t
-            sigm = torch.sigmoid(base)
-            # print(idx.size(), values.size())
-            nbr = values <= 1 + 1e-7
-            sigm_ = torch.tensor(sigm)
-            sigm_[nbr] = 1 - sigm[nbr]
-            return -torch.sum(torch.log(sigm_))
-        # torch.log(torch.)
         if self.absolute_loss:
             loss = torch.sum( term_rescale*( d - values)**2)
         elif self.logrel_loss:
@@ -208,9 +181,6 @@ class ProductEmbedding(nn.Module):
             l1 = torch.sum( term_rescale*((d/values) - 1)**2 )
             l2 = torch.sum( term_rescale*((values/d) - 1)**2 ) if self.sym_loss else 0
             loss = l1 + l2
-        # if normalization <= 1e-5: return 0.0, 0.0
-        # else: return loss/normalization, normalization
-        # return loss, normalization
         return loss / values.size(0)
 
     def normalize(self):
@@ -258,14 +228,11 @@ class Embedding(nn.Module):
         wi = torch.index_select(self.w, 0, idx[:,0])
         wj = torch.index_select(self.w, 0, idx[:,1])
         d = self.dist_fn(wi,wj)
-        # print("loss: scale ", self.scale.data)
         return d * self.scale() # rescale to the size of the true distances matrix
-        # return self.dist_fn(wi,wj)*(1+self.scale)
 
     def dist_row(self, i):
         m = self.w.size(0)
         return self.dist_fn(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w) * self.scale()
-        # return (1+self.scale)*self.dist_fn(self.w[i,:].clone().unsqueeze(0).repeat(m,1), self.w)
 
     def dist_matrix(self):
         m    = self.w.size(0)

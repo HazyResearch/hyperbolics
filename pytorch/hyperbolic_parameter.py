@@ -57,10 +57,7 @@ class HyperboloidParameter(RParameter):
         return torch.sum(x * y, -1) - 2*x[...,0]*y[...,0]
     @staticmethod
     def norm_h(x):
-        # print("before", x)
-        # print("after", -HyperboloidParameter.dot_h(x,x))
-        # return torch.sqrt(HyperboloidParameter.dot_h(x,x) + 1e-7)
-        # assert torch.all(HyperboloidParameter.dot_h(x,x) >= 0), torch.min(HyperboloidParameter.dot_h(x,x))
+        assert torch.all(HyperboloidParameter.dot_h(x,x) >= 0), torch.min(HyperboloidParameter.dot_h(x,x))
         return torch.sqrt(torch.clamp(HyperboloidParameter.dot_h(x,x), min=0.0))
     @staticmethod
     def dist_h(x,y):
@@ -72,7 +69,7 @@ class HyperboloidParameter(RParameter):
         if bad <= -1e-4:
             print("bad dist", bad.item())
         # assert torch.all(-HyperboloidParameter.dot_h(x,y) >= 1.0 - 1e-4), torch.min(-HyperboloidParameter.dot_h(x,y) - 1.0)
-	# HACK we're dividing by dist_h somewhere so we can't have it be 0, force dp > 1
+	    # we're dividing by dist_h somewhere so we can't have it be 0, force dp > 1
         return acosh(torch.clamp(-HyperboloidParameter.dot_h(x,y), min=(1.0+1e-8)))
 
     @staticmethod
@@ -115,28 +112,19 @@ class HyperboloidParameter(RParameter):
             self.data = x + v
 
         else:
-
             # print("tangent", HyperboloidParameter.dot_h(x, v))
             assert torch.all(1 - torch.isnan(v))
             n = self.__class__.norm_h(v).unsqueeze(-1)
-            # n = torch.norm(v, dim=-1).unsqueeze(-1)
-            # print("fat")
             assert torch.all(1 - torch.isnan(n))
             n.clamp_(max=1.0)
-            # print("n norm", n)
-            # print("n",  n)
             # e = torch.cosh(n)*x + torch.sinh(n)*v/n
             mask = torch.abs(n)<1e-7
             cosh = torch.cosh(n)
-            # print("cosh", cosh)
             cosh[mask] = 1.0
             sinh = torch.sinh(n)
-            # print("sinh", sinh)
             sinh[mask] = 0.0
             n[mask] = 1.0
             e = cosh*x + sinh/n*v
-            # print("exp", e)
-            # assert False
             # assert torch.all(-HyperboloidParameter.dot_h(e,e) >= 0), torch.min(-HyperboloidParameter.dot_h(e,e))
             self.data = e
         self.proj()
@@ -144,9 +132,6 @@ class HyperboloidParameter(RParameter):
 
     def modify_grad_inplace(self):
         """ Convert Euclidean gradient into Riemannian """
-        #print("check first")
-        #print(np.argwhere(torch.isnan(self.grad).cpu().numpy()))
-      
         self.grad[...,0] *= -1
         #print("check data")
         #print(np.argwhere(torch.isnan(self.data).cpu().numpy()))
@@ -165,16 +150,6 @@ class PoincareParameter(RParameter):
         ret =  super().__new__(cls, data, requires_grad, sizes)
         ret.check_graph = check_graph
         return ret
-
-    # def __init__(self, data=None, require_grad=True, sizes=None, check_graph=False):
-    #     super().__init__()
-    #     if x is not None:
-    #         self.data    = data
-    #     else:
-    #         assert sizes is not None
-    #         self.data = 1e-3 * torch.randn(sizes, dtype=torch.double)
-    #     self.proj()
-    #     self.check_graph = check_graph
 
     def modify_grad_inplace(self):
         # d        = self.data.dim()
@@ -222,15 +197,6 @@ class SphericalParameter(RParameter):
             sizes[-1] += 1
         return super().__new__(cls, data, requires_grad, sizes, exp)
 
-    # def __init__(self, data=None, require_grad=True, sizes=None):
-    #     super().__init__()
-    #     if data is not None:
-    #         self.data    = data
-    #     else:
-    #         assert sizes is not None
-    #         self.data = 1e-3 * torch.randn(sizes, dtype=torch.double)
-    #     self.proj()
-
 
     def modify_grad_inplace(self):
         """ Convert Euclidean gradient into Riemannian by projecting onto tangent space """
@@ -238,7 +204,6 @@ class SphericalParameter(RParameter):
         self.grad -= dot(self.data, self.grad).unsqueeze(-1) * self.data
 
     def exp(self, lr):
-        # self.data = self.data.detach() - 10*self.grad
         x = self.data.detach()
         v = -lr*self.grad
 
@@ -248,29 +213,21 @@ class SphericalParameter(RParameter):
             self.data = x + v
 
         else:
-            # print("x", torch.norm(x, dim=-1))
-            # print(torch.norm(v, dim=-1))
-            # print("FAT")
             n = torch.norm(v, 2, -1, keepdim=True)
-            # nn = torch.copy(n)
             mask = torch.abs(n)<1e-7
             cos = torch.cos(n)
             cos[mask] = 1.0
             sin = torch.sin(n)
             sin[mask] = 0.0
             n[torch.abs(n)<1e-7] = 1.0
-            # e = torch.cos(n)*x + torch.sin(n)*v/n
             e = cos*x + sin*v/n
-            # print("e", torch.norm(e, dim=-1))
             self.data = e
         self.proj()
 
     @staticmethod
     def _proj(x):
         # return x / torch.norm(x, 2, -1).unsqueeze(-1)
-        # print("before", torch.norm(x, dim=-1))
         return x / torch.norm(x, 2, -1, True)
-        # print("after", torch.norm(x, dim=-1))
 
     # def proj(self):
     #     x = self.data.detach()
