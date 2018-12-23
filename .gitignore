@@ -1,0 +1,17 @@
+# macOS
+*.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# VSCode
+.vscode/
+
+# Local data and notebooks
+products/data/wikidata_dicts/*
+
+# pyc files
+pytorch/*.pyc
+utils/*.pyc
+
+

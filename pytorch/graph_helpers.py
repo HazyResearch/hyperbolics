@@ -7,13 +7,14 @@ import numpy as np
 
 def djikstra_wrapper( _x ):
     (mat, x) = _x
-    return csg.dijkstra(mat, indices=x, unweighted=True, directed=False)
+    return csg.dijkstra(mat, indices=x, unweighted=False, directed=False)
 
 def build_distance(G, scale, num_workers=None):
     n = G.order()
     p = Pool() if num_workers is None else Pool(num_workers)
     
-    adj_mat_original = nx.to_scipy_sparse_matrix(G)
+    #adj_mat_original = nx.to_scipy_sparse_matrix(G)
+    adj_mat_original = nx.to_scipy_sparse_matrix(G, nodelist=list(range(G.order())))
 
     # Simple chunking
     nChunks     = 128 if num_workers is not None and num_workers > 1 else n

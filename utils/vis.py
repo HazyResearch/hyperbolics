@@ -2,6 +2,7 @@
 import numpy as np
 import networkx as nx
 import os, sys
+from itertools import product, combinations
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
 import utils.hyp_functions as hf
@@ -9,9 +10,15 @@ import torch
 
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 from matplotlib.patches import Circle, Wedge, Polygon
 from matplotlib.collections import PatchCollection
 from matplotlib import patches
+from mpl_toolkits.mplot3d import Axes3D
+
+matplotlib.verbose.set_level("helpful")
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # collinearity check. if collinear, draw a line and don't attempt curve
 def collinear(a,b,c):
@@ -65,7 +72,7 @@ def get_angles(center, a):
     return theta
 
 # draw hyperbolic line:
-def draw_geodesic(a, b, c, ax, verbose=False):
+def draw_geodesic(a, b, c, ax, node1=None, node2=None, verbose=False):
     if verbose:
         print("Geodesic points are ", a, "\n", b, "\n", c, "\n")    
 
@@ -101,8 +108,11 @@ def draw_geodesic(a, b, c, ax, verbose=False):
             e = patches.Arc((cent[0], cent[1]), 2*radius, 2*radius,
                      theta1=t2, theta2=t1, linewidth=2, fill=False, zorder=2)
     ax.add_patch(e)
-    ax.plot(a[0], a[1], "o")
-    ax.plot(b[0], b[1], "o")
+    #ax.plot(a[0], a[1], "o")
+    #ax.plot(b[0], b[1], "o")
+
+    #if node1 is not None: ax.text(a[0] * (1 + 0.05), a[1] * (1 + 0.05) , node1, fontsize=12)
+    #if node2 is not None: ax.text(b[0] * (1 + 0.05), b[1] * (1 + 0.05) , node2, fontsize=12)
 
 # to draw geodesic between a,b, we need
 # a third point. easy with inversion
@@ -113,30 +123,129 @@ def get_third_point(a,b):
 
     return c
 
+def draw_geodesic_on_circle(a, b, ax):
+    lp = 5 # number of points for the mesh
+    d = np.array(b) - np.array(a)
+
+    vals = np.zeros([3, lp])
+    for i in range(lp):
+        for j in range(3):
+            vals[j,i] = a[j] + d[j]*(i/(lp-1)) 
+        
+        # let's project back to sphere:
+        nrm = vals[0,i]**2 + vals[1,i]**2 + vals[2,i]**2
+        for j in range(3):
+            vals[j,i] /= np.sqrt(nrm)
+        
+    # draw the geodesic:
+    for i in range(lp-1):
+        ax.plot([vals[0,i], vals[0,i+1]], [vals[1,i], vals[1,i+1]], zs=[vals[2,i], vals[2,i+1]], color='r')
+
+
+# for circle stuff let's just draw the points
+def draw_points_on_circle(a, node, ax):
+    ax.plot(a[0], a[1], "o", markersize=16)
+    ax.text(a[0] * (1 + 0.05), a[1] * (1 + 0.05) , node, fontsize=12)
+
+def draw_points_on_sphere(a, node, ax):
+    ax.scatter(a[0], a[1], a[2], c='b', marker='o', s=32)
+    ax.text(a[0] * (1 + 0.05), a[1] * (1 + 0.05) , a[2] * (1 + 0.05),  node, fontsize=12)
+
+def draw_points_hyperbolic(a, node, ax):
+    ax.plot(a[0], a[1], "o")
+    ax.text(a[0] * (1 + 0.05), a[1] * (1 + 0.05) , node, fontsize=12)
+
+
 # draw the embedding for a graph 
 # G is the graph, m is the PyTorch hyperbolic model
 def draw_graph(G, m, fig, ax):
-    hyperbolic_setup(fig, ax)
+    num_spheres = np.minimum(len(m.S), 5)
+    num_hypers  = np.minimum(len(m.H), 5)
+
+    sdim = 0 if len(m.S) == 0 else len((m.S[0]).w[0])
+    for emb in range(num_spheres):
+        if sdim == 3:
+            spherical_setup_3d(fig, ax[1, emb])
+        else:
+            spherical_setup(fig, ax[1, emb])
+
+    for emb in range(num_hypers):
+        hyperbolic_setup(fig, ax[0, emb])
 
     # todo: directly read edge list from csr format
     Gr = nx.from_scipy_sparse_matrix(G)
     for edge in Gr.edges():
-        idx = torch.LongTensor([edge[0], edge[1]])
-        a = ((torch.index_select(m.w, 0, idx[0])).clone()).detach().numpy()[0]
-        b = ((torch.index_select(m.w, 0, idx[1])).clone()).detach().numpy()[0]
-        c = get_third_point(a,b)
-        draw_geodesic(a,b,c,ax)
+        idx = torch.LongTensor([edge[0], edge[1]]).to(device)
 
-def setup_plot(draw_circle=False):
+        for emb in range(num_hypers):
+            a = ((torch.index_select(m.H[emb].w, 0, idx[0])).clone()).detach().cpu().numpy()[0]
+            b = ((torch.index_select(m.H[emb].w, 0, idx[1])).clone()).detach().cpu().numpy()[0]
+            c = get_third_point(a,b)
+            draw_geodesic(a,b,c,ax[0, emb], edge[0], edge[1])
+
+        # let's draw the edges on the sphere; these are geodesics    
+        if sdim == 3:
+            for emb in range(num_spheres):
+                a = ((torch.index_select(m.S[emb].w, 0, idx[0])).clone()).detach().cpu().numpy()[0]
+                b = ((torch.index_select(m.S[emb].w, 0, idx[1])).clone()).detach().cpu().numpy()[0]
+                draw_geodesic_on_circle(a, b, ax[1, emb])
+
+    for node in Gr.nodes():
+        idx = torch.LongTensor([int(node)]).to(device)
+        for emb in range(num_spheres):
+            v = ((torch.index_select(m.S[emb].w, 0, idx)).clone()).detach().cpu().numpy()[0]
+            
+            if sdim == 3:
+                draw_points_on_sphere(v, node, ax[1, emb])                        
+            else:
+                draw_points_on_circle(v, node, ax[1, emb])
+
+        for emb in range(num_hypers):
+            a = ((torch.index_select(m.H[emb].w, 0, idx)).clone()).detach().cpu().numpy()[0]
+            draw_points_hyperbolic(a, node, ax[0, emb])
+        
+
+def setup_plot(m, name=None, draw_circle=False):
     # create plot
-    fig, ax = plt.subplots()
+    num_spheres = np.minimum(len(m.S), 5)
+    num_hypers  = np.minimum(len(m.H), 5)
+    wid = np.maximum(np.maximum(num_spheres, num_hypers), 2)
+
+    fig, axes = plt.subplots(2, wid, sharey=True, figsize=(wid*10, 20))
+
+    ax = axes
+    matplotlib.rcParams['animation.ffmpeg_args'] = '-report'
+    writer = animation.FFMpegFileWriter(fps=10, metadata=dict(artist='HazyResearch'))#, bitrate=1800)
+    if name is None:
+        name = 'HypDistances.mp4'
+    else:
+        name += '.mp4'
+
+    writer.setup(fig, name, dpi=108)
+
+    sdim = 0 if len(m.S) == 0 else len((m.S[0]).w[0])
+    # need these to all be 3D
+    if sdim == 3:
+        for emb in range(num_spheres):
+            ax[1, emb].remove()
+            #ax[1, emb] = fig.add_subplot(111, projection='3d')
+            ax[1, emb] = fig.add_subplot(2, wid, wid+emb+1, projection='3d')
+
     if draw_circle:
-        hyperbolic_setup(fig, ax)
-    return fig, ax
+        for emb in range(num_spheres):
+            if sdim == 3:
+                spherical_setup_3d(fig, ax[1, emb])
+            else:
+                spherical_setup(fig, ax[1, emb])
+        for emb in range(num_hypers):
+            hyperbolic_setup(fig, ax[0, emb])
+
+    return fig, ax, writer
+
 
 def hyperbolic_setup(fig, ax):
-    fig.set_size_inches(10.0, 10.0, forward=True)
-
+    #fig.set_size_inches(20.0, 10.0, forward=True)
+    
     # set axes
     ax.set_ylim([-1.2, 1.2])
     ax.set_xlim([-1.2, 1.2])
@@ -145,6 +254,29 @@ def hyperbolic_setup(fig, ax):
     e = patches.Arc((0,0), 2.0, 2.0,
                      linewidth=2, fill=False, zorder=2)
     ax.add_patch(e)
+
+def spherical_setup(fig, ax):
+#    fig.set_size_inches(20.0, 10.0, forward=True)
+    
+    # set axes
+    ax.set_ylim([-1.2, 1.2])
+    ax.set_xlim([-1.2, 1.2])
+
+    # draw circle boundary
+    e = patches.Arc((0,0), 2.0, 2.0,
+                     linewidth=1, fill=False, zorder=2)
+    ax.add_patch(e)
+
+def spherical_setup_3d(fig, ax):
+    ax.set_ylim([-1.2, 1.2])
+    ax.set_xlim([-1.2, 1.2])
+
+    # draw sphere
+    u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
+    x = np.cos(u)*np.sin(v)
+    y = np.sin(u)*np.sin(v)
+    z = np.cos(v)
+    ax.plot_wireframe(x, y, z, color="y")
 
 def draw_plot():
     plt.show()
