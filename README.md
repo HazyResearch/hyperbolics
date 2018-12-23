@@ -26,8 +26,10 @@ julia combinatorial/comb.jl -d data/edges/phylo_tree.edges -m phylo_tree.r10.emb
 `python pytorch/pytorch_hyperbolic.py learn --help` to see options. Optimizer requires torch >=0.4.1. Example usage:
 
 ```
-python pytorch/pytorch_hyperbolic.py learn data/edges/phylo_tree.edges --batch-size 64 -r 10 -l 5.0 --epochs 100 --checkpoint-freq 10 -w phylo_tree.r10.emb
+python pytorch/pytorch_hyperbolic.py learn data/edges/phylo_tree.edges --batch-size 64 -dim 10 -l 5.0 --epochs 100 --checkpoint-freq 10 -w phylo_tree.r10.emb
 ```
+
+Products of hyperbolic spaces with Euclidean and spherical spaces are also supported. E.g. adding flags `-euc 1 -edim 20 -sph 2 -sdim 10` embeds into a product of Euclidean space of dimension 20 with two copies of spherical space of dimension 10.
 
 ### Experiment scripts
 * `scripts/run_exps.py` runs a full set of experiments for a list of datasets. Example usage (note: the default run settings take a long time to finish):
