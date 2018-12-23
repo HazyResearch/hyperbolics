@@ -136,5 +136,5 @@ def estimate(dataset='data/edges/smalltree.edges', n_samples=100000):
 
 if __name__ == '__main__':
     parser = argh.ArghParser()
-    parser.add_default_command([estimate])
+    parser.set_default_command(estimate)
     parser.dispatch()
