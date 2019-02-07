@@ -1,2 +1,0 @@
-2019-01-18 15:16:59,747 Commandline ['pytorch/pytorch_hyperbolic.py', 'learn', 'data/edges/parsing/ewt/ewt_dev/1851.edges', '--dim', '0', '--hyp', '0', '--edim', '10', '--euc', '1', '--sdim', '0', '--sph', '0', '--log-name', 'ewt_devr2/1851.edges.E10-1.lr1.log', '--batch-size', '65536', '--epochs', '50', '--checkpoint-freq', '10', '-g', '--subsample', '1024', '--learning-rate', '1']
-2019-01-18 15:16:59,747 No Model Save selected!
