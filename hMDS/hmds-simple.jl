@@ -1,12 +1,13 @@
 using PyCall
 using Pandas
 using ArgParse
+using LinearAlgebra
 
 @pyimport numpy as np
 @pyimport networkx as nx
 @pyimport scipy.sparse.csgraph as csg
-unshift!(PyVector(pyimport("sys")["path"]), "")
-unshift!(PyVector(pyimport("sys")["path"]), "hMDS")
+pushfirst!(PyVector(pyimport("sys")["path"]), "")
+pushfirst!(PyVector(pyimport("sys")["path"]), "hMDS")
 @pyimport utils.load_graph as lg
 @pyimport utils.distortions as dis
 @pyimport utils.load_dist as ld
@@ -47,13 +48,15 @@ end
 
 function power_method(A,d,tol;verbose=false, T=1000)
     (n,n) = size(A)
-    x_all = qr(randn(n,d))[1]
+    #x_all = qr(randn(n,d))[1]
+    x_all = Matrix(qr(randn(n,d)).Q)
+
     _eig  = zeros(d)
     if verbose
         println("\t\t Entering Power Method $(d) $(tol) $(T) $(n)")
     end
     for j=1:d
-        if verbose tic() end
+        if verbose start = time() end
         x = view(x_all,:,j)
         x /= norm(x)
         for t=1:T            
@@ -72,7 +75,7 @@ function power_method(A,d,tol;verbose=false, T=1000)
                 if verbose
                     println("\t Done with eigenvalue $(j) at iteration $(t) at abs_tol=$(Float64(abs(nx - _eig[j]))) rel_tol=$(Float64(abs(nx - _eig[j])/nx))")
                 end
-                if verbose toc() end
+                if verbose println("Time Elapsed = $(time()-start)") end
                 break
             end
             if t % 500 == 0 && verbose
@@ -98,7 +101,7 @@ end
 # hMDS with one PCA call
 function h_mds(Z, k, n, tol)
     # run PCA on -Z
-    tic()
+    start = time()
     lambdasM, usM = power_method_sign(-Z,k,tol) 
     lambdasM_pos = copy(lambdasM)
     usM_pos = copy(usM)
@@ -112,8 +115,8 @@ function h_mds(Z, k, n, tol)
         end
     end
     
-    Xrec = usM_pos[:,1:idx] * diagm(lambdasM_pos[1:idx].^ 0.5);
-    toc()
+    Xrec = usM_pos[:,1:idx] * diagm(0 => lambdasM_pos[1:idx].^ 0.5);
+    println("Time Elapsed = $(time()-start)")
     
     return Xrec', idx
 end
@@ -137,22 +140,22 @@ tol   = 1e-8
 println("Scaling = $(convert(Float64,scale))\n");
 
 G = lg.load_graph(parsed_args["dataset"])
-H = ld.get_dist_mat(G);
+H = ld.get_dist_mat(G, parallelize=false);
 n,_ = size(H)
 
-BLAS.set_num_threads(parsed_args["procs"]) # HACK
+#BLAS.set_num_threads(parsed_args["procs"]) # HACK
 
 # used for new simplified hMDS
 Y = cosh.(H*scale)
 
 println("Doing h-MDS...")
-tic()
+start = time()
 # this is a Gans model set of points
 Xrec, found_dimension = h_mds(Y, k, n, tol)
 
 # convert from Gans to Poincare ball model
 gans_to_poincare(Xrec)
-toc()
+println("Time Elapsed = $(time()-start)")
 
 # save the recovered points:
 if parsed_args["save-embedding"] != nothing
@@ -165,18 +168,18 @@ end
 
 if found_dimension > 1
     println("Building recovered graph...")
-    tic()
+    start = time()
     Zrec = zeros(n, n)
     Threads.@threads for i = 1:n
         for j = 1:n
             Zrec[i,j] = norm(Xrec[:,i] - Xrec[:,j])^2 / ((1 - norm(Xrec[:,i])^2) * (1 - norm(Xrec[:,j])^2));
         end
     end
-    toc()
-    
+    println("Time Elapsed = $(time()-start)")
+
     println("Getting metrics...")
-    tic()
-    Hrec = acosh.(1+2*Zrec)
+    start = time()
+    Hrec = acosh.(1.0 .+ 2.0 * Zrec)
     Hrec /= scale        
      
     mc, me, dist, bad = dis.distortion(H, Hrec, n, 1)
