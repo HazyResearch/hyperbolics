@@ -18,7 +18,8 @@ function parse_commandline()
     @add_arg_table s begin
         "--dataset", "-d"
             help = "Dataset to embed"
-            required = true
+        "--dist-matrix", "-k"
+            help = "Directly use a distance matrix"
         "--dim", "-r"
             help = "Dimension r"
             arg_type = Int32
@@ -124,7 +125,19 @@ end
 parsed_args = parse_commandline()
 println("\n=============================")
 println("h-MDS. Info:")
-println("Data set = $(parsed_args["dataset"])")
+if parsed_args["dataset"] != nothing
+    println("Data set = $(parsed_args["dataset"])")
+end
+
+if parsed_args["dist-matrix"] != nothing
+    println("Distance matrix = $(parsed_args["dist-matrix"])")
+end
+
+if parsed_args["dataset"] == nothing && parsed_args["dist-matrix"] == nothing
+    println("Eror: No dataset or distance matrix provided!")
+    quit()
+end
+
 println("Dimensions = $(parsed_args["dim"])")
 
 if parsed_args["save-embedding"] == nothing
@@ -139,8 +152,16 @@ tol   = 1e-8
 
 println("Scaling = $(convert(Float64,scale))\n");
 
-G = lg.load_graph(parsed_args["dataset"])
-H = ld.get_dist_mat(G, parallelize=false);
+if parsed_args["dataset"] != nothing
+    G = lg.load_graph(parsed_args["dataset"])
+    H = ld.get_dist_mat(G, parallelize=false);
+    H_true = copy(H)
+end
+
+if parsed_args["dist-matrix"] != nothing
+    H = ld.load_emb_dm(parsed_args["dist-matrix"])
+end
+
 n,_ = size(H)
 
 #BLAS.set_num_threads(parsed_args["procs"]) # HACK
@@ -177,16 +198,19 @@ if found_dimension > 1
     end
     println("Time Elapsed = $(time()-start)")
 
-    println("Getting metrics...")
-    start = time()
-    Hrec = acosh.(1.0 .+ 2.0 * Zrec)
-    Hrec /= scale        
-     
-    mc, me, dist, bad = dis.distortion(H, Hrec, n, 1)
-    println("\nDistortion avg, max, bad = $(convert(Float64,dist)), $(convert(Float64,mc*me)), $(convert(Float64,bad))")  
-    mapscore = dis.map_score(H, Hrec, n, 1)
-    println("MAP = $(mapscore)")   
-    #println("Dimension = $(found_dimension)")     
+    # stats can only be computed if we have the ground truth graph
+    if parsed_args["dataset"] != nothing
+        println("Getting metrics...")
+        start = time()
+        Hrec = acosh.(1.0 .+ 2.0 * Zrec)
+        Hrec /= scale
+
+        mc, me, dist, bad = dis.distortion(H_true, Hrec, n, 1)
+        println("\nDistortion avg, max, bad = $(convert(Float64,dist)), $(convert(Float64,mc*me)), $(convert(Float64,bad))")
+        mapscore = dis.map_score(H_true, Hrec, n, 1)
+        println("MAP = $(mapscore)")
+        #println("Dimension = $(found_dimension)")
+    end
 else
     println("Dimension = 1!")
 end
