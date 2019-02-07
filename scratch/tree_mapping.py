@@ -19,17 +19,36 @@ import re
 import random
 import json
 import mapping_utils as util
+import pdb
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 euclidean_embeddings = {}
-saved_tensors = os.listdir("tree_emb_saved/")
+# saved_tensors = os.listdir("tree_emb_saved/10nodes/")
+saved_tensors = os.listdir("tree_emb_saved/1node/")
 indices = []
-for file in saved_tensors:
-    idx = int(file.split(".")[0])
-    indices.append(idx)
-    euclidean_embeddings[idx] = torch.load("tree_emb_saved/"+str(file), map_location=torch.device('cpu'))
 
+# for file in saved_tensors:
+#     idx = int(file.split(".")[0])
+#     indices.append(idx)
+#     embedding = torch.load("tree_emb_saved/10nodes/"+str(file), map_location=torch.device('cpu'))
+#     norm = embedding.norm(p=2, dim=1, keepdim=True)
+#     max_norm = torch.max(norm)+1e-10
+#     normalized_emb = embedding.div(max_norm.expand_as(embedding))
+#     euclidean_embeddings[idx] = normalized_emb
+
+#1 example
+for i in range(200):
+    embedding = torch.load("tree_emb_saved/1node/"+str(saved_tensors[0]), map_location=torch.device('cpu'))
+    norm = embedding.norm(p=2, dim=1, keepdim=True)
+    max_norm = torch.max(norm)+1e-10
+    normalized_emb = embedding.div(max_norm.expand_as(embedding))
+    euclidean_embeddings[i] = normalized_emb
+    indices.append(i)
+
+import glob
+from torch.optim import Optimizer
+# import learning_utils as lu
 
 #Riemannian SGD
 
@@ -44,30 +63,28 @@ def poincare_grad(p, d_p):
         p (Tensor): Current point in the ball
         d_p (Tensor): Euclidean gradient at p
     """
-    if d_p.is_sparse:
-        p_sqnorm = torch.sum(
-            p.data[d_p._indices()[0].squeeze()] ** 2, dim=1,
-            keepdim=True
-        ).expand_as(d_p._values())
-        n_vals = d_p._values() * ((1 - p_sqnorm) ** 2) / 4
-        d_p = spten_t(d_p._indices(), n_vals, d_p.size())
-    else:
-        p_sqnorm = torch.sum(p.data ** 2, dim=-1, keepdim=True)
-        d_p = d_p * ((1 - p_sqnorm) ** 2 / 4).expand_as(d_p)
+    p_sqnorm = torch.sum(p.data ** 2, dim=-1, keepdim=True)
+    d_p = d_p * ((1 - p_sqnorm) ** 2 / 4).expand_as(d_p)
 
     return d_p
 
+def _correct(x, eps=1e-10):
+        current_norms = torch.norm(x,2,x.dim() - 1)
+        mask_idx      = current_norms < 1./(1+eps)
+        modified      = 1./((1+eps)*current_norms)
+        modified[mask_idx] = 1.0
+        return modified.unsqueeze(-1)
 
 
 def euclidean_grad(p, d_p):
     return d_p
 
-
 def retraction(p, d_p, lr):
     # Gradient clipping.
-    if torch.all(d_p < 1000) and torch.all(d_p>-1000):
-        p.data.add_(-lr, d_p)
-
+    d_p.clamp_(min=-10000, max=10000)
+    p.data.add_(-lr, d_p)
+    #project back
+    p.data = p.data * _correct(p.data)
 
 class RiemannianSGD(Optimizer):
     r"""Riemannian stochastic gradient descent.
@@ -110,18 +127,16 @@ class RiemannianSGD(Optimizer):
 
 def trainFCHyp(input_matrix, ground_truth, n, mapping, mapping_optimizer):
     mapping_optimizer.zero_grad()
- 
     loss = 0
     output = mapping(input_matrix.float())
     dist_recovered = util.distance_matrix_hyperbolic(output) 
     loss += util.distortion(ground_truth, dist_recovered, n)
-    loss.backward()
+    loss.backward(retain_graph=True)
     mapping_optimizer.step()
-
     return loss.item()
 
 
-def trainFCIters(mapping, n_epochs=5, n_iters=500, print_every=50, plot_every=100, learning_rate=0.01):
+def trainFCIters(mapping, n_epochs=30, n_iters=200, print_every=10, plot_every=100, learning_rate=1.0):
     start = time.time()
     plot_losses = []
     print_loss_total = 0  
@@ -133,10 +148,12 @@ def trainFCIters(mapping, n_epochs=5, n_iters=500, print_every=50, plot_every=10
     for i in range(n_epochs):
         print("Starting epoch "+str(i))
         iter=1
-        for idx in indices:     
-            input_matrix = euclidean_embeddings[idx]
-            target_matrix = training_pairs[idx][1]
-            n = training_pairs[idx][2]
+        if i!=0 and i%2==0:
+            mapping_optimizer = RiemannianSGD(mapping.parameters(), lr=learning_rate*0.1, rgrad=poincare_grad, retraction=retraction)
+        for i in indices:
+            input_matrix = euclidean_embeddings[i]
+            target_matrix = training_pairs[i][1]
+            n = training_pairs[i][2]
             loss = trainFCHyp(input_matrix, target_matrix, n, mapping, mapping_optimizer)
             print_loss_total += loss
             plot_loss_total += loss
@@ -157,10 +174,16 @@ def trainFCIters(mapping, n_epochs=5, n_iters=500, print_every=50, plot_every=10
 input_size = 10
 output_size = 10
 mapping = nn.Sequential(
-          nn.Linear(input_size, 50).to(device),
+          nn.Linear(input_size, 1000).to(device),
           nn.ReLU().to(device),
-          nn.Linear(50, output_size).to(device),
+          nn.Linear(1000, 100).to(device),
+          nn.ReLU().to(device),
+          nn.Linear(100, output_size).to(device),
           nn.ReLU().to(device))
+        #   nn.Linear(50, 10).to(device),
+        #   nn.ReLU().to(device),
+        #   nn.Linear(10, output_size).to(device),
+        #   nn.ReLU().to(device))             
           
 trainFCIters(mapping)
 

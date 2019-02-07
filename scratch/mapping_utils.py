@@ -27,7 +27,16 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def acosh(x):
     return torch.log(x + torch.sqrt(x**2-1))
 
+def _correct(x, eps=1e-1):
+        current_norms = torch.norm(x,2,x.dim() - 1)
+        mask_idx      = current_norms < 1./(1+eps)
+        modified      = 1./((1+eps)*current_norms)
+        modified[mask_idx] = 1.0
+        return modified.unsqueeze(-1)
+
 def dist_h(u,v):
+    u = u * _correct(u)
+    v = v * _correct(v)
     z  = 2*torch.norm(u-v,2)**2
     uu = 1. + torch.div(z,((1-torch.norm(u,2)**2)*(1-torch.norm(v,2)**2)))
     return acosh(uu)
@@ -42,10 +51,13 @@ def distance_matrix_euclidean(input):
 def distance_matrix_hyperbolic(input):
     row_n = input.shape[0]
     dist_mat = torch.zeros(row_n, row_n, device=device)
+    # num_cores = multiprocessing.cpu_count()
+    # dist_mat = Parallel(n_jobs=num_cores)(delayed(compute_row)(i,adj_mat) for i in range(n))
     for row in range(row_n):
         for i in range(row_n):
             if i != row:
                 dist_mat[row, i] = dist_h(input[row,:], input[i,:])
+    # print("Distance matrix", dist_mat)
     return dist_mat
 
 def entry_is_good(h, h_rec): return (not torch.isnan(h_rec)) and (not torch.isinf(h_rec)) and h_rec != 0 and h != 0
@@ -65,15 +77,15 @@ def distortion_row(H1, H2, n, row):
         avg /= good 
     else:
         avg, good = torch.tensor(0., device=device, requires_grad=True), torch.tensor(0., device=device, requires_grad=True)
+    # print("Number of good entries", good)
     return (avg, good)
 
 def distortion(H1, H2, n, jobs=16):
-#     dists = Parallel(n_jobs=jobs)(delayed(distortion_row)(H1[i,:],H2[i,:],n,i) for i in range(n))
+    # dists = Parallel(n_jobs=jobs)(delayed(distortion_row)(H1[i,:],H2[i,:],n,i) for i in range(n))
     dists = (distortion_row(H1[i,:],H2[i,:],n,i) for i in range(n))
     to_stack = [tup[0] for tup in dists]
     avg = torch.stack(to_stack).sum()/n
     return avg
-
 
 #Loading the graph and getting the distance matrix.
 
@@ -128,7 +140,8 @@ def showPlot(points):
 
 
 def pairfromidx(idx):
-    G = load_graph("random_trees_edges/"+str(idx)+".edges")
+    # G = load_graph("random_trees_edges/10nodes/"+str(idx)+".edges")
+    G = load_graph("random_trees_edges/1node/100.edges")
     target_matrix = get_dist_mat(G)
     target_tensor = torch.from_numpy(target_matrix).float().to(device)
     target_tensor.requires_grad = False
