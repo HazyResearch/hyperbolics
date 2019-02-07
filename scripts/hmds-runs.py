@@ -5,12 +5,12 @@ import random
 
 ranks = [10, 20]
 
-for file in os.listdir(".\data\hmds-graphs"):
+for file in os.listdir("./data/hmds-graphs/random_trees_edges/"):
     file_base = file.split('.')[0]
 
-    cmd_base  = "julia hMDS\hmds-simple.jl"
-    cmd_edges = " -d data\edges\\" + file_base + ".edges"
-    cmd_emb   = " -k data\emb\\" + file_base + ".emb"
+    cmd_base  = "julia hMDS/hmds-simple.jl"
+    cmd_edges = " -d data/edges/" + file_base + ".edges"
+    cmd_emb   = " -k data/emb/" + file_base + ".emb"
     cmd_rank  = " -r "
     cmd_scale = " -t "
 

@@ -16,8 +16,16 @@ if __name__ == '__main__':
         # print(row)
         # os.remove(f)
     table = pd.concat(rows)
+    table = table[table.iloc[:,2] < 100]
+    table = table[table.iloc[:,3] < 1000]
+    print("Length")
+    print(table.shape)
+    print("Average Distortion")
+    print(table.iloc[:,2].mean(axis=0))
+    print("Worst case distortion")
+    print(table.iloc[:,3].mean(axis=0))
     # print(table)
-    print(table.to_string())
+    # print(table.to_string())
     # .to_csv(f"{run_name}/{run_name}.stats", )
     with open(f"{run_name}/{run_name}.stats", "w") as f:
         # f.write('\n'.join(lines))
