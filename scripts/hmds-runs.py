@@ -3,14 +3,14 @@ import subprocess
 import itertools
 import random
 
-ranks = [10, 20]
+ranks = [5, 10]
 
 for file in os.listdir("./data/hmds-graphs/random_trees_edges/"):
     file_base = file.split('.')[0]
 
-    cmd_base  = "julia hMDS/hmds-simple.jl"
-    cmd_edges = " -d data/edges/" + file_base + ".edges"
-    cmd_emb   = " -k data/emb/" + file_base + ".emb"
+    cmd_base  = "julia hMDS\hmds-simple.jl"
+    cmd_edges = " -d data\edges\\" + file_base + ".edges"
+    cmd_emb   = " -k data\emb\\" + file_base + ".emb"
     cmd_rank  = " -r "
     cmd_scale = " -t "
 
@@ -30,4 +30,9 @@ for file in os.listdir("./data/hmds-graphs/random_trees_edges/"):
             distortion = res_lines[16].split()[5].strip(",")
             mapval     = res_lines[17].split()[2]
 
-            print("Scale \t", scale, "\t distortion \t", distortion, "\t mAP \t", mapval)
+            if i == 0:
+                input_distortion = res_lines[18].split()[6].strip(",")
+                input_map        = res_lines[19].split()[3]
+                print("Input distortion \t", input_distortion, "\t input mAP \t", input_map, "\n") 
+
+            print("Scale \t", scale, "\t distortion \t", distortion, "\t mAP \t", mapval) 

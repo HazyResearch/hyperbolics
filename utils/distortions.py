@@ -2,6 +2,7 @@
 # python code to compute distortion/MAP
 import numpy as np
 import scipy.sparse.csgraph as csg
+import scipy
 from joblib import Parallel, delayed
 import multiprocessing
 import networkx as nx
@@ -87,3 +88,15 @@ def map_score(H1, H2, n, jobs):
     #maps = Parallel(n_jobs=jobs)(delayed(map_row)(H1[i,:],H2[i,:],n,i) for i in range(n))
     maps  = [map_row(H1[i,:],H2[i,:],n,i) for i in range(n)]
     return np.sum(maps)/n
+
+def compare_mst(G, hrec):
+    hrec_sparse = scipy.sparse.csr_matrix(hrec)
+    mst = csg.minimum_spanning_tree(hrec_sparse)
+    G_rec = nx.from_scipy_sparse_matrix(mst)
+
+    found = 0
+    for edge in G_rec.edges():
+        if edge in G.edges(): found+= 1
+
+    acc = found / len(list(G.edges()))
+    return acc

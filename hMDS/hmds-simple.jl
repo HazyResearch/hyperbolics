@@ -210,6 +210,17 @@ if found_dimension > 1
         println("\nDistortion avg, max, bad = $(convert(Float64,dist)), $(convert(Float64,mc*me)), $(convert(Float64,bad))")
         mapscore = dis.map_score(H_true, Hrec, n, 1)
         println("MAP = $(mapscore)")
+
+        mc_i, me_i, dist_i, bad_i = dis.distortion(H_true, H, n, 1)
+        println("Input Distortion avg, max, bad = $(convert(Float64,dist_i)), $(convert(Float64,mc_i*me_i)), $(convert(Float64,bad_i))")
+        mapscore_i = dis.map_score(H_true, H, n, 1)
+        println("Input MAP = $(mapscore_i)")
+
+        edge_acc_input = dis.compare_mst(G, H)
+        println("Edge accuracy from MST, input= $(edge_acc_input)")
+
+        edge_acc_hyp = dis.compare_mst(G, Hrec)
+        println("Edge accuracy from MST, hyperbolic recovered = $(edge_acc_hyp)")
         #println("Dimension = $(found_dimension)")
     end
 else
