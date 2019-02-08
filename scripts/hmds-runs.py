@@ -29,10 +29,12 @@ for file in os.listdir("./data/hmds-graphs/random_trees_edges/"):
             # grab our values
             distortion = res_lines[16].split()[5].strip(",")
             mapval     = res_lines[17].split()[2]
+            edge_acc   = res_lines[21].split()[7]
 
             if i == 0:
                 input_distortion = res_lines[18].split()[6].strip(",")
                 input_map        = res_lines[19].split()[3]
-                print("Input distortion \t", input_distortion, "\t input mAP \t", input_map, "\n") 
+                input_edge_acc   = res_lines[20].split()[5]
+                print("Input distortion \t", input_distortion, "\t input mAP \t", input_map, "\t input Edge Acc from MST \t", input_edge_acc, "\n") 
 
-            print("Scale \t", scale, "\t distortion \t", distortion, "\t mAP \t", mapval) 
+            print("Scale \t", scale, "\t distortion \t", distortion, "\t mAP \t", mapval, "\t Edge Acc from MST \t", edge_acc) 
