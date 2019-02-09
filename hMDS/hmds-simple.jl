@@ -5,7 +5,7 @@ using LinearAlgebra
 
 @pyimport numpy as np
 @pyimport networkx as nx
-@pyimport_conda("networkx", PKG)
+#@pyimport_conda("networkx", PKG)
 @pyimport scipy.sparse.csgraph as csg
 pushfirst!(PyVector(pyimport("sys")["path"]), "")
 pushfirst!(PyVector(pyimport("sys")["path"]), "hMDS")
