@@ -19,6 +19,8 @@ import string
 import re
 import random
 import json
+from collections import defaultdict
+import utils.load_dist as ld
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -118,18 +120,6 @@ def get_dist_mat(G):
     dist_mat = np.vstack(dist_mat)
     return dist_mat
 
-def compare_mst(G, hrec):
-    hrec_sparse = scipy.sparse.csr_matrix(hrec)
-    mst = csg.minimum_spanning_tree(hrec_sparse)
-    G_rec = nx.from_scipy_sparse_matrix(mst)
-
-    found = 0
-    for edge in G_rec.edges():
-        if edge in G.edges(): found+= 1
-
-    acc = found / len(list(G.edges()))
-    return acc
-
 def asMinutes(s):
     m = math.floor(s / 60)
     s -= m * 60
@@ -152,10 +142,35 @@ def showPlot(points):
     plt.plot(points)
 
 
-def pairfromidx(folder, idx):
-    G = load_graph(folder+str(idx)+".edges")
+def pairfromidx(idx, edge_folder):
+    G = load_graph(edge_folder+str(idx)+".edges")
     target_matrix = get_dist_mat(G)
     target_tensor = torch.from_numpy(target_matrix).float().to(device)
     target_tensor.requires_grad = False
     n = G.order()
     return ([], target_tensor, n, G)
+
+def gettestpairs(test_folder):
+    test_pairs = defaultdict()
+    edge_files = os.listdir(test_folder+"edges/")
+    for file in edge_files:
+        name = file.split("/")[-1]
+        ground_truth = load_graph(test_folder+"edges/"+file)
+        n = ground_truth.order()
+        euclidean_emb = torch.load(test_folder+"emb_tensor/"+str(name)+".E10-1.lr10.0.emb.final", map_location=torch.device('cpu'))
+        target_matrix = get_dist_mat(ground_truth)
+        target_tensor = torch.from_numpy(target_matrix).float().to(device)
+        target_tensor.requires_grad = False
+        test_pairs[name] = [euclidean_emb, ground_truth, target_tensor, n]
+    return test_pairs
+
+def compare_mst(G, hrec):
+    mst = csg.minimum_spanning_tree(hrec)
+    G_rec = nx.from_scipy_sparse_matrix(mst)
+
+    found = 0
+    for edge in G_rec.edges():
+        if edge in G.edges(): found+= 1
+
+    acc = found / len(list(G.edges()))
+    return acc
