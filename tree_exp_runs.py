@@ -1,6 +1,7 @@
 from __future__ import unicode_literals, print_function, division
 import os
 import subprocess
+import logging
 import itertools
 import numpy as np
 import argh
@@ -25,13 +26,30 @@ import json
 import utils.mapping_utils as util
 import pdb
 import glob
+import utils.distortions as dis
+import utils.learning_util as lu
+import warnings
 
 
 def run_hmds(run_name):
-    ranks = [10]
+
+    #Set up logging.
+    formatter = logging.Formatter('%(asctime)s %(message)s')
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(message)s',
+                        datefmt='%FT%T',)
+    logging.info(f"Logging to {run_name}")
+    log = logging.getLogger()
+    fh  = logging.FileHandler(run_name+"/log")
+    fh.setFormatter(formatter)
+    log.addHandler(fh)
+   
+    ranks = [8,9]
+    logging.info(f"Starting hMDS experiment:")
     print(os.listdir(f"{run_name}/emb/"))
     for file in os.listdir(f"{run_name}/emb/"):
         print(file)
+        logging.info(f"Working with the embedding: {file}")
         file_base = file.split('.')[0]
         cmd_base  = "julia hMDS/hmds-simple.jl"
         cmd_edges = " -d data/edges/random_tree_edges/" + file_base + ".edges"
@@ -64,32 +82,60 @@ def run_hmds(run_name):
                 if curr_edge_acc > best_edge_acc:
                     best_edge_acc = curr_edge_acc
 
-                if i == 0:
-                    input_distortion = res_lines[18].split()[6].strip(",")
-                    input_map        = res_lines[19].split()[3]
-                    input_edge_acc   = res_lines[20].split()[5]
-                    print("Input distortion \t", input_distortion, "\t input mAP \t", input_map, "\t input Edge Acc from MST \t", input_edge_acc, "\n")
+            
+            input_distortion = res_lines[18].split()[6].strip(",")
+            input_map        = res_lines[19].split()[3]
+            input_edge_acc   = res_lines[20].split()[5]
+            print(f"input distortion {input_distortion}")
+            logging.info(f"input distortion {input_distortion}")
+            print("input map", input_map)
+            logging.info(f"input map {input_map}")
+            print("input Edge Acc from MST", input_edge_acc)
+            logging.info(f"input Edge Acc from MST {input_edge_acc}")
 
             print("Best scale \t", str(best_scale), "\t Best distortion \t", str(best_distortion), "\t Best mAP \t", str(best_mapval), "\t Best edge Acc from MST \t", str(best_edge_acc)) 
+            logging.info(f"For rank {rank}:")
+            logging.info(f"Best scale: {best_scale}") 
+            logging.info(f"Best distortion: {best_distortion}"), 
+            logging.info(f"Best mAP: {best_mapval}")
+            logging.info(f"Best Edge Acc from MST: {best_edge_acc}")
+
+            input_distortion, input_map, input_edge_acc = np.float64(input_distortion), np.float64(input_map), np.float64(input_edge_acc)
+            with open(run_name+"/"+str(file)+"."+str(rank)+'rank.stat', "w") as f:
+                f.write("InDist InMAP InEdgeAcc Best-Scale Best-dist Best-MAP Best-EdgeAcc \n")
+                f.write(f"{input_distortion:10.6f} {input_map:8.4f} {input_edge_acc:8.4f} {best_scale:8.4f} {best_distortion:10.6f} {best_mapval:8.4f} {best_edge_acc:8.4f}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 from torch.optim import Optimizer
 from torch.optim.optimizer import Optimizer, required
 
-def run_net(run_name, edge_folder):   
+def run_net(run_name, edge_folder, id):   
     print(device)
     euclidean_embeddings = {}
     saved_tensors = os.listdir(f"{run_name}/emb/")
     indices = []
+    idx = int(saved_tensors[id].split(".")[0])
+    print("Starting f{run_name}/emb/"+str(saved_tensors[id]))
+    
+    embedding = torch.load(f"{run_name}/emb/"+str(saved_tensors[id]), map_location=torch.device("cpu"))
+    norm = embedding.norm(p=2, dim=1, keepdim=True)
+    max_norm = torch.max(norm)+1e-10
+    normalized_emb = embedding.div(max_norm.expand_as(embedding))
 
-    for file in saved_tensors:
-        idx = int(file.split(".")[0])
-        indices.append(idx)
-        embedding = torch.load(f"{run_name}/emb/"+str(file), map_location=torch.device('cpu'))
-        norm = embedding.norm(p=2, dim=1, keepdim=True)
-        max_norm = torch.max(norm)+1e-10
-        normalized_emb = embedding.div(max_norm.expand_as(embedding))
-        euclidean_embeddings[idx] = normalized_emb
+    for i in range(200):
+        euclidean_embeddings[i] = normalized_emb
+        indices.append(i)
+
+    # for file in saved_tensors:
+    #     idx = int(file.split(".")[0])
+    #     indices.append(idx)
+    #     embedding = torch.load(f"{run_name}/emb/"+str(file), map_location=torch.device('cpu'))
+    #     norm = embedding.norm(p=2, dim=1, keepdim=True)
+    #     max_norm = torch.max(norm)+1e-10
+    #     normalized_emb = embedding.div(max_norm.expand_as(embedding)
+    #     euclidean_embeddings[idx] = normalized_emb
+
+    #Hyperbolic modules.
 
     def poincare_grad(p, d_p):
         """
@@ -119,6 +165,7 @@ def run_net(run_name, edge_folder):
         p.data.add_(-lr, d_p)
         #project back to the manifold.
         p.data = p.data * _correct(p.data)
+
 
     class RiemannianSGD(Optimizer):
         r"""Riemannian stochastic gradient descent.
@@ -158,7 +205,7 @@ def run_net(run_name, edge_folder):
     # Does Euclidean to hyperbolic mapping using series of FC layers.
     # We use ground truth distance matrix for the pair since the distortion for hyperbolic embs are really low.
 
-    def trainFCHyp(input_matrix, target_matrix, ground_truth,  n, mapping, mapping_optimizer):
+    def trainFCHyp(input_matrix, target_matrix, ground_truth, n, mapping, mapping_optimizer):
         mapping_optimizer.zero_grad()
         loss = 0
         output = mapping(input_matrix.float())
@@ -171,7 +218,7 @@ def run_net(run_name, edge_folder):
         return loss.item(), edge_acc
 
 
-    def trainFCIters(mapping, n_epochs=30, n_iters=200, print_every=10, plot_every=100, learning_rate=1.0):
+    def trainFCIters(mapping, n_epochs=10, n_iters=200, print_every=50, plot_every=100, learning_rate=1.0):
         start = time.time()
         plot_losses = []
         print_loss_total = 0  
@@ -179,22 +226,21 @@ def run_net(run_name, edge_folder):
         
 
         mapping_optimizer = RiemannianSGD(mapping.parameters(), lr=learning_rate, rgrad=poincare_grad, retraction=retraction)
-        training_pairs = [util.pairfromidx(edge_folder, idx) for idx in range(len(indices))]
+        training_pairs = [util.pairfromidx(edge_folder, idx) for j in range(len(indices))]
 
-        for idx in range(n_epochs):
-            print("Starting epoch "+str(idx))
+        for n in range(n_epochs):
+            print("Starting epoch "+str(n))
             iter=1
-            if idx!=0 and idx%2==0:
+            if n!=0 and n%5==0:
                 mapping_optimizer = RiemannianSGD(mapping.parameters(), lr=learning_rate*0.5, rgrad=poincare_grad, retraction=retraction)
             for i in indices:
                 input_matrix = euclidean_embeddings[i]
                 target_matrix = training_pairs[i][1]
-                n = training_pairs[i][2]
+                size = training_pairs[i][2]
                 G = training_pairs[i][3]
-                loss, edge_acc = trainFCHyp(input_matrix, target_matrix, G, n, mapping, mapping_optimizer)
+                loss, edge_acc = trainFCHyp(input_matrix, target_matrix, G, size, mapping, mapping_optimizer)
                 print_loss_total += loss
                 plot_loss_total += loss
-
 
                 if iter % print_every == 0:
                     print_loss_avg = print_loss_total / print_every
@@ -220,7 +266,6 @@ def run_net(run_name, edge_folder):
             nn.Linear(100, output_size).to(device),
             nn.ReLU().to(device))
     
-            
     return trainFCIters(mapping)
 
 
@@ -229,10 +274,12 @@ def run_net(run_name, edge_folder):
 def run(run_name, edge_folder="./data/edges/random_tree_edges/"):
     print("Running hMDS")
     run_hmds(run_name)
-    print("Running Net")
-    run_net(run_name, edge_folder)
+    # print("Running Net")
+    # for i in range(10):
+    #     run_net(run_name, edge_folder, i)
 
 if __name__ == '__main__':
+
     _parser = argh.ArghParser()
     _parser.set_default_command(run)
     _parser.dispatch()
