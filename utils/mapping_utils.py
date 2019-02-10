@@ -44,6 +44,14 @@ def dist_h(u,v):
     uu = 1. + torch.div(z,((1-torch.norm(u,2)**2)*(1-torch.norm(v,2)**2)))
     return acosh(uu)
 
+def dist_p(u,v):
+    z  = 2*torch.norm(u-v,2)**2
+    uu = 1. + torch.div(z,((1-torch.norm(u,2)**2)*(1-torch.norm(v,2)**2)))
+    machine_eps = np.finfo(uu.data.detach().cpu().numpy().dtype).eps  # problem with cuda tensor
+    return acosh(torch.clamp(uu, min=1+machine_eps))
+    #return acosh(uu)
+
+
 def distance_matrix_euclidean(input):
     row_n = input.shape[0]
     mp1 = torch.stack([input]*row_n)
@@ -51,15 +59,19 @@ def distance_matrix_euclidean(input):
     dist_mat = torch.sum((mp1-mp2)**2,2).squeeze()
     return dist_mat
 
-def distance_matrix_hyperbolic(input):
+def distance_matrix_hyperbolic(input, sampled_rows):
+    #print("were computing the matrix with sampled_rows = ")
+    #print(sampled_rows)
     row_n = input.shape[0]
-    dist_mat = torch.zeros(row_n, row_n, device=device)
+    dist_mat = torch.zeros(len(sampled_rows), row_n, device=device)
     # num_cores = multiprocessing.cpu_count()
     # dist_mat = Parallel(n_jobs=num_cores)(delayed(compute_row)(i,adj_mat) for i in range(n))
-    for row in range(row_n):
+    idx = 0
+    for row in sampled_rows:
         for i in range(row_n):
             if i != row:
-                dist_mat[row, i] = dist_h(input[row,:], input[i,:])
+                dist_mat[idx, i] = dist_p(input[row,:], input[i,:])
+        idx += 1
     # print("Distance matrix", dist_mat)
     return dist_mat
 
@@ -83,12 +95,42 @@ def distortion_row(H1, H2, n, row):
     # print("Number of good entries", good)
     return (avg, good)
 
-def distortion(H1, H2, n, jobs=16):
+def distortion(H1, H2, n, sampled_rows, jobs=16):
     # dists = Parallel(n_jobs=jobs)(delayed(distortion_row)(H1[i,:],H2[i,:],n,i) for i in range(n))
-    dists = (distortion_row(H1[i,:],H2[i,:],n,i) for i in range(n))
+    i = 0
+    dists = torch.zeros(len(sampled_rows))
+    #print(dists)
+    for row in sampled_rows:
+        #print(H1[row,:])
+        #print(H2[i,:])
+        #print(n)
+        #print(row)
+        #print("i = ", i)
+        dists[i] = distortion_row(H1[row,:], H2[i,:], n, row)[0]
+        i += 1
+
+    #to_stack = [tup[0] for tup in dists]
+    #avg = torch.stack(to_stack).sum() / len(sampled_rows)
+    avg = dists.sum() / len(sampled_rows)
+    return avg
+'''
+
+def distortion(H1, H2, n, jobs):
+    H1 = np.array(H1.cpu()), 
+    H2 = np.array(H2.detach().cpu())
+    dists = Parallel(n_jobs=jobs)(delayed(distortion_row)(H1[i,:],H2[i,:],n,i) for i in range(n))
+    dists = np.vstack(dists)
+    mc = max(dists[:,0])
+    me = max(dists[:,1])
+    # wc = max(dists[:,0])*max(dists[:,1])
+    avg = sum(dists[:,2])/n
+    bad = sum(dists[:,3])
+    #return (mc, me, avg, bad)    
     to_stack = [tup[0] for tup in dists]
     avg = torch.stack(to_stack).sum()/n
     return avg
+'''
+
 
 #Loading the graph and getting the distance matrix.
 
@@ -165,8 +207,15 @@ def gettestpairs(test_folder):
     return test_pairs
 
 def compare_mst(G, hrec):
+
     mst = csg.minimum_spanning_tree(hrec)
     G_rec = nx.from_scipy_sparse_matrix(mst)
+    #np.set_printoptions(threshold=np.inf)
+    #print(hrec)
+
+    #print(G.edges())
+    #print("ours")
+    #print(G_rec.edges())
 
     found = 0
     for edge in G_rec.edges():
