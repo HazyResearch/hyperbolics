@@ -59,7 +59,7 @@ def distance_matrix_euclidean(input):
     dist_mat = torch.sum((mp1-mp2)**2,2).squeeze()
     return dist_mat
 
-def distance_matrix_hyperbolic(input, sampled_rows):
+def distance_matrix_hyperbolic(input, sampled_rows, scale):
     #print("were computing the matrix with sampled_rows = ")
     #print(sampled_rows)
     row_n = input.shape[0]
@@ -70,7 +70,7 @@ def distance_matrix_hyperbolic(input, sampled_rows):
     for row in sampled_rows:
         for i in range(row_n):
             if i != row:
-                dist_mat[idx, i] = dist_p(input[row,:], input[i,:])
+                dist_mat[idx, i] = dist_p(input[row,:], input[i,:])*scale
         idx += 1
     # print("Distance matrix", dist_mat)
     return dist_mat
@@ -210,13 +210,6 @@ def compare_mst(G, hrec):
 
     mst = csg.minimum_spanning_tree(hrec)
     G_rec = nx.from_scipy_sparse_matrix(mst)
-    #np.set_printoptions(threshold=np.inf)
-    #print(hrec)
-
-    #print(G.edges())
-    #print("ours")
-    #print(G_rec.edges())
-
     found = 0
     for edge in G_rec.edges():
         if edge in G.edges(): found+= 1
