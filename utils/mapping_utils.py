@@ -175,7 +175,6 @@ def timeSince(since, percent):
     rs = es - s
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
-
 def showPlot(points):
     plt.figure()
     fig, ax = plt.subplots()
@@ -183,9 +182,8 @@ def showPlot(points):
     ax.yaxis.set_major_locator(loc)
     plt.plot(points)
 
-
-def pairfromidx(idx, edge_folder):
-    G = load_graph(edge_folder+str(idx)+".edges")
+def pairfromidx(idx, edge_folder, run_name):
+    G = load_graph(edge_folder + str(idx) + "." + run_name + ".edges")
     target_matrix = get_dist_mat(G)
     target_tensor = torch.from_numpy(target_matrix).float().to(device)
     target_tensor.requires_grad = False
@@ -194,12 +192,16 @@ def pairfromidx(idx, edge_folder):
 
 def gettestpairs(test_folder):
     test_pairs = defaultdict()
-    edge_files = os.listdir(test_folder+"edges/")
+    edge_files = os.listdir(test_folder + "/edges")
     for file in edge_files:
         name = file.split("/")[-1]
-        ground_truth = load_graph(test_folder+"edges/"+file)
+        ground_truth = load_graph(test_folder + "/edges/" + file)
         n = ground_truth.order()
-        euclidean_emb = torch.load(test_folder+"emb_tensor/"+str(name)+".E10-1.lr10.0.emb.final", map_location=torch.device('cpu'))
+        #md = torch.load(test_folder + "/emb/" + str(name)[:-6] + ".emb.final", map_location=torch.device('cpu'))
+        md = torch.load(test_folder + "/emb/" + str(name)[:-6] + ".emb.final", map_location=device)
+
+        euclidean_emb = md.E[0].w
+
         target_matrix = get_dist_mat(ground_truth)
         target_tensor = torch.from_numpy(target_matrix).float().to(device)
         target_tensor.requires_grad = False

@@ -34,7 +34,7 @@ from torch.optim import Optimizer
 from torch.optim.optimizer import Optimizer, required
 
 def run_hmds(run_name):
-    ranks = [9]
+    ranks = []
     logging.info(f"Starting hMDS experiment:")
     print(os.listdir(f"{run_name}/hmds_emb/"))
     for file in os.listdir(f"{run_name}/hmds_emb/"):
@@ -173,7 +173,7 @@ def run_net(run_name, edge_folder, test_folder, device):
     for file in saved_tensors:
         idx = int(file.split(".")[0])
         indices.append(idx)
-        embedding = torch.load(f"{run_name}/emb/"+str(file), map_location=torch.device('cpu'))
+        embedding = torch.load(f"{run_name}/emb/"+str(file)).cuda()
         # md = torch.load(f"{run_name}/emb/"+str(file), map_location=device)
         # embedding = md.E[0].w
         norm = embedding.norm(p=2, dim=1, keepdim=True)
@@ -190,7 +190,7 @@ def run_net(run_name, edge_folder, test_folder, device):
         nn.ReLU().to(device),
         nn.Linear(100, output_size).to(device),
         nn.ReLU().to(device))
-    scale = nn.Parameter(torch.tensor([1.0], dtype=torch.float), requires_grad=True)
+    scale = nn.Parameter(torch.cuda.FloatTensor([1.0]), requires_grad=True)
     return trainFCIters(mapping, scale, indices, edge_folder, test_folder, euclidean_embeddings)
 
 # Does Euclidean to hyperbolic mapping using series of FC layers.
@@ -243,14 +243,14 @@ def full_stats_pass_point(input_matrix, target_matrix, ground_truth, n, mapping,
 
     return dis, edge_acc
 
-def trainFCIters(mapping, scale, indices, edge_folder, test_folder, euclidean_embeddings, n_epochs=1000, print_every=5, learning_rate=0.2):
+def trainFCIters(mapping, scale, indices, edge_folder, test_folder, euclidean_embeddings, n_epochs=500, print_every=5, learning_rate=1.0):
     start = time.time()
     print_loss_total = 0
     plot_loss_total = 0
     n_iters = len(indices)
-    subsample_row_num = 10
+    subsample_row_num = 5
     resample_every = 5
-    full_stats_every = 50
+    full_stats_every = 20
 
     mapping_optimizer = RiemannianSGD(mapping.parameters(), lr=learning_rate, rgrad=poincare_grad, retraction=retraction)
     scaling_optimizer = optim.SGD([scale], lr=learning_rate)
@@ -323,7 +323,7 @@ def trainFCIters(mapping, scale, indices, edge_folder, test_folder, euclidean_em
 
 @argh.arg("run_name", help="Directory to store the run")
 
-def run(run_name, edge_folder="./data/edges/random_tree_edges/", test_folder="./random_trees/test/"):
+def run(run_name, edge_folder="./data/edges/fake_run_edges/", test_folder="./random_trees/test/"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     #device = torch.device("cpu")
 
