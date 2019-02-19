@@ -349,7 +349,7 @@ def trainFCIters(run_name, mapping, scale, indices, edge_folder, test_folder, eu
 def run(run_name, make_random=False, num_random=100, n=50, euc_dim=10, make_euc=False,
         delta_test_edges=1, num_nearby=10, do_hmds=False, learn_mapping=False, map_dim=9,
         hmds_dim=9, map_lr=0.2, epochs=20, subsample_row_num=10, resample_every=5, 
-        full_stats_every=5, graph_reg_lambda=0.001, map_dim=9):
+        full_stats_every=5, graph_reg_lambda=0.001):
 
     if not os.path.isdir(run_name):
         os.mkdir(run_name)
