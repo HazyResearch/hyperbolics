@@ -16,7 +16,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils.data import Dataset
 import time
 import math
 from io import open
@@ -35,7 +34,7 @@ from torch.optim import Optimizer
 from torch.optim.optimizer import Optimizer, required
 
 def run_hmds(run_name):
-    ranks = [9]
+    ranks = []
     logging.info(f"Starting hMDS experiment:")
     print(os.listdir(f"{run_name}/hmds_emb/"))
     for file in os.listdir(f"{run_name}/hmds_emb/"):
@@ -141,7 +140,7 @@ class RiemannianSGD(Optimizer):
         lr (float): learning rate
     """
 
-    def __init__(self, params, lr, rgrad, retraction):
+    def __init__(self, params, lr=required, rgrad=required, retraction=required):
         defaults = dict(lr=lr, rgrad=rgrad, retraction=retraction)
         super(RiemannianSGD, self).__init__(params, defaults)
 
@@ -164,61 +163,23 @@ class RiemannianSGD(Optimizer):
 
         return loss
 
-import multiprocessing as mp
-mp.set_start_method('spawn', force=True)
-from torch.utils.data import Dataset
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-class EmbeddingDataset(Dataset):
-    """Euclidean embedding dataset."""
-    def __init__(self, run_name, edge_folder):
-        saved_tensors = os.listdir(f"{run_name}/emb/")
-        indices = []
-        for file in saved_tensors[:1000]:
-            idx = int(file.split(".")[0])
-            indices.append(idx)
-        self.indices = indices
-        self.run_name = run_name
-        self.edge_folder = edge_folder
-    
-    def __len__(self):
-        return len(self.indices)
-
-    def __getitem__(self, idx):
-        id = self.indices[idx]
-        md = torch.load(f"{self.run_name}/emb/"+str(id)+".edges.E10-1.lr10.0.emb.final", map_location=device)
-        embedding = md.E[0].w
-        norm = embedding.norm(p=2, dim=1, keepdim=True)
-        max_norm = torch.max(norm)+1e-10
-        input_matrix = embedding.div(max_norm.expand_as(embedding))
-
-        G = util.load_graph(self.edge_folder+str(id)+".edges")
-        size = G.order()
-        target_matrix = util.get_dist_mat(G)
-        target_matrix = torch.from_numpy(target_matrix).float().to(device)
-        target_matrix.requires_grad = False
-
-        sample = {'input_matrix':input_matrix, 'target_matrix':target_matrix, 'size':size}
-        return sample
-
 def run_net(run_name, edge_folder, test_folder, device):
     logging.info("Starting net:")
 
-    # euclidean_embeddings = {}
-    # saved_tensors = os.listdir(f"{run_name}/emb/")
-    # indices = []
+    euclidean_embeddings = {}
+    saved_tensors = os.listdir(f"{run_name}/emb/")
+    indices = []
 
-    # for file in saved_tensors[:100]:
-    #     idx = int(file.split(".")[0])
-    #     indices.append(idx)
-    #     # embedding = torch.load(f"{run_name}/emb/"+str(file), map_location=torch.device('cpu'))
-    #     md = torch.load(f"{run_name}/emb/"+str(file), map_location=device)
-    #     print("oh look i can access hyperbolic models")
-    #     embedding = md.E[0].w
-    #     norm = embedding.norm(p=2, dim=1, keepdim=True)
-    #     max_norm = torch.max(norm)+1e-10
-    #     normalized_emb = embedding.div(max_norm.expand_as(embedding))
-    #     euclidean_embeddings[idx] = normalized_emb
+    for file in saved_tensors:
+        idx = int(file.split(".")[0])
+        indices.append(idx)
+        embedding = torch.load(f"{run_name}/emb/"+str(file)).cuda()
+        # md = torch.load(f"{run_name}/emb/"+str(file), map_location=device)
+        # embedding = md.E[0].w
+        norm = embedding.norm(p=2, dim=1, keepdim=True)
+        max_norm = torch.max(norm)+1e-10
+        normalized_emb = embedding.div(max_norm.expand_as(embedding))
+        euclidean_embeddings[idx] = normalized_emb
 
     input_size = 10
     output_size = 9
@@ -230,10 +191,10 @@ def run_net(run_name, edge_folder, test_folder, device):
         nn.Linear(100, output_size).to(device),
         nn.ReLU().to(device))
     scale = nn.Parameter(torch.cuda.FloatTensor([1.0]), requires_grad=True)
-    return trainFCIters(mapping, scale, run_name, edge_folder, test_folder)
+    return trainFCIters(mapping, scale, indices, edge_folder, test_folder, euclidean_embeddings)
 
 # Does Euclidean to hyperbolic mapping using series of FC layers.
-def trainFCHyp(input_matrix, target_matrix, n, mapping, sampled_rows, mapping_optimizer, scale, scaling_optimizer, verbose=False):
+def trainFCHyp(input_matrix, target_matrix, ground_truth, n, mapping, sampled_rows, mapping_optimizer, scale, scaling_optimizer, verbose=False):
     st = time.time()
     mapping_optimizer.zero_grad()
     scaling_optimizer.zero_grad()
@@ -249,8 +210,7 @@ def trainFCHyp(input_matrix, target_matrix, n, mapping, sampled_rows, mapping_op
     if verbose: print("Found the distance, ", time.time()-st)
     st = time.time()
 
- 
-    loss += util.distortion(target_matrix, dist_recovered, n, sampled_rows)
+    loss += util.distortion(target_matrix, dist_recovered, n, sampled_rows, 50)
     if verbose: print("Computed the loss, ", time.time()-st)
     st = time.time()
 
@@ -265,62 +225,63 @@ def trainFCHyp(input_matrix, target_matrix, n, mapping, sampled_rows, mapping_op
     return loss.item(), 0
 
 
-def full_stats_pass_point(input_matrix, target_matrix, n, mapping, scale, verbose=False):
+def full_stats_pass_point(input_matrix, target_matrix, ground_truth, n, mapping, scale, verbose=False):
     st = time.time()
     output = mapping(input_matrix.float())
 
     # look at every row
-    sampled_rows = list(range(input_matrix.shape[1]))
+    sampled_rows = list(range(input_matrix.shape[0]))
     
-    dist_recovered = util.distance_matrix_hyperbolic(output, sampled_rows, scale)
-    dis = util.distortion(target_matrix, dist_recovered, n, sampled_rows, 100).detach().numpy()
+    dist_recovered = util.distance_matrix_hyperbolic(output, sampled_rows, scale) 
+    dis = util.distortion(target_matrix, dist_recovered, n, sampled_rows, 50).detach().cpu().numpy()
     if verbose: print("Computed the distortion for this matrix, ", time.time()-st)
     st = time.time()
 
     dummy = dist_recovered.clone()
-    tm = target_matrix.clone()
-    edge_acc = util.compare_mst_batch(tm.cpu().numpy(), dummy.detach().cpu().numpy())
+    edge_acc = util.compare_mst(ground_truth, dummy.detach().cpu().numpy())
     if verbose: print("Got edge accs, ", time.time()-st)
 
     return dis, edge_acc
 
-def trainFCIters(mapping, scale, run_name, edge_folder, test_folder, n_epochs=2000, print_every=10, learning_rate=1.0):
+def trainFCIters(mapping, scale, indices, edge_folder, test_folder, euclidean_embeddings, n_epochs=500, print_every=5, learning_rate=1.0):
     start = time.time()
     print_loss_total = 0
     plot_loss_total = 0
-    
-    subsample_row_num = 10
-    resample_every = 10
-    full_stats_every = 100
+    n_iters = len(indices)
+    subsample_row_num = 5
+    resample_every = 5
+    full_stats_every = 20
 
     mapping_optimizer = RiemannianSGD(mapping.parameters(), lr=learning_rate, rgrad=poincare_grad, retraction=retraction)
     scaling_optimizer = optim.SGD([scale], lr=learning_rate)
-
-    embedding_dataset = EmbeddingDataset(run_name = run_name, edge_folder = edge_folder)
-    dataloader = torch.utils.data.DataLoader(embedding_dataset, batch_size=16, shuffle=False, num_workers=0)
-    n_iters = len(embedding_dataset.indices)
+    training_pairs = {}
+    for idx in indices:
+        result = util.pairfromidx(idx, edge_folder)
+        training_pairs[idx] = result
 
     logging.info(f"Started the run with lr {learning_rate}")
-    os.makedirs(f"{run_name}/cpts/", exist_ok=True)
     for n in range(n_epochs):
         iter=1
         if n!=0 and n%5==0:
             mapping_optimizer = RiemannianSGD(mapping.parameters(), lr=learning_rate*0.5, rgrad=poincare_grad, retraction=retraction)
-        
-        for i_batch, sample_batched in enumerate(dataloader):
-            input_matrix = sample_batched["input_matrix"]
-            target_matrix = sample_batched["target_matrix"]
-            size = 50
+        for i in indices:
+            input_matrix = euclidean_embeddings[i]
+            target_matrix = training_pairs[i][1]
+            size = training_pairs[i][2]
+            G = training_pairs[i][3]
 
             if (iter-1) % resample_every == 0:
-                subsampled_rows = np.random.permutation(size)[:subsample_row_num]   
-            loss, edge_acc = trainFCHyp(input_matrix, target_matrix, size, mapping, subsampled_rows, mapping_optimizer, scale, scaling_optimizer)
+                subsampled_rows = np.random.permutation(G.order())[:subsample_row_num]   
+
+            loss, edge_acc = trainFCHyp(input_matrix, target_matrix, G, size, mapping, subsampled_rows, mapping_optimizer, scale, scaling_optimizer)
             print_loss_total += loss
             plot_loss_total += loss
 
-            if True: 
+            if True: #iter % print_every == 0:
                 print_loss_avg = print_loss_total / print_every
                 print_loss_total = 0
+                #print('%s (%d %d%%) %.4f' % (util.timeSince(start, iter / n_iters),
+                                            #iter, iter / n_iters * 100, print_loss_avg))
                 logging.info('%s (%d %d%%) %.4f' % (util.timeSince(start, iter / n_iters),
                                             n, iter / n_iters * 100, print_loss_avg))
 
@@ -330,56 +291,41 @@ def trainFCIters(mapping, scale, run_name, edge_folder, test_folder, n_epochs=20
         if n % full_stats_every == 0 or n == n_epochs-1:
             full_distortion = 0
 
-            for i_batch, sample_batched in enumerate(dataloader):
-                input_matrix = sample_batched["input_matrix"]
-                target_matrix = sample_batched["target_matrix"]
-                size = 50
-                [fd, ea] = full_stats_pass_point(input_matrix, target_matrix, size, mapping, scale)
+            for i in indices:
+                input_matrix = euclidean_embeddings[i]
+                target_matrix = training_pairs[i][1]
+                size = training_pairs[i][2]
+                G = training_pairs[i][3]
+                [fd, ea] = full_stats_pass_point(input_matrix, target_matrix, G, size, mapping, scale)
                 full_distortion += fd
                 edge_acc        += ea
 
-            length_batches = i_batch+1
-            full_distortion /= length_batches
-            edge_acc /= length_batches
-            torch.save({
-            'epoch': n,
-            'mapping_state_dict': mapping.state_dict(),
-            'scale':scale,
-            'map_opt_dict': mapping_optimizer.state_dict(),
-            'scale_dict': scaling_optimizer.state_dict(),
-            'distortion': full_distortion,
-            'edge accuracy': edge_acc
-            }, f"{run_name}/cpts/{n}.cpt")
-
-            logging.info(f"Scale = {scale.data}")
             print("Scale = ", scale.data)
-            logging.info(f"Full distortion = {full_distortion}, Edge Acc = {edge_acc}")
-            print("\nFull distortion = ", full_distortion, " Edge Acc. = ", edge_acc, "\n")
+            print("\nFull distortion = ", full_distortion / len(indices), " Edge Acc. = ", edge_acc, "\n")
 
-    # #evaluation
-    # with torch.no_grad():
-    #     testpairs = util.gettestpairs(edge_folder, test_folder)
-    #     for name in testpairs.keys():
-    #         [euclidean_emb, ground_truth, target_tensor, n] = testpairs[name]
-    #         output = mapping(euclidean_emb.float())
-    #         sampled_rows = list(range(input_matrix.shape[0]))
-    #         dist_recovered = util.distance_matrix_hyperbolic(output, sampled_rows, scale) 
-    #         dis = util.distortion(target_tensor, dist_recovered, n, sampled_rows, 50).detach().cpu().numpy()
-    #         logging.info(f"Testing on: {name}")
-    #         print("distortion", dis)
-    #         logging.info(f"Distortion: {dis}")
-    #         dummy = dist_recovered.clone()
-    #         edge_acc = util.compare_mst(ground_truth, dummy.detach().cpu().numpy())
-    #         print("edge acc", edge_acc)
-    #         logging.info(f"Edge accuracy: {edge_acc}")
+    #evaluation
+    with torch.no_grad():
+        testpairs = util.gettestpairs(test_folder)
+        for name in testpairs.keys():
+            [euclidean_emb, ground_truth, target_tensor, n] = testpairs[name]
+            output = mapping(euclidean_emb.float())
+            sampled_rows = list(range(input_matrix.shape[0]))
+            dist_recovered = util.distance_matrix_hyperbolic(output, sampled_rows, scale) 
+            dis = util.distortion(target_tensor, dist_recovered, n, sampled_rows, 50).detach().cpu().numpy()
+            logging.info(f"Testing on: {name}")
+            print("distortion", dis)
+            logging.info(f"Distortion: {dis}")
+            dummy = dist_recovered.clone()
+            edge_acc = util.compare_mst(ground_truth, dummy.detach().cpu().numpy())
+            print("edge acc", edge_acc)
+            logging.info(f"Edge accuracy: {edge_acc}")
 
 
 @argh.arg("run_name", help="Directory to store the run")
 
-def run(run_name, edge_folder = ".data/edges", test_folder= "."):
+def run(run_name, edge_folder="./data/edges/fake_run_edges/", test_folder="./random_trees/test/"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    edge_folder = "./data/edges/"+run_name+"/"
-    test_folder = run_name+"/test/"
+    #device = torch.device("cpu")
 
     #Set up logging.
     formatter = logging.Formatter('%(asctime)s %(message)s')
@@ -388,7 +334,7 @@ def run(run_name, edge_folder = ".data/edges", test_folder= "."):
                         datefmt='%FT%T',)
     logging.info(f"Logging to {run_name}")
     log = logging.getLogger()
-    fh  = logging.FileHandler(run_name+"/logbatch")
+    fh  = logging.FileHandler(run_name+"/log")
     fh.setFormatter(formatter)
     log.addHandler(fh)
     # print("Running hMDS")
