@@ -158,7 +158,7 @@ class RiemannianSGD(Optimizer):
 
         return loss
 
-def run_net(run_name, edge_folder, test_folder, device, lr, 
+def run_net(run_name, edge_folder, test_folder, device, lr, graph_reg_lambda,
             epochs, subsample_row_num, resample_every, full_stats_every):
     logging.info("Starting net:")
 
@@ -182,8 +182,8 @@ def run_net(run_name, edge_folder, test_folder, device, lr,
         normalized_emb = embedding.div(max_norm.expand_as(embedding))
         euclidean_embeddings[idx] = normalized_emb
 
-    input_size = 10
-    output_size = 9
+    input_size = 5
+    output_size = 4
     mapping = nn.Sequential(
         nn.Linear(input_size, 1000).to(device),
         nn.ReLU().to(device),
@@ -193,11 +193,11 @@ def run_net(run_name, edge_folder, test_folder, device, lr,
         nn.ReLU().to(device))
     scale = nn.Parameter(torch.cuda.FloatTensor([1.0]), requires_grad=True)
     return trainFCIters(run_name, mapping, scale, indices, edge_folder, test_folder, euclidean_embeddings, 
-                        n_epochs=epochs, learning_rate=lr, subsample_row_num=subsample_row_num, 
+                        n_epochs=epochs, learning_rate=lr, graph_reg_lambda=graph_reg_lambda, subsample_row_num=subsample_row_num, 
                         resample_every=resample_every, full_stats_every=full_stats_every)
 
 # Does Euclidean to hyperbolic mapping using series of FC layers.
-def trainFCHyp(input_matrix, target_matrix, ground_truth, n, mapping, sampled_rows, mapping_optimizer, scale, scaling_optimizer, verbose=False):
+def trainFCHyp(input_matrix, target_matrix, ground_truth, n, mapping, sampled_rows, mapping_optimizer, scale, scaling_optimizer, graph_reg_lambda, verbose=False):
     st = time.time()
     mapping_optimizer.zero_grad()
     scaling_optimizer.zero_grad()
@@ -214,6 +214,10 @@ def trainFCHyp(input_matrix, target_matrix, ground_truth, n, mapping, sampled_ro
     st = time.time()
 
     loss += util.distortion(target_matrix, dist_recovered, n, sampled_rows, 50)
+    
+    # graph regularizer:
+    loss += graph_reg_lambda * util.frac_distortion(dist_recovered, sampled_rows) 
+
     if verbose: print("Computed the loss, ", time.time()-st)
     st = time.time()
 
@@ -247,7 +251,7 @@ def full_stats_pass_point(input_matrix, target_matrix, ground_truth, n, mapping,
     return dis, edge_acc
 
 def trainFCIters(run_name, mapping, scale, indices, edge_folder, test_folder, euclidean_embeddings, 
-                 n_epochs, learning_rate, subsample_row_num, resample_every, full_stats_every, 
+                 n_epochs, learning_rate, graph_reg_lambda, subsample_row_num, resample_every, full_stats_every, 
                  print_every=5):
     start = time.time()
     print_loss_total = 0
@@ -275,7 +279,7 @@ def trainFCIters(run_name, mapping, scale, indices, edge_folder, test_folder, eu
             if (iter-1) % resample_every == 0:
                 subsampled_rows = np.random.permutation(G.order())[:subsample_row_num]   
 
-            loss, edge_acc = trainFCHyp(input_matrix, target_matrix, G, size, mapping, subsampled_rows, mapping_optimizer, scale, scaling_optimizer)
+            loss, edge_acc = trainFCHyp(input_matrix, target_matrix, G, size, mapping, subsampled_rows, mapping_optimizer, scale, scaling_optimizer, graph_reg_lambda)
             print_loss_total += loss
             plot_loss_total += loss
 
@@ -340,11 +344,12 @@ def trainFCIters(run_name, mapping, scale, indices, edge_folder, test_folder, eu
 @argh.arg("--subsample-row-num", help="Number of subsampled rows for learned mapping")
 @argh.arg("--resample-every", help="Resample rows every num. epochs ")
 @argh.arg("--full-stats-every", help="Full stats pass every num. epochs")
+@argh.arg("--graph-reg-lambda", help="Regularizer constant for the fractional distance penalty")
 
 def run(run_name, make_random=False, num_random=100, n=50, euc_dim=10, make_euc=False,
         delta_test_edges=1, num_nearby=10, do_hmds=False, learn_mapping=False, map_dim=9,
         hmds_dim=9, map_lr=0.2, epochs=20, subsample_row_num=10, resample_every=5, 
-        full_stats_every=5):
+        full_stats_every=5, graph_reg_lambda=0.001, map_dim=9):
 
     if not os.path.isdir(run_name):
         os.mkdir(run_name)
@@ -378,12 +383,12 @@ def run(run_name, make_random=False, num_random=100, n=50, euc_dim=10, make_euc=
 
     # generate a bunch of random trees:
     if make_random:
-        rt.make_trees(num_nearby, n, d=4, dpth=2, p=0.3, folder=edge_folder, 
+        rt.make_trees(num_nearby, n, d=3, dpth=1, p=0.3, folder=edge_folder, 
                       name="." + run_name, do_nearby=True, delta_edges=delta_test_edges, 
                       nearby_folder=test_folder_edges)
 
         if num_random > num_nearby:
-            rt.make_trees(num_random - num_nearby, n, d=4, dpth=2, p=0.3, folder=edge_folder, 
+            rt.make_trees(num_random - num_nearby, n, d=3, dpth=1, p=0.3, folder=edge_folder, 
                           name="." + run_name, do_nearby=False, delta_edges=delta_test_edges, 
                           nearby_folder=test_folder)
 
@@ -400,7 +405,7 @@ def run(run_name, make_random=False, num_random=100, n=50, euc_dim=10, make_euc=
             euc_cmd_line += " --euc 1 --sdim 0 --sph 0 --model-save-file "
             euc_cmd_line += run_name + "/emb/" + graph[:-6] + ".emb"
             euc_cmd_line += " --log-name " + run_name + "/emb/log/" + graph[:-6] + ".log" 
-            euc_cmd_line += " --batch-size 65536 --epochs 3000 --checkpoint-freq 3002 --resample-freq 5000 -g --subsample 256 --riemann --learn-scale --burn-in 0 --learning-rate 1.0"
+            euc_cmd_line += " --batch-size 65536 --epochs 100 --checkpoint-freq 3002 --resample-freq 5000 -g --subsample 256 --riemann --learn-scale --burn-in 0 --learning-rate 1.0"
 
             result = subprocess.run(euc_cmd_line, stdout=subprocess.PIPE, shell=True)
 
@@ -413,7 +418,7 @@ def run(run_name, make_random=False, num_random=100, n=50, euc_dim=10, make_euc=
             euc_cmd_line += " --euc 1 --sdim 0 --sph 0 --model-save-file "
             euc_cmd_line += test_folder_emb + "/" + graph[:-6] + ".emb"
             euc_cmd_line += " --log-name " + test_folder_emb + "/log/" + graph[:-6] + ".log" 
-            euc_cmd_line += " --batch-size 65536 --epochs 3000 --checkpoint-freq 3002 --resample-freq 5000 -g --subsample 256 --riemann --learn-scale --burn-in 0 --learning-rate 1.0"
+            euc_cmd_line += " --batch-size 65536 --epochs 100 --checkpoint-freq 3002 --resample-freq 5000 -g --subsample 256 --riemann --learn-scale --burn-in 0 --learning-rate 1.0"
 
             result = subprocess.run(euc_cmd_line, stdout=subprocess.PIPE, shell=True)
 
@@ -426,7 +431,7 @@ def run(run_name, make_random=False, num_random=100, n=50, euc_dim=10, make_euc=
     if learn_mapping:
         logging.info(device)
         print("Running Net")
-        run_net(run_name, edge_folder, test_folder, device, map_lr, epochs, subsample_row_num, resample_every, full_stats_every)
+        run_net(run_name, edge_folder, test_folder, device, map_lr, graph_reg_lambda, epochs, subsample_row_num, resample_every, full_stats_every)
 
 
 

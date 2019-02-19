@@ -95,6 +95,17 @@ def distortion_row(H1, H2, n, row):
     # print("Number of good entries", good)
     return (avg, good)
 
+def frac_distortion_row(H):
+    return torch.fmod(H, 1).sum()
+
+def frac_distortion(H, sampled_rows):
+    frac_dists = torch.zeros(len(sampled_rows))
+
+    for i in range(len(sampled_rows)):
+        frac_dists[i] = frac_distortion_row(H[i,:])
+
+    return frac_dists.sum() / len(sampled_rows)
+
 def distortion(H1, H2, n, sampled_rows, jobs=16):
     # dists = Parallel(n_jobs=jobs)(delayed(distortion_row)(H1[i,:],H2[i,:],n,i) for i in range(n))
     i = 0

@@ -6,9 +6,10 @@ def gen_fat_random_tree(n, d, dpth, p):
     G = nx.balanced_tree(d, dpth)
     m = G.order()
 
-    par_idx = 0
-    for i in range(dpth): par_idx += d**i
-
+    pi = 0
+    for i in range(dpth): pi += d**i
+    par_idx = pi
+ 
     i = m
     while i in range(m , n):
         if np.random.uniform() < p:
@@ -17,7 +18,7 @@ def gen_fat_random_tree(n, d, dpth, p):
             i += 1
 
         par_idx += 1
-        if par_idx > m: par_idx = 1+d
+        if par_idx == m: par_idx = pi
 
     #print(G.order(), "\n", G.edges())
     return G
