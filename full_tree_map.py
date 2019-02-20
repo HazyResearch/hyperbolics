@@ -158,8 +158,7 @@ class RiemannianSGD(Optimizer):
 
         return loss
 
-def run_net(run_name, edge_folder, test_folder, device, lr, graph_reg_lambda,
-            epochs, subsample_row_num, resample_every, full_stats_every):
+def run_net(run_name, edge_folder, test_folder, device, lr, graph_reg_lambda, epochs, subsample_row_num, resample_every, full_stats_every, map_dim, euc_dim):
     logging.info("Starting net:")
 
     euclidean_embeddings = {}
@@ -182,8 +181,8 @@ def run_net(run_name, edge_folder, test_folder, device, lr, graph_reg_lambda,
         normalized_emb = embedding.div(max_norm.expand_as(embedding))
         euclidean_embeddings[idx] = normalized_emb
 
-    input_size = 5
-    output_size = 4
+    input_size = euc_dim
+    output_size = map_dim
     mapping = nn.Sequential(
         nn.Linear(input_size, 1000).to(device),
         nn.ReLU().to(device),
@@ -431,9 +430,7 @@ def run(run_name, make_random=False, num_random=100, n=50, euc_dim=10, make_euc=
     if learn_mapping:
         logging.info(device)
         print("Running Net")
-        run_net(run_name, edge_folder, test_folder, device, map_lr, graph_reg_lambda, epochs, subsample_row_num, resample_every, full_stats_every)
-
-
+        run_net(run_name, edge_folder, test_folder, device, map_lr, graph_reg_lambda, epochs, subsample_row_num, resample_every, full_stats_every, map_dim, euc_dim)
 
 if __name__ == '__main__':
     _parser = argh.ArghParser()
