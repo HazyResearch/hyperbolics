@@ -31,9 +31,8 @@ import warnings
 def run_hmds(run_name, rank):
     ranks = [rank]
     logging.info(f"Starting hMDS experiment:")
-    print(os.listdir(f"{run_name}/hmds_emb/"))
+    logging.info(os.listdir(f"{run_name}/hmds_emb/"))
     for file in os.listdir(f"{run_name}/hmds_emb/"):
-        print(file)
         logging.info(f"Working with the embedding: {file}")
         file_base = file.split('.')[0]
         cmd_base  = "julia hMDS/hmds-simple.jl"
@@ -42,7 +41,7 @@ def run_hmds(run_name, rank):
         cmd_rank  = " -r "
         cmd_scale = " -t "
         for rank in ranks:
-            print("Rank = ", rank)
+            logging.info(f"Rank = {rank}")
             best_distortion=1e5
             best_mapval=0.0
             best_edge_acc =0.0
@@ -74,14 +73,13 @@ def run_hmds(run_name, rank):
             input_distortion = res_lines[18].split()[6].strip(",")
             input_map        = res_lines[19].split()[3]
             input_edge_acc   = res_lines[20].split()[5]
-            print(f"input distortion {input_distortion}")
             logging.info(f"input distortion {input_distortion}")
-            print("input map", input_map)
+            logging.info(f"input distortion {input_distortion}")
             logging.info(f"input map {input_map}")
-            print("input Edge Acc from MST", input_edge_acc)
+            
+            logging.info(f"input map {input_map}")
             logging.info(f"input Edge Acc from MST {input_edge_acc}")
 
-            print("Best scale \t", str(best_scale), "\t Best distortion \t", str(best_distortion), "\t Best mAP \t", str(best_mapval), "\t Best edge Acc from MST \t", str(best_edge_acc)) 
             logging.info(f"For rank {rank}:")
             logging.info(f"Best scale: {best_scale}") 
             logging.info(f"Best distortion: {best_distortion}"), 
@@ -305,8 +303,8 @@ def trainFCIters(run_name, mapping, scale, indices, edge_folder, test_folder, eu
                 full_distortion += fd
                 edge_acc        += ea
 
-            print("Scale = ", scale.data)
-            print("\nFull distortion = ", full_distortion / len(indices), " Edge Acc. = ", edge_acc, "\n")
+            logging.info(f"Scale {scale.data}")
+            logging.info(f"\nFull distortion = {full_distortion / len(indices)}, Edge Acc. = {edge_acc / len(indices)} \n")
 
     #evaluation
     with torch.no_grad():
@@ -424,12 +422,12 @@ def run(run_name, make_random=False, num_random=100, n=50, euc_dim=10, make_euc=
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if do_hmds:
-        print("Running hMDS")
+        logging.info(f"Running hMDS")
         run_hmds(run_name)
 
     if learn_mapping:
         logging.info(device)
-        print("Running Net")
+        logging.info(f"Running Net")
         run_net(run_name, edge_folder, test_folder, device, map_lr, graph_reg_lambda, epochs, subsample_row_num, resample_every, full_stats_every, map_dim, euc_dim)
 
 if __name__ == '__main__':
