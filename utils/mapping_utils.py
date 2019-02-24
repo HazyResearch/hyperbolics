@@ -211,7 +211,11 @@ def gettestpairs(test_folder):
         #md = torch.load(test_folder + "/emb/" + str(name)[:-6] + ".emb.final", map_location=torch.device('cpu'))
         md = torch.load(test_folder + "/emb/" + str(name)[:-6] + ".emb.final", map_location=device)
 
-        euclidean_emb = md.E[0].w
+        embedding= md.E[0].w
+        norm = embedding.norm(p=2, dim=1, keepdim=True)
+        max_norm = torch.max(norm)+1e-10
+        normalized_emb = embedding.div(max_norm.expand_as(embedding))
+        euclidean_emb = normalized_emb
 
         target_matrix = get_dist_mat(ground_truth)
         target_tensor = torch.from_numpy(target_matrix).float().to(device)
