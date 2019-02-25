@@ -1,0 +1,339 @@
+from __future__ import unicode_literals, print_function, division
+import os
+import numpy as np
+import scipy
+import scipy.sparse.csgraph as csg
+from joblib import Parallel, delayed
+import multiprocessing
+import networkx as nx
+import time
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import Dataset, DataLoader
+import torch.optim as optim
+import time
+import math
+from io import open
+import unicodedata
+import string
+import re
+import random
+import json
+from collections import defaultdict
+import utils.load_dist as ld
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+# Distortion calculations
+
+def acosh(x):
+    return torch.log(x + torch.sqrt(x**2-1))
+
+def _correct(x, eps=1e-1):
+        current_norms = torch.norm(x,2,x.dim() - 1)
+        mask_idx      = current_norms < 1./(1+eps)
+        modified      = 1./((1+eps)*current_norms)
+        modified[mask_idx] = 1.0
+        return modified.unsqueeze(-1)
+
+def dist_h(u,v):
+    u = u * _correct(u)
+    v = v * _correct(v)
+    z  = 2*torch.norm(u-v,2)**2
+    uu = 1. + torch.div(z,((1-torch.norm(u,2)**2)*(1-torch.norm(v,2)**2)))
+    return acosh(uu)
+
+def dist_e(u, v):
+    return torch.norm(u-v, 2)
+
+def dist_p(u,v):
+    z  = 2*torch.norm(u-v,2)**2
+    uu = 1. + torch.div(z,((1-torch.norm(u,2)**2)*(1-torch.norm(v,2)**2)))
+    machine_eps = np.finfo(uu.data.detach().cpu().numpy().dtype).eps  # problem with cuda tensor
+    return acosh(torch.clamp(uu, min=1+machine_eps))
+
+def dist_pb(u,v):
+
+    z  = 2*torch.norm(u-v,2, dim=1)**2
+    uu = 1. + torch.div(z,((1-torch.norm(u,2, dim=1)**2)*(1-torch.norm(v,2, dim=1)**2)))
+    machine_eps = np.finfo(uu.data.detach().cpu().numpy().dtype).eps  # problem with cuda tensor
+    return acosh(torch.clamp(uu, min=1+machine_eps))
+
+def distance_matrix_euclidean(input):
+    row_n = input.shape[0]
+    mp1 = torch.stack([input]*row_n)
+    mp2 = torch.stack([input]*row_n).transpose(0,1)
+    dist_mat = torch.sum((mp1-mp2)**2,2).squeeze()
+    return dist_mat
+
+
+def distance_matrix_hyperbolic(input, sampled_rows, scale):
+    row_n = input.shape[0]
+    dist_mat = torch.zeros(len(sampled_rows), row_n, device=device)
+    idx = 0
+    for row in sampled_rows:
+        for i in range(row_n):
+            if i != row:
+                dist_mat[idx, i] = dist_p(input[row,:], input[i,:])*scale
+        idx += 1
+    # print("Distance matrix", dist_mat)
+    return dist_mat
+
+def distance_matrix_hyperbolic_batch(input, sampled_rows, scale):
+    #print("were computing the matrix with sampled_rows = ")
+    #print(sampled_rows)
+    batch_size = input.shape[0]
+    row_n = input.shape[1]
+    dist_mat = torch.zeros(batch_size, len(sampled_rows), row_n, device=device)
+    # num_cores = multiprocessing.cpu_count()
+    # dist_mat = Parallel(n_jobs=num_cores)(delayed(compute_row)(i,adj_mat) for i in range(n))
+    idx = 0
+    for row in sampled_rows:
+        for i in range(row_n):
+            if i != row:
+                dist_mat[:,idx, i] = dist_pb(input[:,row,:], input[:,i,:])*scale
+        idx += 1
+    # print("Distance matrix", dist_mat)
+    return dist_mat
+
+def distance_matrix_hyperbolic_parsing(input_length, input, sampled_rows, scale):
+    dist_mat = torch.zeros(len(sampled_rows), input_length, device=device)
+    idx = 0
+    for row in sampled_rows:
+        for i in range(input_length):
+            if i != row:
+                dist_mat[idx, i] = dist_p(input[row,:], input[i,:])*scale
+        idx += 1
+    # print("Distance matrix", dist_mat)
+    return dist_mat
+
+def distance_matrix_euclidean_parsing(input_length, input, sampled_rows):
+    dist_mat = torch.zeros(len(sampled_rows), input_length, device=device)
+    idx = 0
+    for row in sampled_rows:
+        for i in range(input_length):
+            if i != row:
+                dist_mat[idx, i] = dist_e(input[row,:], input[i,:])
+        idx += 1
+    # print("Distance matrix", dist_mat)
+    return dist_mat
+
+def entry_is_good(h, h_rec): return (not torch.isnan(h_rec)) and (not torch.isinf(h_rec)) and h_rec != 0 and h != 0
+
+def distortion_entry(h,h_rec):
+    avg = abs(h_rec - h)/h
+    return avg
+
+def distortion_row(H1, H2, n, row):
+    avg, good = 0, 0
+    for i in range(n):
+        if i != row and entry_is_good(H1[i], H2[i]):
+            _avg = distortion_entry(H1[i], H2[i])
+            good        += 1
+            avg         += _avg
+    if good > 0:
+        avg /= good 
+    else:
+        avg, good = torch.tensor(0., device=device, requires_grad=True), torch.tensor(0., device=device, requires_grad=True)
+    # print("Number of good entries", good)
+    return (avg, good)
+
+
+def distortion(H1, H2, n, sampled_rows, jobs=16):
+    i = 0
+    # print("h1", H1.shape)
+    # print("h2", H2.shape)
+    dists = torch.zeros(len(sampled_rows))
+    for row in sampled_rows:
+        dists[i] = distortion_row(H1[row,:], H2[i,:], n, row)[0]
+        i += 1
+
+    avg = dists.sum() / len(sampled_rows)
+    return avg
+
+
+def distortion_batch(H1, H2, n, sampled_rows, jobs=16):
+    # dists = Parallel(n_jobs=jobs)(delayed(distortion_row)(H1[i,:],H2[i,:],n,i) for i in range(n))
+    # print(H1.shape) #target
+    # print(H2.shape) #recovered
+    batch_size = H1.shape[0]
+    dists = torch.zeros(batch_size, len(sampled_rows))
+    for b in range(batch_size):
+        i=0
+        for row in sampled_rows:
+        #     print(H1[b,i,:].shape)
+        #     print(H2[b,row,:].shape)
+            dists[b,i] = distortion_row(H1[b,row,:], H2[b,i,:], n, row)[0]
+            i += 1
+
+    #to_stack = [tup[0] for tup in dists]
+    #avg = torch.stack(to_stack).sum() / len(sampled_rows)
+    avg = dists.sum(dim=1)/len(sampled_rows)
+    avg = avg.sum()/batch_size
+    return avg
+
+    
+'''
+
+def distortion(H1, H2, n, jobs):
+    H1 = np.array(H1.cpu()), 
+    H2 = np.array(H2.detach().cpu())
+    dists = Parallel(n_jobs=jobs)(delayed(distortion_row)(H1[i,:],H2[i,:],n,i) for i in range(n))
+    dists = np.vstack(dists)
+    mc = max(dists[:,0])
+    me = max(dists[:,1])
+    # wc = max(dists[:,0])*max(dists[:,1])
+    avg = sum(dists[:,2])/n
+    bad = sum(dists[:,3])
+    #return (mc, me, avg, bad)    
+    to_stack = [tup[0] for tup in dists]
+    avg = torch.stack(to_stack).sum()/n
+    return avg
+'''
+
+
+#Loading the graph and getting the distance matrix.
+
+def load_graph(file_name, directed=False):
+    G = nx.DiGraph() if directed else nx.Graph()
+    with open(file_name, "r") as f:
+        for line in f:
+            tokens = line.split()
+            u = int(tokens[0])
+            v = int(tokens[1])
+            if len(tokens) > 2:
+                w = float(tokens[2])
+                G.add_edge(u, v, weight=w)
+            else:
+                G.add_edge(u,v)
+    return G
+
+
+def compute_row(i, adj_mat): 
+    return csg.dijkstra(adj_mat, indices=[i], unweighted=True, directed=False)
+
+def get_dist_mat(G):
+    n = G.order()
+    adj_mat = nx.to_scipy_sparse_matrix(G, nodelist=list(range(G.order())))
+    t = time.time()
+    
+    num_cores = multiprocessing.cpu_count()
+    dist_mat = Parallel(n_jobs=num_cores)(delayed(compute_row)(i,adj_mat) for i in range(n))
+    dist_mat = np.vstack(dist_mat)
+    return dist_mat
+
+def asMinutes(s):
+    m = math.floor(s / 60)
+    s -= m * 60
+    return '%dm %ds' % (m, s)
+
+
+def timeSince(since, percent):
+    now = time.time()
+    s = now - since
+    es = s / (percent)
+    rs = es - s
+    return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
+
+
+def showPlot(points):
+    plt.figure()
+    fig, ax = plt.subplots()
+    loc = ticker.MultipleLocator(base=0.2)
+    ax.yaxis.set_major_locator(loc)
+    plt.plot(points)
+
+
+def pairfromidx(idx, edge_folder):
+    G = load_graph(edge_folder+str(idx)+".edges")
+    target_matrix = get_dist_mat(G)
+    target_tensor = torch.from_numpy(target_matrix).float().to(device)
+    target_tensor.requires_grad = False
+    n = G.order()
+    return ([], target_tensor, n, G)
+
+def gettestpairs(edge_folder, test_folder):
+    test_pairs = defaultdict()
+    edge_files = os.listdir(edge_folder)
+    for file in edge_files:
+        name = file.split("/")[-1]
+        ground_truth = load_graph(edge_folder+file)
+        n = ground_truth.order()
+        md = torch.load(test_folder+"emb/"+str(name)+".E10-1.lr10.0.emb.final", map_location=device)
+        embedding = md.E[0].w
+        norm = embedding.norm(p=2, dim=1, keepdim=True)
+        max_norm = torch.max(norm)+1e-10
+        normalized_emb = embedding.div(max_norm.expand_as(embedding))
+        target_matrix = get_dist_mat(ground_truth)
+        target_tensor = torch.from_numpy(target_matrix).float().to(device)
+        target_tensor.requires_grad = False
+        test_pairs[name] = [normalized_emb, ground_truth, target_tensor, n]
+    return test_pairs
+
+def compare_mst(G, hrec):
+    mst = csg.minimum_spanning_tree(hrec)
+    G_rec = nx.from_scipy_sparse_matrix(mst)
+    found = 0
+    for edge in G_rec.edges():
+        if edge in G.edges(): found+= 1
+
+    acc = found / len(list(G.edges()))
+    return acc
+
+def compare_mst_batch(target_batch, hrec_batch):
+
+    batch_size = hrec_batch.shape[0]
+    batch_acc = 0
+    for i in range(batch_size):
+        hrec = hrec_batch[i,:,:]
+        target = target_batch[i,:,:]
+        mst = csg.minimum_spanning_tree(hrec)
+        G_rec = nx.from_scipy_sparse_matrix(mst)
+        G = nx.from_numpy_matrix(target)
+        found = 0
+        for edge in G_rec.edges():
+            if edge in G.edges(): found+= 1
+
+        acc = found / len(list(G.edges()))
+        batch_acc += acc
+    return batch_acc/batch_size
+
+
+def unicodeToAscii(s):
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', s)
+        if unicodedata.category(c) != 'Mn'
+    )
+
+# Lowercase, trim, and remove non-letter characters
+def normalizeString(s):
+    s = unicodeToAscii(s.lower().strip())
+    s = re.sub(r"([.!?])", r" \1", s)
+    s = re.sub(r"[^a-zA-Z.!?]+", r" ", s)
+    return s
+
+def unroll(node, G):
+    if len(node.children) != 0:
+        for child in node.children:
+            G.add_edge(node.token['id'], child.token['id'])
+            unroll(child, G)
+    return G
+
+
+def indexesFromSentence(vocab, sentence):
+    return [vocab.word2index[token['form']] for token in sentence]
+
+def tensorFromSentence(vocab, sentence):
+    indexes = indexesFromSentence(vocab, sentence)
+    return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
+
+def pairfromidx_parsing(idx, input_vocab, filtered_sentences, edge_folder):
+    input_tensor = tensorFromSentence(input_vocab, filtered_sentences[idx])
+    G = load_graph(edge_folder+str(idx)+".edges")
+    target_matrix = get_dist_mat(G)
+    target_tensor = torch.from_numpy(target_matrix).float().to(device)
+    target_tensor.requires_grad = False
+    n = G.order()
+    return (input_tensor, target_tensor, n, G)
