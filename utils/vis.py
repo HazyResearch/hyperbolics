@@ -16,9 +16,35 @@ from matplotlib.collections import PatchCollection
 from matplotlib import patches
 from mpl_toolkits.mplot3d import Axes3D
 
-matplotlib.verbose.set_level("helpful")
+#matplotlib.verbose.set_level("helpful")
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+# indexing because subplot isn't smart:
+def get_ax(num_hypers, num_spheres, ax, emb, is_sphere=0):
+    idx = 1 if is_sphere and num_hypers > 0 else 0
+
+    if num_hypers > 0 and num_spheres > 0 and num_hypers + num_spheres > 2:
+        if len(ax) > np.maximum(num_hypers, num_spheres):
+            # this means we're in 3d
+            ax_this = ax[idx * np.maximum(num_hypers, num_spheres) + emb]
+        else:
+            ax_this = ax[idx, emb]
+    elif num_hypers == 1 and num_spheres == 1:
+        ax_this = ax[idx]
+    elif num_hypers > 1 or num_spheres > 1:
+        ax_this = ax[emb]
+    else:
+        ax_this = ax
+
+    return ax_this
+
+# convert hyperboloid points (3 dimensions) to Poincare points (2 dimension):
+def hyperboloid_to_poincare(a):
+    x = np.zeros([2])
+    for i in range(1, 3):
+        x[i-1] = a[i] / (1.0 + a[0])
+    return x
 
 # collinearity check. if collinear, draw a line and don't attempt curve
 def collinear(a,b,c):
@@ -108,11 +134,7 @@ def draw_geodesic(a, b, c, ax, node1=None, node2=None, verbose=False):
             e = patches.Arc((cent[0], cent[1]), 2*radius, 2*radius,
                      theta1=t2, theta2=t1, linewidth=2, fill=False, zorder=2)
     ax.add_patch(e)
-    #ax.plot(a[0], a[1], "o")
-    #ax.plot(b[0], b[1], "o")
 
-    #if node1 is not None: ax.text(a[0] * (1 + 0.05), a[1] * (1 + 0.05) , node1, fontsize=12)
-    #if node2 is not None: ax.text(b[0] * (1 + 0.05), b[1] * (1 + 0.05) , node2, fontsize=12)
 
 # to draw geodesic between a,b, we need
 # a third point. easy with inversion
@@ -136,7 +158,7 @@ def draw_geodesic_on_circle(a, b, ax):
         nrm = vals[0,i]**2 + vals[1,i]**2 + vals[2,i]**2
         for j in range(3):
             vals[j,i] /= np.sqrt(nrm)
-        
+
     # draw the geodesic:
     for i in range(lp-1):
         ax.plot([vals[0,i], vals[0,i+1]], [vals[1,i], vals[1,i+1]], zs=[vals[2,i], vals[2,i+1]], color='r')
@@ -164,13 +186,15 @@ def draw_graph(G, m, fig, ax):
 
     sdim = 0 if len(m.S) == 0 else len((m.S[0]).w[0])
     for emb in range(num_spheres):
+        ax_this = get_ax(num_hypers, num_spheres, ax, emb, is_sphere=1)
         if sdim == 3:
-            spherical_setup_3d(fig, ax[1, emb])
+            spherical_setup_3d(fig, ax_this)
         else:
-            spherical_setup(fig, ax[1, emb])
+            spherical_setup(fig, ax_this)
 
     for emb in range(num_hypers):
-        hyperbolic_setup(fig, ax[0, emb])
+        ax_this_hyp = get_ax(num_hypers, num_spheres, ax, emb, is_sphere=0)
+        hyperbolic_setup(fig, ax_this_hyp)
 
     # todo: directly read edge list from csr format
     Gr = nx.from_scipy_sparse_matrix(G)
@@ -178,74 +202,93 @@ def draw_graph(G, m, fig, ax):
         idx = torch.LongTensor([edge[0], edge[1]]).to(device)
 
         for emb in range(num_hypers):
-            a = ((torch.index_select(m.H[emb].w, 0, idx[0])).clone()).detach().cpu().numpy()[0]
-            b = ((torch.index_select(m.H[emb].w, 0, idx[1])).clone()).detach().cpu().numpy()[0]
+            a = hyperboloid_to_poincare(((torch.index_select(m.H[emb].w, 0, idx[0])).clone()).detach().cpu().numpy()[0])
+            b = hyperboloid_to_poincare(((torch.index_select(m.H[emb].w, 0, idx[1])).clone()).detach().cpu().numpy()[0])
+
+            ax_this_hyp = get_ax(num_hypers, num_spheres, ax, emb, is_sphere=0)
             c = get_third_point(a,b)
-            draw_geodesic(a,b,c,ax[0, emb], edge[0], edge[1])
+            draw_geodesic(a,b,c,ax_this_hyp, edge[0], edge[1])
 
         # let's draw the edges on the sphere; these are geodesics    
         if sdim == 3:
             for emb in range(num_spheres):
+                ax_this = get_ax(num_hypers, num_spheres, ax, emb, is_sphere=1)
                 a = ((torch.index_select(m.S[emb].w, 0, idx[0])).clone()).detach().cpu().numpy()[0]
                 b = ((torch.index_select(m.S[emb].w, 0, idx[1])).clone()).detach().cpu().numpy()[0]
-                draw_geodesic_on_circle(a, b, ax[1, emb])
+                draw_geodesic_on_circle(a, b, ax_this)
 
     for node in Gr.nodes():
         idx = torch.LongTensor([int(node)]).to(device)
         for emb in range(num_spheres):
+            ax_this = get_ax(num_hypers, num_spheres, ax, emb, is_sphere=1)
             v = ((torch.index_select(m.S[emb].w, 0, idx)).clone()).detach().cpu().numpy()[0]
-            
+
             if sdim == 3:
-                draw_points_on_sphere(v, node, ax[1, emb])                        
+                draw_points_on_sphere(v, node, ax_this)
             else:
-                draw_points_on_circle(v, node, ax[1, emb])
+                draw_points_on_circle(v, node, ax_this)
 
         for emb in range(num_hypers):
-            a = ((torch.index_select(m.H[emb].w, 0, idx)).clone()).detach().cpu().numpy()[0]
-            draw_points_hyperbolic(a, node, ax[0, emb])
-        
+            ax_this_hyp = get_ax(num_hypers, num_spheres, ax, emb, is_sphere=0)
+            a_hyp = (torch.index_select(m.H[emb].w, 0, idx).clone()).detach().cpu().numpy()[0]
+            a = hyperboloid_to_poincare(a_hyp)
+            draw_points_hyperbolic(a, node, ax_this_hyp)
+
 
 def setup_plot(m, name=None, draw_circle=False):
     # create plot
     num_spheres = np.minimum(len(m.S), 5)
     num_hypers  = np.minimum(len(m.H), 5)
-    wid = np.maximum(np.maximum(num_spheres, num_hypers), 2)
 
-    fig, axes = plt.subplots(2, wid, sharey=True, figsize=(wid*10, 20))
+    tot_rows = 2 if num_spheres > 0 and num_hypers > 0 else 1
+    wid = np.maximum(num_spheres, num_hypers)
+
+    if num_spheres + num_hypers > 1:
+        fig, axes = plt.subplots(tot_rows, wid, sharey=True, figsize=(wid*10, tot_rows*10))
+    else:
+        fig, axes = plt.subplots(figsize = (10, 10))
 
     ax = axes
     matplotlib.rcParams['animation.ffmpeg_args'] = '-report'
     writer = animation.FFMpegFileWriter(fps=10, metadata=dict(artist='HazyResearch'))#, bitrate=1800)
     if name is None:
-        name = 'HypDistances.mp4'
+        name = 'ProductVisualizations.mp4'
     else:
         name += '.mp4'
 
     writer.setup(fig, name, dpi=108)
-
     sdim = 0 if len(m.S) == 0 else len((m.S[0]).w[0])
+
     # need these to all be 3D
     if sdim == 3:
         for emb in range(num_spheres):
-            ax[1, emb].remove()
-            #ax[1, emb] = fig.add_subplot(111, projection='3d')
-            ax[1, emb] = fig.add_subplot(2, wid, wid+emb+1, projection='3d')
+            ax_this = get_ax(num_hypers, num_spheres, ax, emb, is_sphere=1)
+            ax_this.remove()
+            if num_hypers > 0:
+                ax_new = fig.add_subplot(tot_rows, wid, wid+emb+1, projection='3d')
+            elif num_spheres > 1:
+                ax_new = fig.add_subplot(tot_rows, wid, 1+emb, projection='3d')
+            else:
+                ax_new = fig.add_subplot(111, projection='3d')
+
+        ax = fig.get_axes()
+        if num_spheres == 1: ax = ax[0]
 
     if draw_circle:
         for emb in range(num_spheres):
+            ax_this = get_ax(num_hypers, num_spheres, ax, emb, is_sphere=1)
             if sdim == 3:
-                spherical_setup_3d(fig, ax[1, emb])
+                spherical_setup_3d(fig, ax_this)
             else:
-                spherical_setup(fig, ax[1, emb])
+                spherical_setup(fig, ax_this)
         for emb in range(num_hypers):
-            hyperbolic_setup(fig, ax[0, emb])
+            ax_this = get_ax(num_hypers, num_spheres, ax, emb, is_sphere=0)
+            hyperbolic_setup(fig, ax_this)
 
     return fig, ax, writer
 
 
 def hyperbolic_setup(fig, ax):
-    #fig.set_size_inches(20.0, 10.0, forward=True)
-    
     # set axes
     ax.set_ylim([-1.2, 1.2])
     ax.set_xlim([-1.2, 1.2])
@@ -256,8 +299,6 @@ def hyperbolic_setup(fig, ax):
     ax.add_patch(e)
 
 def spherical_setup(fig, ax):
-#    fig.set_size_inches(20.0, 10.0, forward=True)
-    
     # set axes
     ax.set_ylim([-1.2, 1.2])
     ax.set_xlim([-1.2, 1.2])

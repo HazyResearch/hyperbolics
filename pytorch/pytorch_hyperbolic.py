@@ -253,18 +253,29 @@ def major_stats(G, n, m, lazy_generation, Z,z, fig, ax, writer, visualize, subsa
         num_spheres = np.minimum(len(m.S), 5)
         num_hypers  = np.minimum(len(m.H), 5)
         for emb in range(num_spheres):
-            ax[1, emb].cla()
+            ax_this = vis.get_ax(num_hypers, num_spheres, ax, emb, 1)
+            ax_this.cla()
         for emb in range(num_hypers):
-            ax[0, emb].cla()
-    
-        #ax[0].cla()
-        #ax[1].cla()
-        #vis.clear_plot()
+            ax_this = vis.get_ax(num_hypers, num_spheres, ax, emb, 0)
+            ax_this.cla()
+
+        text_3d_only = False
+
         vis.draw_graph(G,m,fig, ax)
-        ax[0,0].text(0.70, 1.1, "Epoch "+str(m.epoch), fontsize=20)
-        ax[0,0].text(0.70, 1.0, "MAP "+str(mapscore)[0:5], fontsize=20)
-        #plt.pause(0.1)
-        #fig.set_size_inches(30.0, 15.0, forward=True)
+        if num_hypers > 0:
+            axlabel = vis.get_ax(num_hypers, num_spheres, ax, 0, 0)
+        else:
+            axlabel = vis.get_ax(num_hypers, num_spheres, ax, 0, 1)
+            sdim = 0 if len(m.S) == 0 else len((m.S[0]).w[0])
+            if sdim == 3: text_3d_only = True
+
+        if text_3d_only:
+            axlabel.text(-1.00, 1.0, 1.1, "Epoch "+str(m.epoch), fontsize=20)
+            axlabel.text(-1.00, 1.0, 0.8, "MAP "+str(mapscore)[0:5], fontsize=20)
+        else:
+            axlabel.text(0.70, 1.1, "Epoch "+str(m.epoch), fontsize=20)
+            axlabel.text(0.70, 1.0, "MAP "+str(mapscore)[0:5], fontsize=20)
+
         writer.grab_frame()
 
     logging.info(f"Distortion avg={avg_dist} wc={wc_dist} me={me} mc={mc} nan_elements={nan_elements}")
