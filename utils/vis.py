@@ -272,7 +272,7 @@ def setup_plot(m, name=None, draw_circle=False):
                 ax_new = fig.add_subplot(111, projection='3d')
 
         ax = fig.get_axes()
-        if num_spheres == 1: ax = ax[0]
+        if num_hypers == 0 and num_spheres == 1: ax = ax[0]
 
     if draw_circle:
         for emb in range(num_spheres):
