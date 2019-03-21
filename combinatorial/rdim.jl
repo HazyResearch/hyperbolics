@@ -236,6 +236,7 @@ function place_on_sphere(delta, N, K, actually_place)
 
     curr_angle = zeros(BigFloat, N-1, 1)
     generate_new_delta = true
+    delt_idx = delta
 
     while idx<N && points_idx <= K
         if generate_new_delta == true
