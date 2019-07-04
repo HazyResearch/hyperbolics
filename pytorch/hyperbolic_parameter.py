@@ -122,7 +122,7 @@ class HyperboloidParameter(RParameter):
             cosh = torch.cosh(n)
             cosh[mask] = 1.0
             sinh = torch.sinh(n)
-            sinh[mask] = 0.0
+            sinh[mask] = 1.0
             n[mask] = 1.0
             e = cosh*x + sinh/n*v
             # assert torch.all(-HyperboloidParameter.dot_h(e,e) >= 0), torch.min(-HyperboloidParameter.dot_h(e,e))
