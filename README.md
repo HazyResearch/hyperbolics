@@ -1,5 +1,5 @@
 # hyperbolics
-Hyperbolic embedding implementations of [Representation Tradeoffs for Hyperbolic Embeddings](https://arxiv.org/pdf/1804.03329.pdf).
+Hyperbolic embedding implementations of [Representation Tradeoffs for Hyperbolic Embeddings](https://arxiv.org/pdf/1804.03329.pdf) +  product embedding implementations of [Learning Mixed-Curvature Representations in Product Spaces](https://openreview.net/pdf?id=HJxeWnCcF7)
 
 <p align="center">
   <img src="assets/binary_tree.png" alt="Hyperbolic embedding of binary tree" width="400"/>
