@@ -91,8 +91,8 @@ class SVRG(torch.optim.SGD):
             self._zero_grad()
                     
             # Accumulate gradients
-            for i, (data, target) in enumerate(self.data_loader):
-                closure(data, target)
+            for i, data in enumerate(self.data_loader):
+                closure(data)
                 
             # Adjust summed gradients by num_iterations accumulated over
             # assert(n_iterations == len(self.data_loader))

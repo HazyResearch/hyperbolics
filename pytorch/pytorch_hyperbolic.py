@@ -470,10 +470,11 @@ def learn(dataset, dim=2, hyp=1, edim=1, euc=0, sdim=1, sph=0, scale=1., riemann
             for data in z:
                 def closure(data=data, target=None):
                     _data = data if target is None else (data,target)
-                    c = m.loss(_data.to(device))
+                    c = m.loss(cu_var(_data))
                     c.backward()
-                    return c.data[0]
+                    return c.item()
                 l += opt.step(closure)
+                n_edges += data[0].size(0)
 
                 # Projection
                 m.normalize()
