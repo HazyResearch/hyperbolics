@@ -1,13 +1,15 @@
 using PyCall
-using JLD
+#using JLD
 using ArgParse
-using Pandas
+using DataFrames
+using CSV
+#using Pandas
 @pyimport networkx as nx
 @pyimport scipy.sparse.csgraph as csg
 @pyimport numpy as np
 
 unshift!(PyVector(pyimport("sys")["path"]), "")
-# unshift!(PyVector(pyimport("sys")["path"]), "..")
+unshift!(PyVector(pyimport("sys")["path"]), "..")
 unshift!(PyVector(pyimport("sys")["path"]), "combinatorial")
 @pyimport utils.load_graph as lg
 @pyimport utils.distortions as dis
@@ -173,12 +175,13 @@ function do_embedding(parsed_args)
         # JLD.save(string(parsed_args["save-embedding"],".jld"), "T", T);
         df = DataFrame(convert(Array{Float64,2},T))
         # save tau also:
-        df["tau"] = convert(Float64, tau)
-        to_csv(df, parsed_args["save-embedding"])
+        #df["tau"] = convert(Float64, tau)
+        #to_csv(df, parsed_args["save-embedding"])
+        CSV.write(parsed_args["save-embedding"], df)
     end
 
     if parsed_args["get-stats"]
-    include(pwd() * "/combinatorial/distances.jl")
+    include(pwd() * "/distances.jl")
         println("\nComputing quality statistics")
         # The rest is statistics: MAP, distortion
         maps = 0;
@@ -198,7 +201,7 @@ function do_embedding(parsed_args)
         _d_avgs = zeros(samples)
         _wcs    = zeros(samples)
 
-        for i in 1:n
+        for i in 1:samples
             # the real distances in the graph
             true_dist_row = vec(csg.dijkstra(adj_mat_original, indices=[sample_nodes[i]-1], unweighted=(!weighted), directed=false))
 

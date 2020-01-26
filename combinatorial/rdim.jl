@@ -1,4 +1,4 @@
-    # rdim.jl
+# rdim.jl
 # various utilities for higher-dimensional combinatorial embeddings
 
 # rotate the set of points so that the first vector
@@ -343,7 +343,7 @@ function hyp_embedding_dim(G_BFS, root, weighted, dim, tau, d_max, use_codes)
     if use_codes
         # new way: generate a bunch of generator matrices we'll use for our codes
         Gen_matrices = Array{Array{Float64, 2}}(v)
-        for i=2:v
+	for i=1:v
             n = 2^i-1
             H = zeros(i,n)
             for j=1:2^i-1

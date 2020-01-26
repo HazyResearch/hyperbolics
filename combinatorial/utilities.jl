@@ -1,8 +1,8 @@
 # utilities.jl
 # various functions needed for combinatorial embeddings
 unshift!(PyVector(pyimport("sys")["path"]), "combinatorial")
-@pyimport utils.vis as vis
-@pyimport matplotlib.pyplot as plt
+# @pyimport utils.vis as vis
+# @pyimport matplotlib.pyplot as plt
 
 # Reflection (circle inversion of x through orthogonal circle centered at a)
 function isometric_transform(a, x)
