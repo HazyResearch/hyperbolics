@@ -2,13 +2,14 @@ using PyCall
 using JLD
 using ArgParse
 using Pandas
+using Distributed
 @pyimport networkx as nx
 @pyimport scipy.sparse.csgraph as csg
 @pyimport numpy as np
 
-unshift!(PyVector(pyimport("sys")["path"]), "")
-# unshift!(PyVector(pyimport("sys")["path"]), "..")
-unshift!(PyVector(pyimport("sys")["path"]), "combinatorial")
+pushfirst!(PyVector(pyimport("sys")["path"]), "")
+# pushfirst!(PyVector(pyimport("sys")["path"]), "..")
+pushfirst!(PyVector(pyimport("sys")["path"]), "combinatorial")
 @pyimport utils.load_graph as lg
 @pyimport utils.distortions as dis
 @pyimport graph_util as gu
@@ -133,8 +134,7 @@ function do_embedding(parsed_args)
 
     # Perform the embedding
     println("\nPerforming the embedding")
-    tic()
-
+	start = time_ns()
     if parsed_args["scale"] != nothing
         tau = big(parsed_args["scale"])
     elseif parsed_args["auto-tau-float"]
@@ -148,6 +148,8 @@ function do_embedding(parsed_args)
     else
         tau = 1.0
     end
+	println("Embedding performed")
+	println("Time elapsed ", time_ns() - start)	
 
     # Print out the scaling factor we got
     println("Scaling factor tau = $(convert(Float64,tau))")
@@ -166,7 +168,6 @@ function do_embedding(parsed_args)
     else
         T = hyp_embedding(G_BFS, root, weighted, tau, visualize)
     end
-    toc()
 
     # Save the embedding:
     if parsed_args["save-embedding"] != nothing
@@ -246,7 +247,8 @@ function do_embedding(parsed_args)
 
         # *****Multiprocessing memory sharing*****
         # @everywhere using Distances: dist, dist_matrix_row
-        tic()
+		start = time_ns()
+
         @everywhere include(pwd() * "/combinatorial/distances.jl")
 
         @eval @everywhere T = $T
@@ -259,11 +261,11 @@ function do_embedding(parsed_args)
         @sync @everywhere _dist_matrix_row = i -> convert(Array{Float64},vec(dist_matrix_row(T, i)/tau))
 
         println("Finished multiprocess memory sharing")
-        toc()
+		println("Elapsed time ", time_ns() - start)
+		
         # *****End memory sharing*****
 
         function _compute_and_save_rows(i, rows)
-            tic()
             # *****Multiprocessing solution*****
             hyp_dist_mat = hcat(pmap(_dist_matrix_row, rows)...)'
             # *****End multiprocessing solution*****
@@ -283,13 +285,12 @@ function do_embedding(parsed_args)
             # *****End multithreading solution*****
 
             println("Finished computing rows of distance matrix, chunk $(i)")
-            toc()
 
-            tic()
-            D = DataFrame(hyp_dist_mat, index=rows-1)
+            start = time_ns()
+			D = DataFrame(hyp_dist_mat, index=rows-1)
             to_csv(D, parsed_args["save-distances"] * ".$(i)")
             println("Finished writing rows of distance matrix")
-            toc()
+			println("Elapsed time ", time_ns() - start)
         end
 
         # Random chunk and compute
@@ -300,7 +301,7 @@ function do_embedding(parsed_args)
             chunk_start = 1 + chunk_i * chunk_sz
             chunk_end = min(chunk_start+chunk_sz-1, n_bfs)
             chunk_rows = sample_nodes[chunk_start:chunk_end]
-            _compute_and_save_rows(chunk_i, chunk_rows)
+            @time _compute_and_save_rows(chunk_i, chunk_rows)
             chunk_i += 1
         end
 
