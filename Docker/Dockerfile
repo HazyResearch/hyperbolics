@@ -46,7 +46,7 @@ RUN conda install networkx joblib
 
 RUN apt-get update && apt-get install -y curl
 RUN mkdir /julia
-RUN curl -L https://julialang-s3.julialang.org/bin/linux/x64/1.0/julia-1.0.5-linux-x86_64.tar.gz | tar -C /julia --strip-components=1  -xzf -
+RUN curl -L https://julialang-s3.julialang.org/bin/linux/x64/0.7/julia-0.7.0-linux-x86_64.tar.gz | tar -C /julia --strip-components=1  -xzf -
 ENV PATH "/julia/bin:$PATH"
 #RUN julia -e "using Pkg; Pkg.init()"
 COPY setup.jl /julia/setup.jl

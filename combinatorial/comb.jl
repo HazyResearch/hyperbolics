@@ -3,6 +3,10 @@ using JLD
 using ArgParse
 using Pandas
 using Distributed
+using LinearAlgebra
+using Random
+using SpecialFunctions
+
 @pyimport networkx as nx
 @pyimport scipy.sparse.csgraph as csg
 @pyimport numpy as np
