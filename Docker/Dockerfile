@@ -31,14 +31,12 @@ ENV PATH /opt/conda/bin:$PATH
 WORKDIR /opt/pytorch
 RUN conda install -y pytorch=0.4.1 -c pytorch
 COPY . .
-#RUN conda install pytorch torchvision -c pytorch
 
 #
 # Now install the julia dependencies.
 #
 ADD requirements.txt /app/
 WORKDIR /app
-#RUN --mount=type=cache,id=custom-pip,target=/root/.cache/pip pip cache list
 RUN python -m pip install --upgrade pip setuptools wheel
 RUN --mount=type=cache,id=custom-pip,target=/root/.cache/pip pip install -r requirements.txt
 
@@ -51,7 +49,6 @@ RUN apt-get update && apt-get install -y curl
 RUN mkdir /julia
 RUN curl -L https://julialang-s3.julialang.org/bin/linux/x64/0.7/julia-0.7.0-linux-x86_64.tar.gz | tar -C /julia --strip-components=1  -xzf -
 ENV PATH "/julia/bin:$PATH"
-#RUN julia -e "using Pkg; Pkg.init()"
 COPY setup.jl /julia/setup.jl
 RUN julia /julia/setup.jl
 
