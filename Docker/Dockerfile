@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
          git \
          curl \
          vim \
+		 pkg-config \
 	 emacs \
          parallel \
          ca-certificates \
@@ -18,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN mkdir ~/.parallel && touch ~/.parallel/will-cite
 
-RUN curl -o ~/miniconda.sh -L -O  https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh  && \
+RUN curl -o ~/miniconda.sh -L -O https://repo.anaconda.com/miniconda/Miniconda3-py37_4.8.3-Linux-x86_64.sh && \
      chmod +x ~/miniconda.sh && \
      ~/miniconda.sh -b -p /opt/conda && \     
      rm ~/miniconda.sh && \
@@ -28,6 +29,7 @@ RUN curl -o ~/miniconda.sh -L -O  https://repo.continuum.io/miniconda/Miniconda3
 ENV PATH /opt/conda/bin:$PATH
 # This must be done before pip so that requirements.txt is available
 WORKDIR /opt/pytorch
+RUN conda install -y pytorch=0.4.1 -c pytorch
 COPY . .
 #RUN conda install pytorch torchvision -c pytorch
 
@@ -37,6 +39,7 @@ COPY . .
 ADD requirements.txt /app/
 WORKDIR /app
 #RUN --mount=type=cache,id=custom-pip,target=/root/.cache/pip pip cache list
+RUN python -m pip install --upgrade pip setuptools wheel
 RUN --mount=type=cache,id=custom-pip,target=/root/.cache/pip pip install -r requirements.txt
 
 ADD . /app 
