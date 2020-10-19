@@ -1,6 +1,6 @@
 # utilities.jl
 # various functions needed for combinatorial embeddings
-unshift!(PyVector(pyimport("sys")["path"]), "combinatorial")
+pushfirst!(PyVector(pyimport("sys")["path"]), "combinatorial")
 @pyimport utils.vis as vis
 @pyimport matplotlib.pyplot as plt
 
@@ -20,8 +20,8 @@ end
 
 # Express a hyperbolic distance in the unit disk
 function hyp_to_euc_dist(x)
-    return sqrt.((cosh.(x)-big(1))./(cosh.(x)+big(1)))
-    # return (exp.(x)-big(1))./(exp.(x)+big(1))
+    return sqrt.((cosh.(x).-big(1))./(cosh.(x).+big(1)))
+    # return (exp.(x).-big(1))./(exp.(x).+big(1))
 end
 
 # Place children

@@ -199,9 +199,9 @@ function place_children(dim, c, use_sp, sp, sample_from, sb)
     else
         # surface area of a hypersphere, since we tile it with K hypercubes
         if N%2 == 1
-            AN = N*2^N*pi^((N-1)/2)*factorial((N-1)/2)/factorial(N)
+            AN = N*2^N*pi^((N-1)/2)*SpecialFunctions.factorial((N-1)/2)/SpecialFunctions.factorial(N)
         else
-            AN = N*pi^(N/2)/(factorial(N/2))
+            AN = N*pi^(N/2)/(SpecialFunctions.factorial(N/2))
         end
 
         # approximate edge length for N-1 dimensional hypercube
