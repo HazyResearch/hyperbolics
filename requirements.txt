@@ -5,4 +5,4 @@ matplotlib==3.0.3
 scipy==1.2.1
 pandas==0.24.2
 argh==0.26.2
-joblib==0.13.1
+joblib==1.2.0
